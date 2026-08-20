@@ -1,10 +1,20 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Apple, Check, Play } from 'lucide-react';
+import { Bell, Check, Info, LogIn, Play, PlusSquare, Share } from 'lucide-react';
 import Image from 'next/image';
 
 const ease = [0.22, 1, 0.36, 1] as const;
+
+const WEB_APP_URL = 'https://vys-expo-web-export.vercel.app/sign-in?source=pwa';
+const WAITLIST_MAILTO =
+  'mailto:info@teamvys.cz' +
+  '?subject=' +
+  encodeURIComponent('Chci vědět, až bude aplikace na Google Play') +
+  '&body=' +
+  encodeURIComponent(
+    'Dobrý den,\n\ndejte mi prosím vědět e-mailem, jakmile bude aplikace TeamVYS ke stažení na Google Play.\n\nDěkuji.'
+  );
 
 const audiences = [
   {
@@ -37,8 +47,8 @@ const audiences = [
 ] as const;
 
 const steps = [
-  'Stáhni si aplikaci z App Store nebo Google Play a přihlas se jako účastník, rodič nebo trenér.',
-  'Aplikaci najdeš rovnou na ploše telefonu — žádné hledání v prohlížeči ani přihlašování přes web.',
+  'Přihlas se rovnou v prohlížeči — bez stahování, jako účastník, rodič nebo trenér.',
+  'iPhone: otevři VYS v Safari a přidej si ho na plochu. Návod najdeš hned pod tlačítky.',
   'Účastník vidí progres, rodič spravuje děti a platby, trenér řeší docházku a QR potvrzení triků.',
 ] as const;
 
@@ -79,12 +89,45 @@ export default function AplikacePage() {
             </motion.p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <StoreButton store="apple" />
-              <StoreButton store="google" />
+              <WebSignInButton />
+              <IphoneButton />
             </div>
-            <p className="mt-4 text-xs font-medium text-white/40">
-              Odkazy ke stažení doplníme po vydání na App Store a Google Play.
-            </p>
+
+            <div className="mt-5 max-w-[620px] rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <Play className="mt-0.5 shrink-0 fill-brand-purple-light text-brand-purple-light" size={20} aria-hidden />
+                  <div>
+                    <h2 className="text-sm font-black text-white">Android: brzy na Google Play</h2>
+                    <p className="mt-1 text-xs leading-5 text-white/60">
+                      Aplikaci právě schvalujeme. Nechte nám e-mail a dáme vám vědět, jakmile půjde stáhnout.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={WAITLIST_MAILTO}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-brand-purple/40 bg-brand-purple/15 px-4 py-2.5 text-xs font-black text-white transition hover:bg-brand-purple/25"
+                  aria-label="Dejte mi vědět e-mailem, až bude aplikace na Google Play"
+                >
+                  <Bell size={15} />
+                  Dejte mi vědět
+                </a>
+              </div>
+            </div>
+
+            <div className="mt-5 max-w-[620px] rounded-2xl border border-brand-purple/30 bg-brand-purple/[0.09] p-4 text-left sm:p-5">
+              <div className="flex items-start gap-3">
+                <Info className="mt-0.5 shrink-0 text-brand-purple-light" size={20} aria-hidden />
+                <div>
+                  <h2 className="text-sm font-black text-white">Jak přidat VYS na plochu iPhonu</h2>
+                  <ol className="mt-3 grid gap-2 text-sm leading-6 text-white/70 sm:grid-cols-3 sm:gap-4">
+                    <li><strong className="text-white">1.</strong> Otevři tlačítko „Plochu“ v <strong className="text-white">Safari</strong>.</li>
+                    <li><strong className="text-white">2.</strong> Klepni dole na ikonu <Share className="mx-1 inline-block align-[-3px] text-white" size={16} aria-label="Sdílet" /> Sdílet.</li>
+                    <li><strong className="text-white">3.</strong> Vyber <PlusSquare className="mx-1 inline-block align-[-3px] text-white" size={16} aria-label="Přidat na plochu" /> Přidat na plochu.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="pointer-events-none relative mx-auto w-full max-w-[300px] lg:max-w-[360px]">
@@ -157,21 +200,38 @@ export default function AplikacePage() {
   );
 }
 
-function StoreButton({ store }: { store: 'apple' | 'google' }) {
-  const isApple = store === 'apple';
+function WebSignInButton() {
   return (
-    <button
-      type="button"
-      className="inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white/[0.05] px-6 py-3.5 text-left text-white transition-transform hover:-translate-y-0.5 sm:w-auto"
-      aria-label={isApple ? 'Stáhnout na App Store (již brzy)' : 'Stáhnout na Google Play (již brzy)'}
+    <a
+      href={WEB_APP_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-brand-purple px-5 py-3.5 text-left text-white shadow-[0_20px_50px_rgba(139,29,255,0.35)] transition-transform hover:-translate-y-0.5 sm:w-auto sm:px-6"
+      aria-label="Přihlásit se do aplikace v prohlížeči (bez stahování)"
     >
-      {isApple ? <Apple size={24} /> : <Play size={22} className="fill-white" />}
+      <LogIn size={22} />
       <span className="leading-tight">
-        <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/50">
-          {isApple ? 'Stáhnout na' : 'K dispozici na'}
-        </span>
-        <span className="block text-base font-black">{isApple ? 'App Store' : 'Google Play'}</span>
+        <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/70">Bez stahování</span>
+        <span className="block text-base font-black">Přihlásit se v prohlížeči</span>
       </span>
-    </button>
+    </a>
+  );
+}
+
+function IphoneButton() {
+  return (
+    <a
+      href={WEB_APP_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white/[0.05] px-5 py-3.5 text-left text-white transition-transform hover:-translate-y-0.5 sm:w-auto sm:px-6"
+      aria-label="Otevřít VYS v Safari a přidat jej na plochu iPhonu"
+    >
+      <Share size={20} />
+      <span className="leading-tight">
+        <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/50">iPhone · přidat na</span>
+        <span className="block text-base font-black">Plochu (web app)</span>
+      </span>
+    </a>
   );
 }
