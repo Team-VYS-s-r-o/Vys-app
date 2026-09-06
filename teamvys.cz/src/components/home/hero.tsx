@@ -23,8 +23,8 @@ type Chapter = {
   mascotSizeClassName?: string;
 };
 
-const MASCOT_SIZE = 'bottom-0 left-1/2 -translate-x-1/2 h-[38vh] w-[80vw] max-w-[380px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[38vh] sm:w-[26vw] sm:max-w-[340px] lg:h-[52vh] lg:w-[38vw] lg:max-w-[540px] xl:h-[56vh] xl:w-[36vw] xl:max-w-[580px]';
-const MASCOT_SIZE_COMPACT = 'bottom-0 left-1/2 -translate-x-1/2 h-[32vh] w-[66vw] max-w-[300px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[30vh] sm:w-[21vw] sm:max-w-[270px] lg:h-[41vh] lg:w-[30vw] lg:max-w-[430px] xl:h-[44vh] xl:w-[28vw] xl:max-w-[460px]';
+const MASCOT_SIZE = 'bottom-0 left-1/2 -translate-x-1/2 h-[38dvh] w-[80vw] max-w-[380px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[38dvh] sm:w-[26vw] sm:max-w-[340px] lg:h-[52dvh] lg:w-[38vw] lg:max-w-[540px] xl:h-[56dvh] xl:w-[36vw] xl:max-w-[580px]';
+const MASCOT_SIZE_COMPACT = 'bottom-0 left-1/2 -translate-x-1/2 h-[32dvh] w-[66vw] max-w-[300px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[30dvh] sm:w-[21vw] sm:max-w-[270px] lg:h-[41dvh] lg:w-[30vw] lg:max-w-[430px] xl:h-[44dvh] xl:w-[28vw] xl:max-w-[460px]';
 
 const chapters: Chapter[] = [
   {
@@ -83,7 +83,7 @@ export function HomeHero() {
   // Each fades in, holds, then fades out — except the last, which stays once revealed.
   // The whole headline starts slightly above centre and eases further up as scrolling
   // begins, so there isn't dead space above PARKOUR before the word-swap kicks in.
-  const contentY = useTransform(scrollYProgress, [0, 0.09], ['0vh', isMobile ? '-30vh' : '-17vh']);
+  const contentY = useTransform(scrollYProgress, [0, 0.09], ['0dvh', isMobile ? '-30dvh' : '-17dvh']);
   const s0Opacity = useTransform(scrollYProgress, [0, 0.05, 0.09], [1, 1, 0]);
   const s0Y = useTransform(scrollYProgress, [0, 0.09], [0, -16]);
   const s1Opacity = useTransform(scrollYProgress, [0.05, 0.11, 0.24, 0.3], [0, 1, 1, 0]);
