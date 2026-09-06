@@ -1,7 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronsLeft, ChevronsRight, Clock, CreditCard, MapPin, ScanLine, Search, Users, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ChevronsLeft, ChevronsRight, Clock, CreditCard, MapPin, ScanLine, Search, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -729,63 +729,94 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
 function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: number }) {
   void delay;
   const firstLesson = firstOctoberLessonLabel(product.primaryMeta);
+  const [open, setOpen] = useState(false);
+  const remaining = Math.max(0, product.capacityTotal - product.capacityCurrent);
+
   return (
-    <div className="h-full">
-      <Link href={`/krouzky/${product.id}`} className="group grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft transition-all duration-300 hover:-translate-y-1 hover:border-brand-purple/24 hover:shadow-brand">
-        <div className="relative h-[245px] bg-brand-paper">
-          <ProductImage src={product.heroImage} alt={product.venue} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          <div aria-hidden className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(23,18,32,0)_48%,rgba(23,18,32,0.44)_100%)]" />
-          <span className="absolute left-3 top-3 rounded-[16px] bg-white px-3 py-2 text-xs font-black uppercase text-brand-ink shadow-brand-soft">{product.city}</span>
-          <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-[16px] bg-white px-3 py-2 text-xs font-black text-brand-purple shadow-brand-soft">
-            <Users size={14} />
-            {Math.max(product.capacityTotal - product.capacityCurrent, 0)} volných
+    <div className="flex h-full flex-col overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft">
+      <div className="relative h-[210px] shrink-0 bg-brand-paper">
+        <ProductImage src={product.heroImage} alt={product.venue} className="h-full w-full object-cover" />
+        <div aria-hidden className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(23,18,32,0)_48%,rgba(23,18,32,0.44)_100%)]" />
+        <span className="absolute left-3 top-3 rounded-[16px] bg-white px-3 py-2 text-xs font-black uppercase text-brand-ink shadow-brand-soft">{product.city}</span>
+        <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-[16px] bg-white px-3 py-2 text-xs font-black text-brand-purple shadow-brand-soft">
+          <Users size={14} />
+          {remaining} volných
+        </span>
+      </div>
+
+      <div className="flex h-full flex-col p-5">
+        {/* Název místa */}
+        <h3 className="text-xl font-black leading-tight text-brand-ink">{product.venue}</h3>
+
+        {/* Město + cena na vlastním řádku, ať se cena nepřekrývá s názvem */}
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <p className="inline-flex min-w-0 items-center gap-1.5 text-sm font-bold text-brand-ink-soft">
+            <MapPin size={16} className="shrink-0 text-brand-pink" />
+            <span className="truncate">{product.city}</span>
+          </p>
+          <span className="shrink-0 rounded-[14px] bg-brand-purple-light px-3 py-1.5 text-sm font-black text-brand-purple-deep">{coursePriceLabel(product)}</span>
+        </div>
+
+        {product.skillCategory && product.skillCategory !== 'smisene' ? (
+          <span className="mt-2 inline-flex w-fit rounded-[12px] bg-brand-purple-light px-2.5 py-1 text-[11px] font-black uppercase text-brand-purple-deep">
+            {product.skillCategory === 'zacatecnici' ? 'Začátečníci' : 'Pokročilí'}
           </span>
-        </div>
+        ) : null}
 
-        <div className="flex h-full flex-col p-5">
-          <div className="grid min-h-[86px] grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-            <div className="min-w-0">
-              <h3 className="text-xl font-black leading-tight text-brand-ink">{product.venue}</h3>
-              <p className="mt-1 inline-flex items-center gap-2 text-sm font-bold text-brand-ink-soft">
-                <MapPin size={16} className="text-brand-pink" />
-                {product.city}
-              </p>
-              {product.skillCategory && product.skillCategory !== 'smisene' ? (
-                <span className="mt-2 inline-flex rounded-[12px] bg-brand-purple-light px-2.5 py-1 text-[11px] font-black uppercase text-brand-purple-deep">
-                  {product.skillCategory === 'zacatecnici' ? 'Začátečníci' : 'Pokročilí'}
+        {/* Kapacita */}
+        <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
+
+        {/* Rozbalení zbytku informací */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="mt-3 inline-flex items-center justify-between gap-2 rounded-[16px] bg-brand-paper px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-brand-purple-light"
+        >
+          {open ? 'Skrýt info' : 'Zobrazit více info'}
+          <ChevronDown size={18} className={`text-brand-purple transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+        </button>
+
+        <AnimatePresence initial={false}>
+          {open ? (
+            <motion.div
+              key="more"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3 grid gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
+                <span className="inline-flex items-center gap-2">
+                  <Clock size={16} className="text-brand-cyan" />
+                  {product.primaryMeta}
                 </span>
-              ) : null}
-            </div>
-            <span className="shrink-0 rounded-[16px] bg-brand-purple-light px-3 py-2 text-xs font-black text-brand-purple-deep">{coursePriceLabel(product)}</span>
-          </div>
+                <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
+                  <CalendarDays size={16} className="text-brand-purple" />
+                  <span>
+                    {firstLesson ? <>1. lekce {firstLesson}</> : <>Startujeme v říjnu</>} · <span className="text-brand-cyan">zdarma</span>
+                  </span>
+                </span>
+                <span className="inline-flex items-start gap-2 leading-5">
+                  <ScanLine size={16} className="text-brand-pink" />
+                  Permanentka 10 nebo 15 vstupů
+                </span>
+              </div>
 
-          <div className="mt-4 grid gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
-            <span className="inline-flex items-center gap-2">
-              <Clock size={16} className="text-brand-cyan" />
-              {product.primaryMeta}
-            </span>
-            <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
-              <CalendarDays size={16} className="text-brand-purple" />
-              <span>
-                {firstLesson ? <>1. lekce {firstLesson}</> : <>Startujeme v říjnu</>} · <span className="text-brand-cyan">zdarma</span>
-              </span>
-            </span>
-            <span className="inline-flex items-start gap-2 leading-5">
-              <ScanLine size={16} className="text-brand-pink" />
-              Permanentka 10 nebo 15 vstupů
-            </span>
-          </div>
-
-          <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
-
-          <div className="mt-auto flex items-center justify-between gap-3 border-t border-black/10 pt-4">
-            <p className="text-xs font-black uppercase text-slate-400">Detail lokality a trenéři</p>
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-[16px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
-              <ArrowRight size={19} />
-            </span>
-          </div>
-        </div>
-      </Link>
+              <Link
+                href={`/krouzky/${product.id}`}
+                className="group mt-3 flex items-center justify-between gap-3 rounded-[18px] border border-black/10 px-4 py-3 transition-colors hover:border-brand-purple/30"
+              >
+                <p className="text-xs font-black uppercase text-slate-400">Detail lokality a trenéři</p>
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
+                  <ArrowRight size={18} />
+                </span>
+              </Link>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
