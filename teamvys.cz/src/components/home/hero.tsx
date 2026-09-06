@@ -4,7 +4,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { displayFont } from '@/lib/home-font';
 
@@ -67,11 +67,23 @@ export function HomeHero() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef, offset: ['start start', 'end end'] });
 
+  // On phones the copy + CTA sit under the mascot, so the chapter content needs to
+  // ride further up than on desktop (where the mascot is off to the side). The intro
+  // stays centred either way because its shift value is 0vh.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
   // Slide 0 is the plain "Team VYS" brand word; slides 1-4 are the chapters.
   // Each fades in, holds, then fades out — except the last, which stays once revealed.
   // The whole headline starts slightly above centre and eases further up as scrolling
   // begins, so there isn't dead space above PARKOUR before the word-swap kicks in.
-  const contentY = useTransform(scrollYProgress, [0, 0.09], ['0vh', '-17vh']);
+  const contentY = useTransform(scrollYProgress, [0, 0.09], ['0vh', isMobile ? '-30vh' : '-17vh']);
   const s0Opacity = useTransform(scrollYProgress, [0, 0.05, 0.09], [1, 1, 0]);
   const s0Y = useTransform(scrollYProgress, [0, 0.09], [0, -16]);
   const s1Opacity = useTransform(scrollYProgress, [0.05, 0.11, 0.24, 0.3], [0, 1, 1, 0]);
@@ -95,7 +107,7 @@ export function HomeHero() {
 
   return (
     <section ref={containerRef} className="relative bg-[#0B0B10] h-[360vh]">
-      <div className="relative sticky top-0 flex h-dvh flex-col items-center justify-center overflow-hidden pb-[16vh] sm:pb-0">
+      <div className="relative sticky top-0 flex h-dvh flex-col items-center justify-center overflow-hidden">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_18%_22%,rgba(139,29,255,0.14),transparent_42%),radial-gradient(circle_at_82%_78%,rgba(178,59,255,0.10),transparent_46%)]"
