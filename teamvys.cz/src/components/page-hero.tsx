@@ -17,7 +17,7 @@ type Props = {
 };
 
 /** Premium dark page header shared across all public subpages. */
-export function PageHero({ eyebrow, title, body, ctaHref, ctaLabel, word }: Props) {
+export function PageHero({ title, body, ctaHref, ctaLabel, word }: Props) {
   return (
     <section className="relative overflow-hidden bg-[#0B0B10] pt-36 md:pt-44">
       <div
@@ -36,20 +36,11 @@ export function PageHero({ eyebrow, title, body, ctaHref, ctaLabel, word }: Prop
       ) : null}
 
       <div className="section-shell relative pb-16 md:pb-24">
-        <motion.p
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease }}
-          className="text-xs font-bold uppercase tracking-[0.25em] text-brand-purple-light"
-        >
-          {eyebrow}
-        </motion.p>
-
         <motion.h1
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.06, ease }}
-          className="mt-5 max-w-[15ch] text-4xl font-black leading-[1.02] tracking-tight text-white md:text-7xl"
+          className="max-w-[15ch] text-4xl font-black leading-[1.02] tracking-tight text-white md:text-7xl"
         >
           {title}
         </motion.h1>

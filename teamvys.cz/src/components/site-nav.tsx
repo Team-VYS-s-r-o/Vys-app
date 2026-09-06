@@ -54,7 +54,7 @@ export function SiteNav() {
     <header className="fixed inset-x-0 top-0 z-50 py-4 transition-all duration-500 ease-out">
       <div className="mx-auto max-w-6xl px-4">
         <div
-          className="group mx-auto flex w-full origin-center items-center gap-4 rounded-2xl border border-white/65 bg-transparent px-4 py-3 shadow-none backdrop-blur-xl transition-all duration-300 ease-out hover:border-black/5 hover:bg-[#f5f3ef]/95 hover:shadow-[0_24px_80px_rgba(12,10,28,0.18)] md:w-[var(--nav-width)] md:scale-x-[var(--nav-scale)]"
+          className="group mx-auto flex w-full origin-center items-center gap-4 rounded-2xl border border-white/65 bg-transparent px-4 py-3 shadow-none backdrop-blur-xl transition-all duration-300 ease-out hover:border-black/5 hover:bg-[#f5f3ef]/95 hover:shadow-[0_24px_80px_rgba(12,10,28,0.18)] max-md:border-white/20 md:w-[var(--nav-width)] md:scale-x-[var(--nav-scale)]"
           onMouseEnter={() => setDesktopHover(true)}
           onMouseLeave={() => setDesktopHover(false)}
           style={{ '--nav-width': `${navWidth}%`, '--nav-scale': `${navScale}` } as React.CSSProperties}
@@ -88,10 +88,10 @@ export function SiteNav() {
           <div className="flex justify-end md:flex-1">
             <button
               aria-label="Menu"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-ink shadow-glow transition-all duration-500 hover:-translate-y-0.5 hover:bg-white md:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white backdrop-blur-md transition-all duration-500 hover:-translate-y-0.5 md:hidden"
               onClick={() => setOpen((v) => !v)}
             >
-              {open ? <X size={18} className="text-violet" /> : <Menu size={18} className="text-violet" />}
+              {open ? <X size={18} className="text-white" /> : <Menu size={18} className="text-white" />}
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Clock, CreditCard, MapPin, ScanLine, Search, Users, X } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronsLeft, ChevronsRight, Clock, CreditCard, MapPin, ScanLine, Search, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -8,6 +9,16 @@ import { Reveal } from '@/components/animated/reveal';
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
 import { type ParentProduct } from '@/lib/portal-content';
 import { usePublicCoaches, type PublicCoachSummary } from '@/lib/use-public-coaches';
+
+const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
+
+// Team VYS gear list shown on every VYS kroužek detail (fixed, not per product).
+const VYS_WHAT_TO_BRING = [
+  'Sálové boty se světlou podrážkou',
+  'Volné tričko',
+  'Tepláky nebo volné kraťasy',
+  'Pití',
+];
 
 // ─── Weekend calendar helpers ─────────────────────────────────────────────────
 
@@ -328,11 +339,17 @@ export function PublicCourseCatalog() {
       <Reveal>
         <div className="relative flex flex-col gap-4 rounded-[34px] border border-brand-purple/12 bg-white p-6 shadow-brand-soft lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-[720px]">
-            <p className="text-xs font-black uppercase text-brand-cyan">Aktuální lokality</p>
-            <h2 className="mt-2 text-2xl font-black leading-tight text-brand-ink md:text-4xl">Kroužky přehledně na jedné stránce</h2>
-            <p className="mt-3 text-sm font-bold leading-6 text-brand-ink-soft md:text-base">
-              Vyber konkrétní tělocvičnu, zkontroluj čas, kapacitu podle zaplacených rezervací a po rozkliknutí uvidíš i trenéry pro danou lokaci.
-            </p>
+            <h2 className="text-2xl font-black leading-tight text-brand-ink md:text-4xl">
+              Kroužky <span className="text-brand-purple">startují v říjnu</span>
+            </h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center rounded-full bg-brand-purple/10 px-3 py-1.5 text-xs font-black text-brand-purple-deep">
+                První lekce zdarma
+              </span>
+              <span className="inline-flex items-center rounded-full bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-ink">
+                Permanentka 10 nebo 15 vstupů
+              </span>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:min-w-[390px]">
             <CatalogSummaryTile value={loading ? '...' : `${courses.length}`} label="lokalit" />
@@ -344,10 +361,24 @@ export function PublicCourseCatalog() {
 
       <CatalogState loading={loading} error={error} empty={!loading && courses.length === 0} emptyTitle="Žádné kroužky nejsou aktuálně vypsané" emptyText="Jakmile admin zveřejní lokalitu v databázi, objeví se tady s aktuální kapacitou." />
 
+      {courses.length > 1 ? (
+        <div className="mt-6 flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">
+          <motion.span animate={{ x: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
+            <ChevronsLeft size={16} className="text-brand-purple" />
+          </motion.span>
+          Potáhni prstem pro další lokality
+          <motion.span animate={{ x: [3, -3, 3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
+            <ChevronsRight size={16} className="text-brand-purple" />
+          </motion.span>
+        </div>
+      ) : null}
+
       {courses.length > 0 ? (
-        <div className="mt-6 grid auto-rows-fr gap-4 sm:gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 touch-pan-x sm:gap-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {courses.map((course, index) => (
-            <CoursePublicCard key={course.id} product={course} delay={index * 55} />
+            <div key={course.id} className="w-[86%] shrink-0 snap-center [scroll-snap-stop:always] sm:w-[47%] xl:w-[31.5%]">
+              <CoursePublicCard product={course} delay={index * 55} />
+            </div>
           ))}
         </div>
       ) : null}
@@ -514,6 +545,9 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
             <div className="mt-5 grid gap-3 text-sm font-bold text-slate-700">
               <Stat icon={<CalendarDays size={18} />} label="Den" value={day} />
               <Stat icon={<Clock size={18} />} label="Čas" value={time} />
+              {product.skillCategory && product.skillCategory !== 'smisene' ? (
+                <Stat icon={<CheckCircle2 size={18} />} label="Úroveň" value={product.skillCategory === 'zacatecnici' ? 'Začátečníci' : 'Pokročilí'} />
+              ) : null}
               <Stat icon={<Users size={18} />} label="Živá kapacita" value={`${product.capacityCurrent}/${product.capacityTotal} dětí`} />
               <Stat icon={<MapPin size={18} />} label="Místo" value={`${product.city} · ${product.venue}`} />
             </div>
@@ -535,6 +569,20 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
                 <li>Profesionální trenéři a žíněnky</li>
               </ul>
             </div>
+
+            {product.orgId === VYS_ORG_ID || !product.orgId ? (
+              <div className="mt-5 border-t border-black/10 pt-5">
+                <p className="text-xs font-black uppercase text-slate-400">Co s sebou</p>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                  {VYS_WHAT_TO_BRING.map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-brand-cyan" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <Link href="/aplikace" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-brand bg-gradient-brand px-6 py-4 text-sm font-black text-white shadow-brand-soft transition-transform hover:-translate-y-0.5">
               <CreditCard size={18} />
@@ -679,8 +727,10 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
 }
 
 function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: number }) {
+  void delay;
+  const firstLesson = firstOctoberLessonLabel(product.primaryMeta);
   return (
-    <Reveal delay={delay} className="h-full">
+    <div className="h-full">
       <Link href={`/krouzky/${product.id}`} className="group grid h-full grid-rows-[auto_1fr] overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft transition-all duration-300 hover:-translate-y-1 hover:border-brand-purple/24 hover:shadow-brand">
         <div className="relative h-[245px] bg-brand-paper">
           <ProductImage src={product.heroImage} alt={product.venue} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -700,18 +750,29 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
                 <MapPin size={16} className="text-brand-pink" />
                 {product.city}
               </p>
+              {product.skillCategory && product.skillCategory !== 'smisene' ? (
+                <span className="mt-2 inline-flex rounded-[12px] bg-brand-purple-light px-2.5 py-1 text-[11px] font-black uppercase text-brand-purple-deep">
+                  {product.skillCategory === 'zacatecnici' ? 'Začátečníci' : 'Pokročilí'}
+                </span>
+              ) : null}
             </div>
             <span className="shrink-0 rounded-[16px] bg-brand-purple-light px-3 py-2 text-xs font-black text-brand-purple-deep">{coursePriceLabel(product)}</span>
           </div>
 
-          <div className="mt-4 grid min-h-[80px] gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
+          <div className="mt-4 grid gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
             <span className="inline-flex items-center gap-2">
               <Clock size={16} className="text-brand-cyan" />
               {product.primaryMeta}
             </span>
+            <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
+              <CalendarDays size={16} className="text-brand-purple" />
+              <span>
+                {firstLesson ? <>1. lekce {firstLesson}</> : <>Startujeme v říjnu</>} · <span className="text-brand-cyan">zdarma</span>
+              </span>
+            </span>
             <span className="inline-flex items-start gap-2 leading-5">
               <ScanLine size={16} className="text-brand-pink" />
-              NFC permanentka 10 nebo 15 vstupů
+              Permanentka 10 nebo 15 vstupů
             </span>
           </div>
 
@@ -725,7 +786,7 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
           </div>
         </div>
       </Link>
-    </Reveal>
+    </div>
   );
 }
 
@@ -802,8 +863,40 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
 }
 
 function splitCourseMeta(primaryMeta: string) {
-  const match = primaryMeta.match(/^(.*)\s+(\d{1,2}:\d{2}.*)$/);
-  return match ? { day: match[1], time: match[2] } : { day: primaryMeta, time: primaryMeta };
+  // Non-greedy day so "Pátek 18:00 - 19:00" splits into day="Pátek" and
+  // time="18:00 - 19:00" (greedy .* wrongly put "Pátek 18:00 -" into the day).
+  const match = primaryMeta.match(/^(.*?)\s+(\d{1,2}:\d{2}.*)$/);
+  return match ? { day: match[1].trim(), time: match[2].trim() } : { day: primaryMeta, time: primaryMeta };
+}
+
+const CZ_WEEKDAY_INDEX: Record<string, number> = {
+  nedele: 0,
+  pondeli: 1,
+  utery: 2,
+  streda: 3,
+  ctvrtek: 4,
+  patek: 5,
+  sobota: 6,
+};
+
+/** Vrací první lekeční datum v říjnu podle dne v týdnu z primaryMeta (např. „úterý 6. 10.“). */
+function firstOctoberLessonLabel(primaryMeta: string): string | null {
+  const { day } = splitCourseMeta(primaryMeta);
+  const key = day
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/\s+/)[0];
+  const weekday = CZ_WEEKDAY_INDEX[key];
+  if (weekday === undefined) return null;
+  const now = new Date();
+  const year = now.getMonth() > 9 ? now.getFullYear() + 1 : now.getFullYear();
+  const date = new Date(year, 9, 1);
+  for (let i = 0; i < 7 && date.getDay() !== weekday; i += 1) {
+    date.setDate(date.getDate() + 1);
+  }
+  return date.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric' });
 }
 
 function coursePriceLabel(product: ParentProduct) {

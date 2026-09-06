@@ -2,17 +2,12 @@
   "name": "vys-app",
   "version": "1.0.0",
   "private": true,
-  "description": "TeamVYS — parkour kroužky, mobilní aplikace + web s platbami",
+  "description": "TeamVYS — web s platbami + backend (mobilní aplikace je samostatný projekt vys-aplikace)",
   "scripts": {
-    "mobile": "cd mobile && npm run start",
-    "mobile:ios": "cd mobile && npm run ios",
-    "mobile:android": "cd mobile && npm run android",
-    "mobile:web": "cd mobile && npm run web",
-    "mobile:install": "cd mobile && npm install",
-    "web": "cd web && npm run dev",
-    "web:build": "cd web && npm run build",
-    "web:install": "cd web && npm install",
+    "web": "cd teamvys.cz && npm run dev",
+    "web:build": "cd teamvys.cz && npm run build",
+    "web:install": "cd teamvys.cz && npm install",
     "server": "cd server && node server.js",
-    "install:all": "npm run mobile:install && npm run web:install && cd server && npm install"
+    "install:all": "npm run web:install && cd server && npm install"
   }
 }

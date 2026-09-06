@@ -18,7 +18,7 @@ type Props = {
 };
 
 /** Bold closing CTA — a purple-glow panel that closes every subpage. */
-export function SubpageCta({ eyebrow, title, highlight, body, ctaHref, ctaLabel, secondaryHref, secondaryLabel }: Props) {
+export function SubpageCta({ title, highlight, body, ctaHref, ctaLabel, secondaryHref, secondaryLabel }: Props) {
   return (
     <section className="section-shell py-16 md:py-24">
       <motion.div
@@ -33,8 +33,7 @@ export function SubpageCta({ eyebrow, title, highlight, body, ctaHref, ctaLabel,
           className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_50%_0%,rgba(139,29,255,0.28),transparent_60%)]"
         />
         <div className="relative">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-purple-light">{eyebrow}</p>
-          <h2 className="mx-auto mt-4 max-w-[20ch] text-3xl font-black leading-[1.05] tracking-tight text-white md:text-5xl">
+          <h2 className="mx-auto max-w-[20ch] text-3xl font-black leading-[1.05] tracking-tight text-white md:text-5xl">
             {title}
             {highlight ? <span className="text-brand-purple-light"> {highlight}</span> : null}
           </h2>

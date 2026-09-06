@@ -16,8 +16,11 @@ function envValue(name) {
 
 const port = Number(process.env.SERVER_PORT || 3001);
 const defaultCorsOrigins = [
+  'https://teamvys.cz',
+  'https://www.teamvys.cz',
   'https://vys-web.vercel.app',
   'https://vys-app.vercel.app',
+  'https://aplikacevys-web.vercel.app',
   'http://localhost:3000',
   'http://localhost:3002',
   'http://localhost:8081',
@@ -33,6 +36,7 @@ const supabaseUrl = envValue('SUPABASE_URL') || envValue('EXPO_PUBLIC_SUPABASE_U
 const supabaseServiceKey = envValue('SUPABASE_SERVICE_ROLE_KEY');
 const stripeSecretKey = envValue('STRIPE_SECRET_KEY');
 const stripeWebhookSecret = envValue('STRIPE_WEBHOOK_SECRET');
+const stripePublishableKey = envValue('STRIPE_PUBLISHABLE_KEY');
 const smtpHost = envValue('SMTP_HOST');
 const smtpPort = Number(envValue('SMTP_PORT') || 587);
 const smtpUser = envValue('SMTP_USER');
@@ -60,17 +64,47 @@ app.use(cors({
 
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), asyncRoute(async (request, response) => {
   requireServices();
-  requireStripe();
+
+  const orgId = optionalString(request.query.org_id) || null;
+  const isOrgWebhook = orgId && orgId !== VYS_ORG_ID;
 
   const signature = request.headers['stripe-signature'];
   let event;
+  let webhookClient;
 
-  if (!stripeWebhookSecret) {
-    if (isProduction) throw new Error('Missing STRIPE_WEBHOOK_SECRET on the backend. Refusing unsigned Stripe webhook.');
-    event = JSON.parse(request.body.toString('utf8'));
+  if (isOrgWebhook) {
+    // External org webhook — look up org's own Stripe key + webhook secret.
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .select('stripe_secret_key,stripe_webhook_secret')
+      .eq('id', orgId)
+      .maybeSingle();
+    if (orgError || !org) throw new Error(`Org ${orgId} not found for webhook routing.`);
+
+    webhookClient = org.stripe_secret_key ? new Stripe(org.stripe_secret_key) : null;
+    const orgWebhookSecret = org.stripe_webhook_secret;
+
+    if (!orgWebhookSecret) {
+      // No secret configured — accept unsigned in dev, reject in prod.
+      if (isProduction) throw new Error(`Missing stripe_webhook_secret for org ${orgId}. Refusing unsigned webhook.`);
+      event = JSON.parse(request.body.toString('utf8'));
+    } else {
+      if (!signature) throw new Error('Missing Stripe webhook signature.');
+      // Use platform Stripe's webhooks helper to verify (crypto only, no API call).
+      if (!webhookClient) throw new Error(`Missing stripe_secret_key for org ${orgId}.`);
+      event = webhookClient.webhooks.constructEvent(request.body, signature, orgWebhookSecret);
+    }
   } else {
-    if (!signature) throw new Error('Missing Stripe webhook signature.');
-    event = stripe.webhooks.constructEvent(request.body, signature, stripeWebhookSecret);
+    // VYS platform webhook.
+    requireStripe();
+    webhookClient = stripe;
+    if (!stripeWebhookSecret) {
+      if (isProduction) throw new Error('Missing STRIPE_WEBHOOK_SECRET on the backend. Refusing unsigned Stripe webhook.');
+      event = JSON.parse(request.body.toString('utf8'));
+    } else {
+      if (!signature) throw new Error('Missing Stripe webhook signature.');
+      event = stripe.webhooks.constructEvent(request.body, signature, stripeWebhookSecret);
+    }
   }
 
   if (event.type === 'payment_intent.succeeded') {
@@ -81,24 +115,28 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     await markPaymentIntentFailed(event.data.object);
   }
 
-  // --- Multi-tenant SaaS: organization subscription lifecycle (Phase 5) ---
-  // Routed by stripe_customer_id; the VYS org has stripe_customer_id = NULL
-  // and subscription_status = 'exempt', so it never matches any branch here.
-  if (event.type === 'checkout.session.completed' && event.data.object.mode === 'subscription'
-    && event.data.object.metadata?.org_registration === 'true') {
-    await provisionOrganizationFromCheckout(event.data.object);
-  }
+  // Org subscription lifecycle — only relevant for VYS platform webhook.
+  if (!isOrgWebhook) {
+    if (event.type === 'checkout.session.completed' && event.data.object.mode === 'subscription'
+      && event.data.object.metadata?.org_registration === 'true') {
+      if (ORG_SELF_REGISTRATION_ENABLED) {
+        await provisionOrganizationFromCheckout(event.data.object);
+      } else {
+        console.info('Ignoring org self-registration webhook event because self-registration is disabled.');
+      }
+    }
 
-  if (event.type === 'invoice.paid') {
-    await handleOrgInvoicePaid(event.data.object);
-  }
+    if (event.type === 'invoice.paid') {
+      await handleOrgInvoicePaid(event.data.object);
+    }
 
-  if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
-    await syncOrgSubscriptionStatus(event.data.object, event.type === 'customer.subscription.deleted');
-  }
+    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      await syncOrgSubscriptionStatus(event.data.object, event.type === 'customer.subscription.deleted');
+    }
 
-  if (event.type === 'customer.subscription.trial_will_end') {
-    await sendOrgTrialEndingEmail(event.data.object);
+    if (event.type === 'customer.subscription.trial_will_end') {
+      await sendOrgTrialEndingEmail(event.data.object);
+    }
   }
 
   response.json({ received: true });
@@ -113,7 +151,7 @@ app.use(express.json({ limit: '15mb' }));
 // through — anon flows default to the exempt VYS org and each route still
 // enforces its own auth.
 const ORG_LOCKED_STATUSES = new Set(['pending_approval', 'past_due', 'canceled']);
-const ORG_WRITE_EXEMPT_PATHS = new Set(['/api/orgs/register', '/api/stripe/webhook']);
+const ORG_WRITE_EXEMPT_PATHS = new Set(['/api/orgs/register', '/api/orgs/finalize', '/api/orgs/connect/onboarding', '/api/stripe/webhook']);
 const ORG_STATUS_CACHE_TTL_MS = 60 * 1000;
 const orgStatusCache = new Map(); // orgId -> { status, expiresAt }
 
@@ -185,8 +223,55 @@ function requireStripe() {
   if (!stripe) throw new Error('Missing STRIPE_SECRET_KEY on the backend.');
 }
 
+// Return a Stripe client for the given org.
+// VYS (platform org) → global Stripe client from env vars.
+// External orgs → Stripe client using the org's own stripe_secret_key stored in
+// the organizations table. Returns null when no key is configured (caller must
+// check and throw a user-facing error).
+const orgStripeCache = new Map(); // orgId -> { client, expiresAt }
+const ORG_STRIPE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function getOrgStripe(orgId) {
+  if (!orgId || orgId === VYS_ORG_ID) return stripe;
+  const now = Date.now();
+  const cached = orgStripeCache.get(orgId);
+  if (cached && cached.expiresAt > now) return cached.client;
+
+  const { data: org, error } = await supabase
+    .from('organizations')
+    .select('stripe_secret_key')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (error) throw error;
+
+  const client = org?.stripe_secret_key ? new Stripe(org.stripe_secret_key) : null;
+  orgStripeCache.set(orgId, { client, expiresAt: now + ORG_STRIPE_CACHE_TTL_MS });
+  return client;
+}
+
+// Like getOrgStripe but throws a user-facing 409 when not configured.
+async function requireOrgStripe(orgId, orgName) {
+  const client = await getOrgStripe(orgId);
+  if (!client) {
+    const label = orgName ? `Organizace ${orgName}` : 'Organizace';
+    throw httpError(`${label} zatím nemá nakonfigurovaný vlastní Stripe účet pro příjem plateb. Požádejte správce organizace o nastavení Stripe v admin panelu.`, 409);
+  }
+  return client;
+}
+
+async function getOrgWebhookSecret(orgId) {
+  if (!orgId || orgId === VYS_ORG_ID) return stripeWebhookSecret;
+  const { data: org, error } = await supabase
+    .from('organizations')
+    .select('stripe_webhook_secret')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (error) throw error;
+  return org?.stripe_webhook_secret || null;
+}
+
 function requiredString(value, label) {
-  if (typeof value !== 'string' || value.trim().length === 0) throw new Error(`Missing ${label}.`);
+  if (typeof value !== 'string' || value.trim().length === 0) throw httpError(`Vyplň pole: ${label}.`, 400);
   return value.trim();
 }
 
@@ -208,6 +293,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_COURSE_ATTENDANCE_RATE = 500;
 const SOLO_COURSE_ATTENDANCE_RATE = 750;
 const IGNORED_COACH_SESSION_IDS = new Set(['coach-demo']);
+const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
 
 function normalizeActivityType(value) {
   const normalized = String(value || '')
@@ -229,6 +315,41 @@ function rewardDiscountForCode(code, productType) {
 
 const czechWeekdays = ['Neděle', 'Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota'];
 
+// Aktuální čas v Evropě/Praze v minutách od půlnoci (server běží v UTC).
+function pragueNowMinutes() {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Prague', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+  return hour * 60 + minute;
+}
+
+// Den v týdnu (česky) v Evropě/Praze.
+function pragueWeekday() {
+  const en = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Prague', weekday: 'short' }).format(new Date());
+  const map = { Sun: 'Neděle', Mon: 'Pondělí', Tue: 'Úterý', Wed: 'Středa', Thu: 'Čtvrtek', Fri: 'Pátek', Sat: 'Sobota' };
+  return map[en] ?? czechWeekdays[new Date().getDay()];
+}
+
+// Rozparsuje "16:00 - 17:00" (i pomlčka –) na { start, end } v minutách od půlnoci.
+function parseSessionTimeRange(timeText) {
+  const matches = String(timeText || '').match(/(\d{1,2}):(\d{2})/g);
+  if (!matches || matches.length === 0) return null;
+  const toMin = (value) => {
+    const [h, m] = value.split(':');
+    return Number(h) * 60 + Number(m);
+  };
+  const start = toMin(matches[0]);
+  const end = matches.length > 1 ? toMin(matches[1]) : start + 60;
+  return { start, end };
+}
+
+function formatMinutes(total) {
+  const normalized = ((total % 1440) + 1440) % 1440;
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 function isWorkshopCoachSession(session) {
   return String(session?.id || '').startsWith('coach-workshop-') || String(session?.group_name || '').startsWith('Workshop:');
 }
@@ -242,6 +363,13 @@ async function resolveCoachAttendanceRate(coachId, session, requestedHourlyRate)
   const defaultRate = numericOrFallback(session?.hourly_rate, numericOrFallback(requestedHourlyRate, DEFAULT_COURSE_ATTENDANCE_RATE));
 
   if (!session || isWorkshopCoachSession(session)) return defaultRate;
+
+  // External organizations set their own per-training wage on the session
+  // (coach_sessions.hourly_rate). The VYS-specific solo/shared course rates
+  // below only apply to the platform org.
+  if (session.org_id && session.org_id !== VYS_ORG_ID) {
+    return numericOrFallback(session.hourly_rate, numericOrFallback(requestedHourlyRate, DEFAULT_COURSE_ATTENDANCE_RATE));
+  }
 
   const { data, error } = await supabase
     .from('coach_sessions')
@@ -355,9 +483,21 @@ async function requireAdmin(request) {
   return profile;
 }
 
+// Resolve the organization an admin belongs to. Defaults to the VYS platform org
+// for admins without an explicit org_id (legacy/VYS admins).
+async function adminOrgId(profile) {
+  const { data, error } = await supabase
+    .from('app_profiles')
+    .select('org_id')
+    .eq('id', profile.id)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.org_id || VYS_ORG_ID;
+}
+
 async function requireParentOrAdmin(request) {
   const profile = await requireAuthenticatedProfile(request);
-  if (profile.role !== 'admin' && profile.role !== 'parent') throw httpError('Tahle operace je pouze pro rodičovský účet.', 403);
+  if (profile.role !== 'admin' && profile.role !== 'parent' && profile.role !== 'participant') throw httpError('Tahle operace vyžaduje přihlášení.', 403);
   return profile;
 }
 
@@ -370,6 +510,11 @@ function parentProfileIdForActor(actor, requestedParentProfileId) {
 
 async function assertParticipantAccessible(actor, participantId) {
   if (actor.role === 'admin') return;
+
+  // A participant account may act on its own record. For participant logins the
+  // participants row id equals the auth/profile id (see participant profile hook),
+  // so allow when the requested participant is the actor itself.
+  if (actor.role === 'participant' && participantId === actor.id) return;
 
   const { data: participant, error } = await supabase
     .from('participants')
@@ -420,12 +565,66 @@ async function getProduct(productId) {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,price,price_label,place,primary_meta,event_date,expires_at,entries_total,capacity_total,capacity_current')
+    .select('id,type,title,price,price_label,place,primary_meta,event_date,expires_at,entries_total,capacity_total,capacity_current,org_id')
     .eq('id', productId)
     .single();
 
   if (error || !data) throw new Error('Product was not found.');
   return data;
+}
+
+// Resolve the Stripe client to use for a product's payments.
+// Products of the VYS org → platform Stripe (env var key).
+// Products of an external org → org's own Stripe (stripe_secret_key in organizations).
+// Throws 409 when an external org has no Stripe configured.
+async function getProductOrgStripe(product) {
+  const orgId = product.org_id || VYS_ORG_ID;
+  if (orgId === VYS_ORG_ID) return { orgStripe: stripe, orgId };
+
+  const { data: org, error } = await supabase
+    .from('organizations')
+    .select('id,name,stripe_secret_key')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!org) throw httpError('Organizace produktu nebyla nalezena.', 404);
+
+  const orgStripe = org.stripe_secret_key ? new Stripe(org.stripe_secret_key) : null;
+  if (!orgStripe) {
+    throw httpError(`Organizace ${org.name} zatím nemá nakonfigurovaný vlastní Stripe účet pro příjem plateb. Požádejte správce organizace o nastavení Stripe v admin panelu.`, 409);
+  }
+  return { orgStripe, orgId };
+}
+
+// Legacy helper kept for backward compatibility (unused in new flow).
+async function connectDestinationForProduct(product) {
+  const orgId = product.org_id || VYS_ORG_ID;
+  if (orgId === VYS_ORG_ID) return null;
+
+  const { data: org, error } = await supabase
+    .from('organizations')
+    .select('id,name,stripe_connect_account_id,stripe_connect_charges_enabled')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!org) throw httpError('Organizace produktu nebyla nalezena.', 404);
+
+  if (org.stripe_connect_account_id && !org.stripe_connect_charges_enabled && stripe) {
+    try {
+      const account = await stripe.accounts.retrieve(org.stripe_connect_account_id);
+      if (account.charges_enabled === true) {
+        org.stripe_connect_charges_enabled = true;
+        await supabase.from('organizations').update({ stripe_connect_charges_enabled: true }).eq('id', org.id);
+      }
+    } catch (accountError) {
+      console.warn(`Stripe Connect account check failed for org ${org.id}: ${accountError.message}`);
+    }
+  }
+
+  if (!org.stripe_connect_account_id || !org.stripe_connect_charges_enabled) {
+    throw httpError(`Organizace ${org.name} zatím nemá propojený Stripe účet pro příjem plateb. Požádejte správce organizace o dokončení Stripe onboardingu.`, 409);
+  }
+  return org.stripe_connect_account_id;
 }
 
 function toClientPurchase(row) {
@@ -544,6 +743,48 @@ async function safelySendPaymentConfirmationEmail(purchase, fallbackEmail) {
   }
 }
 
+// Sends a coach an e-mail once their account is approved by an org admin.
+async function sendCoachApprovalEmail(to, coachName, orgName) {
+  if (!to) return;
+  const emailer = paymentEmailer();
+  if (!emailer) {
+    console.info(`Coach approval email skipped for ${to}: SMTP is not configured.`);
+    return;
+  }
+
+  const org = orgName || 'TeamVYS';
+  const subject = `Trenérský účet schválen — ${org}`;
+  const lines = [
+    `Dobrý den${coachName ? ` ${coachName}` : ''},`,
+    '',
+    `váš trenérský účet u organizace ${org} byl schválen.`,
+    'Nyní se můžete přihlásit do aplikace a začít trénovat.',
+    '',
+    'Přihlášení: otevřete aplikaci TeamVYS a přihlaste se svým e-mailem a heslem.',
+    '',
+    `Děkujeme, ${org}`,
+  ];
+
+  await emailer.sendMail({
+    from: smtpFrom,
+    to,
+    subject,
+    text: lines.join('\n'),
+    html: `<p>Dobrý den${coachName ? ` ${escapeHtml(coachName)}` : ''},</p>`
+      + `<p>váš trenérský účet u organizace <strong>${escapeHtml(org)}</strong> byl schválen.</p>`
+      + `<p>Nyní se můžete přihlásit do aplikace a začít trénovat — otevřete aplikaci TeamVYS a přihlaste se svým e-mailem a heslem.</p>`
+      + `<p>Děkujeme,<br>${escapeHtml(org)}</p>`,
+  });
+}
+
+async function safelySendCoachApprovalEmail(to, coachName, orgName) {
+  try {
+    await sendCoachApprovalEmail(to, coachName, orgName);
+  } catch (error) {
+    console.error(`Coach approval email failed for ${to || 'unknown coach'}:`, error);
+  }
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -613,6 +854,7 @@ function purchaseRowFromPaymentIntent(paymentIntent, metadata, status = 'Čeká 
 
   return {
     id: `stripe-pi-${paymentIntent.id}`,
+    org_id: optionalString(metadata.org_id) || VYS_ORG_ID,
     parent_profile_id: optionalString(metadata.parent_profile_id),
     product_id: requiredString(metadata.product_id, 'product metadata'),
     participant_id: requiredString(metadata.participant_id, 'participant metadata'),
@@ -874,6 +1116,7 @@ async function syncParentPaymentForPurchase(purchase) {
     .from('parent_payments')
     .upsert({
       id: `payment-${purchase.id}`,
+      org_id: purchase.org_id || VYS_ORG_ID,
       participant_id: purchase.participant_id,
       participant_name: purchase.participant_name,
       title: purchase.title,
@@ -935,13 +1178,45 @@ app.get('/health', (_request, response) => {
   response.json({ ok: true, service: 'teamvys-api' });
 });
 
+// GET /api/parent/products — published products for the authenticated parent's orgs.
+// Falls back to VYS-only when unauthenticated.
+app.get('/api/parent/products', asyncRoute(async (request, response) => {
+  requireServices();
+
+  let orgIds = [VYS_ORG_ID];
+  try {
+    const actor = await requireParent(request);
+    const { data: memberRows } = await supabase
+      .from('organization_members')
+      .select('org_id')
+      .eq('profile_id', actor.id);
+    if (Array.isArray(memberRows) && memberRows.length > 0) {
+      orgIds = memberRows.map((row) => row.org_id).filter(Boolean);
+    }
+  } catch {
+    // unauthenticated — fall back to VYS only
+  }
+
+  const { data, error } = await supabase
+    .from('products')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,org_id')
+    .eq('is_published', true)
+    .in('org_id', orgIds)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  const products = await applyLiveProductCapacities(data || []);
+  response.json({ products });
+}));
+
 app.get('/api/public/products', asyncRoute(async (_request, response) => {
   requireServices();
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category')
     .eq('is_published', true)
+    .eq('org_id', VYS_ORG_ID)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -970,6 +1245,10 @@ app.post('/api/workshop-interests', asyncRoute(async (request, response) => {
     participant_name: participantName,
   };
 
+  // Count before, so we can detect the moment the workshop crosses the
+  // threshold and opens for payment — then notify everyone who's interested.
+  const prevCount = await countWorkshopInterests(product.id);
+
   const { data, error } = await supabase
     .from('workshop_interests')
     .upsert(row, { onConflict: 'product_id,participant_id' })
@@ -980,7 +1259,128 @@ app.post('/api/workshop-interests', asyncRoute(async (request, response) => {
 
   const interestCount = await countWorkshopInterests(product.id);
   const gate = workshopPurchaseGate(product, interestCount);
+
+  // Just opened by interest? (crossed the threshold with this registration)
+  if (prevCount < WORKSHOP_INTEREST_THRESHOLD && interestCount >= WORKSHOP_INTEREST_THRESHOLD) {
+    const { data: interestRows } = await supabase
+      .from('workshop_interests')
+      .select('parent_profile_id')
+      .eq('product_id', product.id);
+    const parentIds = (interestRows || []).map((r) => r.parent_profile_id);
+    const title = 'Workshop se otevřel k platbě';
+    const body = `${product.title} má dost zájemců — teď ho můžeš zaplatit a rezervovat místo.`;
+    void sendExpoPushToProfiles(parentIds, title, body);
+  }
+
   response.status(201).json({ interest: data, interestCount, canPurchase: gate.canPurchase, threshold: WORKSHOP_INTEREST_THRESHOLD });
+}));
+
+// ─── Weekly trick voting ─────────────────────────────────────────────────────
+// Parents and participants pick up to 2 tricks per week they'd like to see at a
+// future workshop. Admin sees the aggregated tally. Resets weekly (by week_start).
+const MAX_TRICK_VOTES_PER_WEEK = 2;
+
+function currentTrickVoteWeek() {
+  const now = new Date();
+  const monday = (now.getUTCDay() + 6) % 7; // Monday = 0
+  now.setUTCDate(now.getUTCDate() - monday);
+  return now.toISOString().slice(0, 10);
+}
+
+async function profileOrgId(profileId) {
+  const { data, error } = await supabase.from('app_profiles').select('org_id').eq('id', profileId).maybeSingle();
+  if (error) throw error;
+  return data?.org_id || VYS_ORG_ID;
+}
+
+app.get('/api/trick-votes/me', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const participantId = optionalString(request.query.participantId);
+  if (participantId) await assertParticipantAccessible(actor, participantId);
+  const week = currentTrickVoteWeek();
+
+  let query = supabase
+    .from('trick_votes')
+    .select('trick_name')
+    .eq('voter_profile_id', actor.id)
+    .eq('week_start', week);
+  query = participantId ? query.eq('participant_id', participantId) : query.is('participant_id', null);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  response.json({ week, tricks: (data || []).map((row) => row.trick_name) });
+}));
+
+app.post('/api/trick-votes', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const participantId = optionalString(request.body.participantId);
+  if (participantId) await assertParticipantAccessible(actor, participantId);
+
+  const tricksInput = Array.isArray(request.body.tricks) ? request.body.tricks : [];
+  const tricks = Array.from(
+    new Set(tricksInput.filter((t) => typeof t === 'string').map((t) => t.trim()).filter(Boolean)),
+  ).slice(0, MAX_TRICK_VOTES_PER_WEEK).map((t) => t.slice(0, 120));
+
+  const week = currentTrickVoteWeek();
+  const orgId = await profileOrgId(actor.id);
+
+  // Voting is one-shot per week: once a pick exists for this voter + week +
+  // participant scope, block any further changes (server-side, not just a UI
+  // hint) until next Monday's reset — a client-side lock alone could be
+  // bypassed with a direct API call.
+  let existingQuery = supabase
+    .from('trick_votes')
+    .select('id', { count: 'exact', head: true })
+    .eq('voter_profile_id', actor.id)
+    .eq('week_start', week);
+  existingQuery = participantId ? existingQuery.eq('participant_id', participantId) : existingQuery.is('participant_id', null);
+  const { count: existingCount, error: existingError } = await existingQuery;
+  if (existingError) throw existingError;
+  if ((existingCount || 0) > 0) {
+    throw httpError('Tento týden jsi už hlasoval/a. Další hlasování je až po pondělním resetu.', 409);
+  }
+
+  if (tricks.length > 0) {
+    const rows = tricks.map((name) => ({
+      org_id: orgId,
+      voter_profile_id: actor.id,
+      participant_id: participantId || null,
+      trick_name: name,
+      week_start: week,
+    }));
+    const { error: insError } = await supabase.from('trick_votes').insert(rows);
+    if (insError) throw insError;
+  }
+
+  response.status(201).json({ week, tricks });
+}));
+
+app.get('/api/admin/trick-votes', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const week = currentTrickVoteWeek();
+
+  const { data, error } = await supabase
+    .from('trick_votes')
+    .select('trick_name,voter_profile_id')
+    .eq('org_id', orgId)
+    .eq('week_start', week);
+  if (error) throw error;
+
+  const counts = new Map();
+  const voters = new Set();
+  for (const row of data || []) {
+    counts.set(row.trick_name, (counts.get(row.trick_name) || 0) + 1);
+    voters.add(row.voter_profile_id);
+  }
+  const results = Array.from(counts.entries())
+    .map(([trickName, votes]) => ({ trickName, votes }))
+    .sort((a, b) => b.votes - a.votes || a.trickName.localeCompare(b.trickName));
+
+  response.json({ week, results, totalVotes: (data || []).length, totalVoters: voters.size });
 }));
 
 // ─── Parent organization membership ─────────────────────────────────────────
@@ -1094,6 +1494,56 @@ app.delete('/api/parent/organizations/:orgId', asyncRoute(async (request, respon
   response.json({ ok: true, orgId });
 }));
 
+// GET /api/parent/coaches — only coaches teaching a product the parent actually
+// paid for, each labeled with where/what they coach so parents don't rate
+// random unrelated coaches.
+app.get('/api/parent/coaches', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const parentProfileId = parentProfileIdForActor(actor, request.query.parentProfileId);
+
+  const { data: purchaseRows, error: purchaseError } = await supabase
+    .from('parent_purchases')
+    .select('product_id')
+    .eq('parent_profile_id', parentProfileId)
+    .eq('status', 'Zaplaceno');
+  if (purchaseError) throw purchaseError;
+
+  const productIds = Array.from(new Set((purchaseRows || []).map((row) => row.product_id).filter(Boolean)));
+  if (productIds.length === 0) { response.json({ coaches: [] }); return; }
+
+  const { data: productRows, error: productError } = await supabase
+    .from('products')
+    .select('id,title,place,coach_ids')
+    .in('id', productIds);
+  if (productError) throw productError;
+
+  const coachIds = Array.from(new Set((productRows || []).flatMap((p) => p.coach_ids || []).filter(Boolean)));
+  if (coachIds.length === 0) { response.json({ coaches: [] }); return; }
+
+  const { data: profileRows, error: profileError } = await supabase
+    .from('app_profiles')
+    .select('id,name')
+    .in('id', coachIds);
+  if (profileError) throw profileError;
+
+  const namesById = new Map((profileRows || []).map((p) => [p.id, p.name]));
+  const placesByCoachId = new Map();
+  for (const product of productRows || []) {
+    for (const coachId of product.coach_ids || []) {
+      const label = `${product.title} · ${product.place}`;
+      const existing = placesByCoachId.get(coachId);
+      if (existing) { if (!existing.includes(label)) existing.push(label); } else { placesByCoachId.set(coachId, [label]); }
+    }
+  }
+
+  const coaches = coachIds
+    .filter((id) => namesById.has(id))
+    .map((id) => ({ id, name: namesById.get(id), places: placesByCoachId.get(id) || [] }));
+
+  response.json({ coaches });
+}));
+
 app.get('/api/public/coaches', asyncRoute(async (_request, response) => {
   requireServices();
 
@@ -1134,6 +1584,7 @@ app.get('/api/camps', asyncRoute(async (_request, response) => {
     .from('products')
     .select('id,type,title,city,place,venue,price,price_label,primary_meta,secondary_meta,description,important_info,capacity_total,capacity_current,coach_ids,badge,event_date,expires_at')
     .eq('type', 'Tábor')
+    .eq('org_id', VYS_ORG_ID)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
@@ -1148,6 +1599,7 @@ app.get('/api/courses', asyncRoute(async (_request, response) => {
     .from('products')
     .select('id,type,title,city,place,venue,price,price_label,entries_total,primary_meta,secondary_meta,description,important_info,capacity_total,capacity_current,coach_ids,badge')
     .eq('type', 'Kroužek')
+    .eq('org_id', VYS_ORG_ID)
     .order('city', { ascending: true });
 
   if (error) throw error;
@@ -1174,6 +1626,87 @@ app.get('/api/coach/sessions', asyncRoute(async (request, response) => {
   response.json({ sessions: data });
 }));
 
+// Sends a real native push notification to a parent's phone when their child
+// taps NFC at a training. The parent_notifications row already has
+// parent_profile_id resolved by a DB trigger; the coach client reads it back
+// and passes it here. Service role reads the parent's Expo push tokens and
+// forwards the message to Expo's push service.
+// Send an Expo push notification to a set of profile ids. Never throws — push
+// is best-effort (Expo may be briefly unreachable). Returns the number sent.
+async function sendExpoPushToProfiles(profileIds, title, body) {
+  const ids = Array.from(new Set((profileIds || []).filter(Boolean)));
+  if (ids.length === 0) return 0;
+
+  const { data: tokenRows, error } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .in('profile_id', ids);
+  if (error) return 0;
+
+  const tokens = (tokenRows || [])
+    .map((row) => row.token)
+    .filter((token) => typeof token === 'string' && token.startsWith('ExponentPushToken'));
+  if (tokens.length === 0) return 0;
+
+  const messages = tokens.map((to) => ({ to, sound: 'default', title, body, priority: 'high', channelId: 'default' }));
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages),
+    });
+  } catch {
+    // best-effort
+  }
+  return tokens.length;
+}
+
+app.post('/api/notifications/attendance-push', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireStaff(request);
+
+  const parentProfileId = requiredString(request.body.parentProfileId, 'parentProfileId');
+  const participantName = optionalString(request.body.participantName) || 'Dítě';
+  const location = optionalString(request.body.location) || '';
+
+  const { data: tokenRows, error } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .eq('profile_id', parentProfileId);
+  if (error) throw error;
+
+  const pushTokens = (tokenRows || [])
+    .map((row) => row.token)
+    .filter((token) => typeof token === 'string' && token.startsWith('ExponentPushToken'));
+
+  if (pushTokens.length === 0) {
+    response.json({ ok: true, sent: 0 });
+    return;
+  }
+
+  const messages = pushTokens.map((to) => ({
+    to,
+    sound: 'default',
+    title: `${participantName} dorazil/a na trénink`,
+    body: location ? `${location} · zapsáno v pořádku` : 'Zapsáno v pořádku',
+    priority: 'high',
+    channelId: 'default',
+  }));
+
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages),
+    });
+  } catch {
+    // Never fail the request if Expo is briefly unreachable — the in-app
+    // realtime notification still delivers.
+  }
+
+  response.json({ ok: true, sent: pushTokens.length });
+}));
+
 app.post('/api/coach/attendance', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireStaff(request);
@@ -1188,7 +1721,7 @@ app.post('/api/coach/attendance', asyncRoute(async (request, response) => {
 
   const { data: session, error: sessionError } = await supabase
     .from('coach_sessions')
-    .select('id, coach_id, city, venue, day, time, group_name, duration_hours, hourly_rate, latitude, longitude, check_in_radius_meters')
+    .select('id, coach_id, org_id, city, venue, day, time, group_name, duration_hours, hourly_rate, latitude, longitude, check_in_radius_meters')
     .eq('id', sessionId)
     .maybeSingle();
   if (sessionError) throw sessionError;
@@ -1198,11 +1731,23 @@ app.post('/api/coach/attendance', asyncRoute(async (request, response) => {
   const durationHours = numericOrFallback(request.body.durationHours, numericOrFallback(session?.duration_hours, 1));
   const hourlyRate = session ? await resolveCoachAttendanceRate(coachId, session, requestedHourlyRate) : numericOrFallback(requestedHourlyRate, DEFAULT_COURSE_ATTENDANCE_RATE);
 
-  // GPS + day-of-week validation (admin bypasses)
+  // GPS + den + časové okno validace (admin bypasses)
   if (actor.role !== 'admin') {
-    const todayName = czechWeekdays[new Date().getDay()];
+    const todayName = pragueWeekday();
     if (session.day && session.day !== todayName) {
       throw httpError(`Tato session je na ${session.day}, ale dnes je ${todayName}.`, 403);
+    }
+
+    // Časové okno: docházku lze zapsat od 1 hodiny před začátkem tréninku
+    // do 1 hodiny po jeho konci (čas na zapsání před i po).
+    const range = parseSessionTimeRange(session.time);
+    if (range) {
+      const nowMin = pragueNowMinutes();
+      const windowStart = range.start - 60;
+      const windowEnd = range.end + 60;
+      if (nowMin < windowStart || nowMin > windowEnd) {
+        throw httpError(`Docházku lze zapsat jen v čase tréninku — od ${formatMinutes(windowStart)} do ${formatMinutes(windowEnd)}. Teď je ${formatMinutes(nowMin)}.`, 403);
+      }
     }
 
     if (session.latitude != null && session.longitude != null) {
@@ -1231,6 +1776,7 @@ app.post('/api/coach/attendance', asyncRoute(async (request, response) => {
     hourly_rate: hourlyRate,
     amount: Math.round(durationHours * hourlyRate),
   };
+  if (session?.org_id) row.org_id = session.org_id;
 
   const { data, error } = await supabase
     .from('coach_attendance_records')
@@ -1265,14 +1811,19 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
 
   const discountAmount = discount ? Math.round((originalAmount * discount.percent) / 100) : 0;
   const amount = Math.max(0, originalAmount - discountAmount);
+  const { orgStripe } = await getProductOrgStripe(product);
 
-  const session = await stripe.checkout.sessions.create({
+  const paymentIntentData = {
+    ...(receiptEmail ? { receipt_email: receiptEmail } : {}),
+  };
+
+  const session = await orgStripe.checkout.sessions.create({
     mode: 'payment',
     locale: 'cs',
     success_url: successUrl,
     cancel_url: cancelUrl,
     customer_email: receiptEmail || undefined,
-    payment_intent_data: receiptEmail ? { receipt_email: receiptEmail } : undefined,
+    payment_intent_data: Object.keys(paymentIntentData).length > 0 ? paymentIntentData : undefined,
     line_items: [
       {
         quantity: 1,
@@ -1301,12 +1852,38 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
       receipt_email: receiptEmail || '',
       price_label: discount ? `${product.price_label} · sleva ${discount.percent} %` : product.price_label,
       place: product.place,
+      org_id: product.org_id || VYS_ORG_ID,
       event_date: product.event_date || '',
       expires_at: product.expires_at || '',
     },
   });
 
   response.json({ id: session.id, url: session.url });
+}));
+
+// Publishable keys are not secret — this endpoint requires no auth so the
+// mobile/web client can load the correct Stripe.js instance for a product's
+// owning organization before creating the PaymentIntent Elements/PaymentSheet UI.
+app.get('/api/payments/publishable-key', asyncRoute(async (request, response) => {
+  requireServices();
+  const productId = requiredString(request.query.productId, 'productId');
+  const product = await getProduct(productId);
+  const orgId = product.org_id || VYS_ORG_ID;
+
+  if (orgId === VYS_ORG_ID) {
+    if (!stripePublishableKey) throw httpError('Na serveru chybí STRIPE_PUBLISHABLE_KEY.', 500);
+    return response.json({ publishableKey: stripePublishableKey });
+  }
+
+  const { data: org, error } = await supabase
+    .from('organizations')
+    .select('stripe_publishable_key')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!org?.stripe_publishable_key) throw httpError('Organizace zatím nemá nastavený Stripe publishable key.', 409);
+
+  response.json({ publishableKey: org.stripe_publishable_key });
 }));
 
 app.post('/api/payments/payment-intent', asyncRoute(async (request, response) => {
@@ -1348,11 +1925,14 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
     receipt_email: receiptEmail || '',
     price_label: priceLabel,
     place: product.place,
+    org_id: product.org_id || VYS_ORG_ID,
     event_date: product.event_date || '',
     expires_at: product.expires_at || '',
   };
 
-  const paymentIntent = await stripe.paymentIntents.create({
+  const connectDestination = await connectDestinationForProduct(product);
+  const { orgStripe: piOrgStripe } = await getProductOrgStripe(product);
+  const paymentIntent = await piOrgStripe.paymentIntents.create({
     amount: amount * 100,
     currency: 'czk',
     description: `TeamVYS · ${product.title} · ${participantName}`,
@@ -1361,12 +1941,11 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
     automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
   });
 
-  const row = purchaseRowFromPaymentIntent(paymentIntent, metadata, 'Čeká na platbu');
-  const { error } = await supabase
-    .from('parent_purchases')
-    .upsert(row, { onConflict: 'id' });
-
-  if (error) throw error;
+  // Intentionally do NOT write to parent_purchases here — clicking "Koupit" only
+  // creates a Stripe PaymentIntent, it does not mean the payment succeeded.
+  // The purchase row is created exclusively in finalizePaymentIntent(), once
+  // Stripe confirms the PaymentIntent actually succeeded (via the webhook or
+  // the explicit /confirm-payment-intent call below).
 
   response.status(201).json({
     clientSecret: paymentIntent.client_secret,
@@ -1404,13 +1983,13 @@ app.post('/api/participants/manual', asyncRoute(async (request, response) => {
   const parentPhone = requiredString(request.body.parentPhone, 'parentPhone');
   const emergencyPhone = requiredString(request.body.emergencyPhone, 'emergencyPhone');
   const address = requiredString(request.body.address, 'address');
-  const preferredCourse = requiredString(request.body.preferredCourse, 'preferredCourse');
-  const departureMode = requiredString(request.body.departureMode, 'departureMode');
-  const allergies = requiredString(request.body.allergies, 'allergies');
-  const healthLimits = requiredString(request.body.healthLimits, 'healthLimits');
-  const medicationNote = requiredString(request.body.medicationNote, 'medicationNote');
+  const preferredCourse = optionalString(request.body.preferredCourse) ?? '';
+  const departureMode = optionalString(request.body.departureMode) ?? 'parent';
+  const allergies = optionalString(request.body.allergies) ?? 'Bez alergií';
+  const healthLimits = optionalString(request.body.healthLimits) ?? 'Bez omezení';
+  const medicationNote = optionalString(request.body.medicationNote) ?? 'Bez léků';
 
-  if (!['parent', 'alone', 'authorized'].includes(departureMode)) throw new Error('Invalid departureMode.');
+  if (!['parent', 'alone', 'authorized'].includes(departureMode)) throw httpError('Neplatný způsob odchodu.', 400);
 
   const participantId = `manual-${slugify(`${firstName}-${lastName}-${dateOfBirth}`)}`;
   await assertParticipantAccessible(actor, participantId);
@@ -1485,6 +2064,61 @@ app.post('/api/participants/link', asyncRoute(async (request, response) => {
   response.json({ participant: data });
 }));
 
+// Set the additional schools (same city) a child can attend on ONE permanentka.
+// The child keeps a single kroužek pass; its entries are shared across the
+// primary school (active_course) and these extra schools. Attendance RPC and
+// admin/coach views read participants.extra_courses.
+app.post('/api/participants/extra-courses', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+
+  const participantId = requiredString(request.body.participantId, 'participantId');
+  await assertParticipantAccessible(actor, participantId);
+
+  const requested = Array.isArray(request.body.extraCourses) ? request.body.extraCourses : [];
+  const requestedPlaces = [...new Set(requested.map((place) => String(place || '').trim()).filter(Boolean))];
+
+  const { data: participant, error: participantError } = await supabase
+    .from('participants')
+    .select('id, active_course, org_id')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (participantError) throw participantError;
+  if (!participant) throw httpError('Účastník nenalezen.', 404);
+
+  const cityOf = (place) => String(place || '').split(' · ')[0].trim().toLowerCase();
+  const primaryCourse = String(participant.active_course || '').trim();
+  const primaryCity = cityOf(primaryCourse);
+
+  // Only real published Kroužek schools in the SAME city and same org are allowed
+  // (and never the primary course itself). This prevents a client from smuggling
+  // arbitrary or cross-city places into extra_courses.
+  const { data: courses, error: coursesError } = await supabase
+    .from('products')
+    .select('place, city, type, org_id, is_published')
+    .eq('type', 'Kroužek')
+    .eq('is_published', true);
+  if (coursesError) throw coursesError;
+
+  const allowed = new Set(
+    (courses || [])
+      .filter((course) => !participant.org_id || course.org_id === participant.org_id)
+      .filter((course) => primaryCity && (String(course.city || '').trim().toLowerCase() === primaryCity || cityOf(course.place) === primaryCity))
+      .map((course) => String(course.place || '').trim())
+      .filter((place) => place && place !== primaryCourse),
+  );
+
+  const extraCourses = requestedPlaces.filter((place) => allowed.has(place));
+
+  const { error: updateError } = await supabase
+    .from('participants')
+    .update({ extra_courses: extraCourses })
+    .eq('id', participantId);
+  if (updateError) throw updateError;
+
+  response.json({ ok: true, extraCourses });
+}));
+
 app.post('/api/course-documents', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireParentOrAdmin(request);
@@ -1555,6 +2189,566 @@ app.post('/api/course-documents', asyncRoute(async (request, response) => {
   response.status(201).json({ documents: data });
 }));
 
+// ---------------------------------------------------------------------------
+// Admin → parents broadcast messages (parent notification center)
+// ---------------------------------------------------------------------------
+app.post('/api/admin/broadcasts', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const title = requiredString(request.body.title, 'title');
+  const body = requiredString(request.body.body, 'body');
+  const audience = optionalString(request.body.audience) === 'selected' ? 'selected' : 'all';
+  const requestedParentProfileIds = Array.isArray(request.body.parentProfileIds)
+    ? Array.from(new Set(request.body.parentProfileIds.map((id) => optionalString(id)).filter(Boolean)))
+    : [];
+
+  if (requestedParentProfileIds.length === 0) throw httpError('Vyber aspoň jednoho příjemce.', 400);
+
+  // SECURITY: this route uses the service role (bypasses RLS), and the client
+  // only ever offers org-scoped parents in its UI — but that's not enough on
+  // its own, since nothing stops a crafted request from passing an arbitrary
+  // parentProfileId. Cross-check every id against organization_members for
+  // THIS admin's org before writing anything, so a message can never reach a
+  // parent belonging to a different organization.
+  const { data: memberRows, error: memberError } = await supabase
+    .from('organization_members')
+    .select('profile_id')
+    .eq('org_id', orgId)
+    .eq('role', 'parent')
+    .in('profile_id', requestedParentProfileIds);
+  if (memberError) throw memberError;
+
+  const validParentIds = new Set((memberRows || []).map((row) => row.profile_id));
+  const parentProfileIds = requestedParentProfileIds.filter((id) => validParentIds.has(id));
+
+  if (parentProfileIds.length === 0) throw httpError('Žádný z vybraných příjemců nepatří k tvé organizaci.', 403);
+
+  const senderName = profile.name || 'Organizace';
+  const nowIso = new Date().toISOString();
+
+  const { data: broadcast, error: broadcastError } = await supabase
+    .from('parent_broadcasts')
+    .insert({
+      org_id: orgId,
+      sender_id: profile.id,
+      sender_name: senderName,
+      title,
+      body,
+      audience,
+      recipient_count: parentProfileIds.length,
+      created_at: nowIso,
+    })
+    .select('id')
+    .single();
+  if (broadcastError) throw broadcastError;
+
+  const recipientRows = parentProfileIds.map((parentProfileId) => ({
+    broadcast_id: broadcast.id,
+    org_id: orgId,
+    parent_profile_id: parentProfileId,
+    title,
+    body,
+    sender_name: senderName,
+    created_at: nowIso,
+  }));
+  const { error: recipientsError } = await supabase.from('parent_broadcast_recipients').insert(recipientRows);
+  if (recipientsError) throw recipientsError;
+
+  // Best-effort native push to each parent (no-op for parents without a device).
+  const pushed = await sendExpoPushToProfiles(parentProfileIds, title, body);
+
+  response.status(201).json({
+    ok: true,
+    broadcastId: broadcast.id,
+    recipients: parentProfileIds.length,
+    pushed,
+    skipped: requestedParentProfileIds.length - parentProfileIds.length,
+  });
+}));
+
+
+app.get('/api/admin/broadcasts', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const { data, error } = await supabase
+    .from('parent_broadcasts')
+    .select('id,title,body,audience,recipient_count,sender_name,created_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  response.json({ broadcasts: data || [] });
+}));
+
+// ---------------------------------------------------------------------------
+// Organization-defined document slots
+// ---------------------------------------------------------------------------
+const DOCUMENT_SLOT_ACTIVITY_TYPES = ['Kroužek', 'Tábor', 'Workshop'];
+const DOCUMENT_SLOT_FULFILLMENTS = ['electronic', 'upload', 'both'];
+const DOCUMENT_SLOT_TEMPLATE_KINDS = ['gdpr', 'guardian-consent', 'health', 'departure', 'infection-free', 'packing', 'workshop-terms'];
+
+function documentSlotFromRow(row) {
+  return {
+    id: row.id,
+    orgId: row.org_id,
+    activityType: row.activity_type,
+    label: row.label,
+    description: row.description ?? null,
+    fulfillment: row.fulfillment,
+    templateKind: row.template_kind ?? null,
+    productId: row.product_id ?? null,
+    templateId: row.template_id ?? null,
+    templatePath: row.template_path ?? null,
+    templateFilename: row.template_filename ?? null,
+    required: row.required,
+    sortOrder: row.sort_order,
+    active: row.active,
+    updatedAt: row.updated_at,
+  };
+}
+
+function validateDocumentSlotActivity(activityType, orgId) {
+  if (!DOCUMENT_SLOT_ACTIVITY_TYPES.includes(activityType)) {
+    throw httpError('Neplatný typ aktivity. Povolené: Kroužek, Tábor, Workshop.', 400);
+  }
+  // Workshops are a VYS-only activity.
+  if (activityType === 'Workshop' && orgId !== VYS_ORG_ID) {
+    throw httpError('Workshopy může spravovat pouze organizace TeamVYS.', 403);
+  }
+}
+
+app.get('/api/admin/document-slots', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const activityType = optionalString(request.query.activityType);
+  const productId = optionalString(request.query.productId);
+
+  let query = supabase
+    .from('document_slots')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('activity_type', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  if (activityType) query = query.eq('activity_type', activityType);
+  if (productId) query = query.eq('product_id', productId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  response.json({ slots: (data || []).map(documentSlotFromRow) });
+}));
+
+app.post('/api/admin/document-slots', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const activityType = requiredString(request.body.activityType, 'typ aktivity');
+  validateDocumentSlotActivity(activityType, orgId);
+
+  const label = requiredString(request.body.label, 'název pole');
+  const description = optionalString(request.body.description);
+  const fulfillment = optionalString(request.body.fulfillment) || 'both';
+  if (!DOCUMENT_SLOT_FULFILLMENTS.includes(fulfillment)) {
+    throw httpError('Neplatný způsob plnění. Povolené: electronic, upload, both.', 400);
+  }
+  const templateKind = optionalString(request.body.templateKind);
+  if (templateKind && !DOCUMENT_SLOT_TEMPLATE_KINDS.includes(templateKind)) {
+    throw httpError('Neplatná elektronická šablona.', 400);
+  }
+  const required = request.body.required === undefined ? true : Boolean(request.body.required);
+  const sortOrder = Number.isFinite(Number(request.body.sortOrder)) ? Number(request.body.sortOrder) : 0;
+  const productId = optionalString(request.body.productId);
+  const templatePath = optionalString(request.body.templatePath);
+  const templateFilename = optionalString(request.body.templateFilename);
+  const templateId = optionalString(request.body.templateId);
+
+  const { data, error } = await supabase
+    .from('document_slots')
+    .insert({
+      org_id: orgId,
+      activity_type: activityType,
+      label,
+      description,
+      fulfillment,
+      template_kind: templateKind,
+      product_id: productId,
+      template_id: templateId,
+      template_path: templatePath,
+      template_filename: templateFilename,
+      required,
+      sort_order: sortOrder,
+      active: true,
+    })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  response.status(201).json({ slot: documentSlotFromRow(data) });
+}));
+
+app.patch('/api/admin/document-slots/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'id pole');
+
+  const { data: existing, error: existingError } = await supabase
+    .from('document_slots')
+    .select('id,org_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (!existing || existing.org_id !== orgId) throw httpError('Pole nebylo nalezeno.', 404);
+
+  const patch = {};
+  if (request.body.label !== undefined) patch.label = requiredString(request.body.label, 'název pole');
+  if (request.body.description !== undefined) patch.description = optionalString(request.body.description);
+  if (request.body.fulfillment !== undefined) {
+    const fulfillment = requiredString(request.body.fulfillment, 'způsob plnění');
+    if (!DOCUMENT_SLOT_FULFILLMENTS.includes(fulfillment)) throw httpError('Neplatný způsob plnění.', 400);
+    patch.fulfillment = fulfillment;
+  }
+  if (request.body.templateKind !== undefined) {
+    const templateKind = optionalString(request.body.templateKind);
+    if (templateKind && !DOCUMENT_SLOT_TEMPLATE_KINDS.includes(templateKind)) throw httpError('Neplatná elektronická šablona.', 400);
+    patch.template_kind = templateKind;
+  }
+  if (request.body.required !== undefined) patch.required = Boolean(request.body.required);
+  if (request.body.sortOrder !== undefined && Number.isFinite(Number(request.body.sortOrder))) patch.sort_order = Number(request.body.sortOrder);
+  if (request.body.active !== undefined) patch.active = Boolean(request.body.active);
+  if (request.body.productId !== undefined) patch.product_id = optionalString(request.body.productId);
+  if (request.body.templatePath !== undefined) patch.template_path = optionalString(request.body.templatePath);
+  if (request.body.templateFilename !== undefined) patch.template_filename = optionalString(request.body.templateFilename);
+  if (request.body.templateId !== undefined) patch.template_id = optionalString(request.body.templateId);
+
+  if (Object.keys(patch).length === 0) throw httpError('Není co upravit.', 400);
+
+  const { data, error } = await supabase
+    .from('document_slots')
+    .update(patch)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  response.json({ slot: documentSlotFromRow(data) });
+}));
+
+app.delete('/api/admin/document-slots/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'id pole');
+
+  const { data: existing, error: existingError } = await supabase
+    .from('document_slots')
+    .select('id,org_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (!existing || existing.org_id !== orgId) throw httpError('Pole nebylo nalezeno.', 404);
+
+  const { error } = await supabase.from('document_slots').delete().eq('id', id);
+  if (error) throw error;
+  response.json({ ok: true });
+}));
+
+// Parent / app read: active slot definitions for an org + activity type.
+app.get('/api/document-slots', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireParentOrAdmin(request);
+
+  const orgId = optionalString(request.query.orgId) || VYS_ORG_ID;
+  const activityType = optionalString(request.query.activityType);
+  const productId = optionalString(request.query.productId);
+
+  let query = supabase
+    .from('document_slots')
+    .select('*')
+    .eq('active', true)
+    .order('sort_order', { ascending: true });
+
+  if (productId) {
+    query = query.eq('product_id', productId);
+  } else {
+    query = query.eq('org_id', orgId);
+    if (activityType) query = query.eq('activity_type', activityType);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  response.json({ slots: (data || []).map(documentSlotFromRow) });
+}));
+
+// ---------------------------------------------------------------------------
+// Reusable document template library (per organization)
+// ---------------------------------------------------------------------------
+const DOCUMENT_TEMPLATE_KINDS = ['file', 'electronic'];
+const CUSTOM_FIELD_TYPES = ['text', 'textarea', 'check', 'choice', 'date'];
+
+function documentTemplateFromRow(row) {
+  return {
+    id: row.id,
+    orgId: row.org_id,
+    name: row.name,
+    kind: row.kind || 'file',
+    filePath: row.file_path ?? null,
+    fileFilename: row.file_filename ?? null,
+    body: row.body ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+// Validate + normalize the custom electronic document body coming from the admin
+// builder. Throws httpError(400) on malformed input.
+function normalizeElectronicBody(raw) {
+  const source = raw && typeof raw === 'object' ? raw : {};
+
+  const intro = typeof source.intro === 'string' ? source.intro.trim().slice(0, 2000) : '';
+
+  const clausesInput = Array.isArray(source.clauses) ? source.clauses : [];
+  const clauses = clausesInput
+    .filter((c) => typeof c === 'string')
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .slice(0, 40)
+    .map((c) => c.slice(0, 1000));
+
+  const fieldsInput = Array.isArray(source.fields) ? source.fields : [];
+  const usedIds = new Set();
+  const fields = [];
+  for (const rawField of fieldsInput.slice(0, 40)) {
+    if (!rawField || typeof rawField !== 'object') continue;
+    const label = typeof rawField.label === 'string' ? rawField.label.trim().slice(0, 200) : '';
+    if (!label) continue;
+    const type = CUSTOM_FIELD_TYPES.includes(rawField.type) ? rawField.type : 'text';
+
+    let id = typeof rawField.id === 'string' && rawField.id.trim() ? rawField.id.trim().slice(0, 60) : '';
+    if (!id) id = `f_${fields.length + 1}`;
+    id = id.replace(/[^a-zA-Z0-9_]/g, '_');
+    while (usedIds.has(id)) id = `${id}_`;
+    usedIds.add(id);
+
+    const field = { id, label, type, required: Boolean(rawField.required) };
+    if (type === 'choice') {
+      const options = (Array.isArray(rawField.options) ? rawField.options : [])
+        .filter((o) => typeof o === 'string')
+        .map((o) => o.trim())
+        .filter(Boolean)
+        .slice(0, 20)
+        .map((o) => o.slice(0, 120));
+      field.options = options;
+    }
+    fields.push(field);
+  }
+
+  if (!intro && clauses.length === 0 && fields.length === 0) {
+    throw httpError('Elektronický dokument musí mít úvodní text, klauzuli nebo aspoň jedno pole.', 400);
+  }
+
+  return { intro: intro || null, clauses, fields };
+}
+
+app.get('/api/admin/document-templates', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const { data, error } = await supabase
+    .from('document_templates')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  response.json({ templates: (data || []).map(documentTemplateFromRow) });
+}));
+
+app.post('/api/admin/document-templates', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const name = requiredString(request.body.name, 'název šablony');
+  const kind = DOCUMENT_TEMPLATE_KINDS.includes(request.body.kind) ? request.body.kind : 'file';
+
+  const insert = { org_id: orgId, name, kind };
+  if (kind === 'electronic') {
+    insert.body = normalizeElectronicBody(request.body.body);
+    insert.file_path = null;
+    insert.file_filename = null;
+  } else {
+    insert.file_path = requiredString(request.body.filePath, 'soubor šablony');
+    insert.file_filename = requiredString(request.body.fileFilename, 'název souboru');
+    insert.body = null;
+  }
+
+  const { data, error } = await supabase
+    .from('document_templates')
+    .insert(insert)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  response.status(201).json({ template: documentTemplateFromRow(data) });
+}));
+
+app.patch('/api/admin/document-templates/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'id šablony');
+
+  const { data: existing, error: existingError } = await supabase
+    .from('document_templates')
+    .select('id,org_id,kind')
+    .eq('id', id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (!existing || existing.org_id !== orgId) throw httpError('Šablona nebyla nalezena.', 404);
+
+  const patch = {};
+  if (request.body.name !== undefined) patch.name = requiredString(request.body.name, 'název šablony');
+  if (request.body.body !== undefined && existing.kind === 'electronic') {
+    patch.body = normalizeElectronicBody(request.body.body);
+  }
+  if (Object.keys(patch).length === 0) throw httpError('Není co uložit.', 400);
+  patch.updated_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('document_templates')
+    .update(patch)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  response.json({ template: documentTemplateFromRow(data) });
+}));
+
+// Public/parent: fetch electronic template bodies for an org so the mobile app
+// can render + let parents fill and sign a custom document.
+app.get('/api/document-templates', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireParentOrAdmin(request);
+  const orgId = optionalString(request.query.orgId);
+  const templateId = optionalString(request.query.id);
+
+  let query = supabase.from('document_templates').select('*').eq('kind', 'electronic');
+  if (orgId) query = query.eq('org_id', orgId);
+  if (templateId) query = query.eq('id', templateId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  response.json({ templates: (data || []).map(documentTemplateFromRow) });
+}));
+
+app.delete('/api/admin/document-templates/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'id šablony');
+
+  const { data: existing, error: existingError } = await supabase
+    .from('document_templates')
+    .select('id,org_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (!existing || existing.org_id !== orgId) throw httpError('Šablona nebyla nalezena.', 404);
+
+  const { error } = await supabase.from('document_templates').delete().eq('id', id);
+  if (error) throw error;
+  response.json({ ok: true });
+}));
+
+// ---------------------------------------------------------------------------
+// Library documents attached to a coach (trenér)
+// ---------------------------------------------------------------------------
+function coachDocumentFromRow(row) {
+  const tpl = row.document_templates || {};
+  return {
+    id: row.id,
+    coachId: row.coach_id,
+    templateId: row.template_id,
+    createdAt: row.created_at,
+    template: {
+      id: tpl.id ?? row.template_id,
+      name: tpl.name ?? 'Dokument',
+      kind: tpl.kind ?? 'file',
+      filePath: tpl.file_path ?? null,
+      fileFilename: tpl.file_filename ?? null,
+    },
+  };
+}
+
+app.get('/api/admin/coach-documents', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const coachId = optionalString(request.query.coachId);
+
+  let query = supabase
+    .from('coach_documents')
+    .select('id,coach_id,template_id,created_at,document_templates(id,name,kind,file_path,file_filename)')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false });
+  if (coachId) query = query.eq('coach_id', coachId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  response.json({ documents: (data || []).map(coachDocumentFromRow) });
+}));
+
+app.post('/api/admin/coach-documents', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const coachId = requiredString(request.body.coachId, 'trenér');
+  const templateId = requiredString(request.body.templateId, 'dokument');
+
+  const { data: tpl, error: tplError } = await supabase
+    .from('document_templates')
+    .select('id,org_id')
+    .eq('id', templateId)
+    .maybeSingle();
+  if (tplError) throw tplError;
+  if (!tpl || tpl.org_id !== orgId) throw httpError('Dokument nebyl nalezen.', 404);
+
+  const { data, error } = await supabase
+    .from('coach_documents')
+    .upsert({ org_id: orgId, coach_id: coachId, template_id: templateId }, { onConflict: 'coach_id,template_id' })
+    .select('id,coach_id,template_id,created_at,document_templates(id,name,kind,file_path,file_filename)')
+    .single();
+  if (error) throw error;
+  response.status(201).json({ document: coachDocumentFromRow(data) });
+}));
+
+app.delete('/api/admin/coach-documents/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'id');
+
+  const { data: existing, error: existingError } = await supabase
+    .from('coach_documents')
+    .select('id,org_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (!existing || existing.org_id !== orgId) throw httpError('Záznam nebyl nalezen.', 404);
+
+  const { error } = await supabase.from('coach_documents').delete().eq('id', id);
+  if (error) throw error;
+  response.json({ ok: true });
+}));
+
 app.post('/api/payments/confirm', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireParentOrAdmin(request);
@@ -1583,6 +2777,7 @@ app.post('/api/payments/confirm', asyncRoute(async (request, response) => {
     discount_amount: metadata.discount_amount ? Number(metadata.discount_amount) : 0,
     price_label: metadata.price_label || `${amount} Kč`,
     place: requiredString(metadata.place, 'place metadata'),
+    org_id: optionalString(metadata.org_id) || VYS_ORG_ID,
     status: 'Zaplaceno',
     paid_at: new Date(session.created * 1000).toLocaleDateString('cs-CZ'),
     event_date: metadata.event_date || null,
@@ -1615,12 +2810,13 @@ app.post('/api/payments/confirm', asyncRoute(async (request, response) => {
 
 app.get('/api/admin/finance', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
 
   const [purchasesResult, payoutTransfersResult, coachesResult] = await Promise.all([
-    supabase.from('parent_purchases').select('*').order('created_at', { ascending: false }),
-    supabase.from('admin_coach_payout_transfers').select('*').order('created_at', { ascending: false }),
-    supabase.from('coach_profiles').select('id,level,xp,qr_tricks_approved,stripe_account_id'),
+    supabase.from('parent_purchases').select('*').eq('org_id', orgId).order('created_at', { ascending: false }),
+    supabase.from('admin_coach_payout_transfers').select('*').eq('org_id', orgId).order('created_at', { ascending: false }),
+    supabase.from('coach_profiles').select('id,level,xp,qr_tricks_approved,stripe_account_id').eq('org_id', orgId),
   ]);
 
   if (purchasesResult.error) throw purchasesResult.error;
@@ -1679,27 +2875,86 @@ function normalizeAdminSeedText(value) {
     .trim();
 }
 
+// Notify a coach by e-mail that their account has been approved. Called by the
+// web admin after a successful approval RPC. Admin-only and org-scoped.
+app.post('/api/admin/coaches/:coachId/notify-approved', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const coachId = requiredString(request.params.coachId, 'coachId');
+
+  const { data: coach, error: coachError } = await supabase
+    .from('coach_profiles')
+    .select('org_id')
+    .eq('id', coachId)
+    .maybeSingle();
+  if (coachError) throw coachError;
+  if (!coach) throw httpError('Trenér nenalezen.', 404);
+  if ((coach.org_id || VYS_ORG_ID) !== orgId) {
+    throw httpError('Můžete spravovat pouze trenéry vlastní organizace.', 403);
+  }
+
+  // Resolve the coach's e-mail + name (app_profiles, then auth.users fallback).
+  const { data: coachProfile } = await supabase
+    .from('app_profiles')
+    .select('email,name')
+    .eq('id', coachId)
+    .maybeSingle();
+
+  let to = normalizedEmail(coachProfile?.email);
+  let coachName = optionalString(coachProfile?.name);
+  if (!to) {
+    try {
+      const { data: authMeta } = await supabase.rpc('teamvys_get_coach_auth_meta', { p_coach_ids: [coachId] });
+      const meta = Array.isArray(authMeta) ? authMeta[0] : null;
+      to = normalizedEmail(meta?.email);
+      coachName = coachName || optionalString(meta?.full_name);
+    } catch (metaError) {
+      console.warn(`Coach auth meta lookup failed for ${coachId}: ${metaError.message}`);
+    }
+  }
+
+  // Resolve org name for the e-mail body.
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('name')
+    .eq('id', orgId)
+    .maybeSingle();
+
+  await safelySendCoachApprovalEmail(to, coachName, org?.name);
+  response.json({ ok: true, emailed: Boolean(to) });
+}));
+
 app.post('/api/admin/coaches/:coachId/stripe-onboarding', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
   requireStripe();
 
   const coachId = requiredString(request.params.coachId, 'coachId');
   const returnUrl = requiredString(request.body.returnUrl, 'returnUrl');
   const refreshUrl = requiredString(request.body.refreshUrl, 'refreshUrl');
 
-  // Look up existing stripe_account_id for this coach
   const { data: profileData } = await supabase
     .from('coach_profiles')
-    .select('stripe_account_id')
+    .select('org_id,stripe_account_id')
     .eq('id', coachId)
     .maybeSingle();
+  if (!profileData) throw httpError('Trenér nebyl nalezen.', 404);
+
+  if ((profileData.org_id || VYS_ORG_ID) !== orgId) {
+    throw httpError('Můžete spravovat pouze trenéry vlastní organizace.', 403);
+  }
+
+  const coachOrgId = profileData.org_id || VYS_ORG_ID;
+  const coachStripe = await requireOrgStripe(coachOrgId);
 
   let accountId = profileData?.stripe_account_id ?? null;
 
   // Create Express account if not yet set
   if (!accountId) {
-    const account = await stripe.accounts.create({ type: 'express', country: 'CZ' });
+    const account = await coachStripe.accounts.create({ type: 'express', country: 'CZ' });
     accountId = account.id;
 
     await supabase
@@ -1709,7 +2964,7 @@ app.post('/api/admin/coaches/:coachId/stripe-onboarding', asyncRoute(async (requ
   }
 
   // Generate a fresh onboarding link (valid ~5 min)
-  const accountLink = await stripe.accountLinks.create({
+  const accountLink = await coachStripe.accountLinks.create({
     account: accountId,
     refresh_url: refreshUrl,
     return_url: returnUrl,
@@ -1721,7 +2976,7 @@ app.post('/api/admin/coaches/:coachId/stripe-onboarding', asyncRoute(async (requ
 
 app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const actor = await requireAdmin(request);
   requireStripe();
 
   const coachId = requiredString(request.body.coachId, 'coachId');
@@ -1738,6 +2993,27 @@ app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
   if (!Number.isFinite(amount) || amount <= 0) throw new Error('Payout amount must be greater than 0.');
   if (todayIsoDate() < availableFrom) throw new Error(`Výplatu za ${periodKey} lze poslat nejdříve ${availableFrom}.`);
 
+  // Resolve the organization of the admin and of the coach so payouts stay
+  // org-scoped. VYS coaches are paid from the platform balance; coaches of an
+  // external org are paid from THAT org's own connected Stripe balance.
+  const { data: actorProfile } = await supabase
+    .from('app_profiles')
+    .select('org_id')
+    .eq('id', actor.id)
+    .maybeSingle();
+  const actorOrgId = actorProfile?.org_id || VYS_ORG_ID;
+
+  const { data: coachProfile } = await supabase
+    .from('coach_profiles')
+    .select('org_id')
+    .eq('id', coachId)
+    .maybeSingle();
+  const coachOrgId = coachProfile?.org_id || VYS_ORG_ID;
+
+  if (actorOrgId !== VYS_ORG_ID && coachOrgId !== actorOrgId) {
+    throw httpError('Můžete vyplácet pouze trenéry vlastní organizace.', 403);
+  }
+
   const { data: existingTransfer, error: existingTransferError } = await supabase
     .from('admin_coach_payout_transfers')
     .select('id,status')
@@ -1750,13 +3026,18 @@ app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
   if (existingTransferError) throw existingTransferError;
   if (existingTransfer) throw new Error('Tento trenér už má výplatu za daný měsíc odeslanou.');
 
-  const transfer = await stripe.transfers.create({
+  // Use the org's own Stripe client for the transfer.
+  const payoutStripe = await requireOrgStripe(coachOrgId);
+
+  const transferParams = {
     amount: amount * 100,
     currency: 'czk',
     destination: stripeAccountId,
-    description: `TeamVYS výplata ${coachName} ${periodKey}`,
-    metadata: { coach_id: coachId, coach_name: coachName, period_key: periodKey, period_start: periodStart, period_end: periodEnd, calculated_amount: String(calculatedAmount) },
-  });
+    description: `Výplata ${coachName} ${periodKey}`,
+    metadata: { coach_id: coachId, coach_name: coachName, period_key: periodKey, period_start: periodStart, period_end: periodEnd, calculated_amount: String(calculatedAmount), org_id: coachOrgId },
+  };
+
+  const transfer = await payoutStripe.transfers.create(transferParams);
 
   const row = {
     id: `coach-payout-${coachId}-${periodKey}`,
@@ -1774,6 +3055,7 @@ app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
     stripe_payout_id: null,
     created_at_text: createdAtText(),
     available_from: availableFrom,
+    org_id: coachOrgId,
   };
 
   const { data, error } = await supabase
@@ -1811,11 +3093,13 @@ app.post('/api/admin/products/video-upload-url', asyncRoute(async (request, resp
 
 app.get('/api/admin/invoices', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
 
   const { data, error } = await supabase
     .from('invoices')
     .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,created_at')
+    .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -1824,7 +3108,8 @@ app.get('/api/admin/invoices', asyncRoute(async (request, response) => {
 
 app.post('/api/admin/invoices', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
 
   const invoice = request.body.invoice || {};
   const amount = Math.round(Number(invoice.amount || 0));
@@ -1841,6 +3126,7 @@ app.post('/api/admin/invoices', asyncRoute(async (request, response) => {
     datum_zaplaceni: invoice.paid ? optionalString(invoice.paidDate) || todayIsoDate() : null,
     kategorie: optionalString(invoice.category),
     file_url: optionalString(invoice.fileUrl),
+    org_id: orgId,
   };
 
   const { data, error } = await supabase
@@ -1855,7 +3141,8 @@ app.post('/api/admin/invoices', asyncRoute(async (request, response) => {
 
 app.patch('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
 
   const id = requiredString(request.params.id, 'invoice id');
   const paid = Boolean(request.body.paid);
@@ -1863,6 +3150,7 @@ app.patch('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
     .from('invoices')
     .update({ zaplaceno: paid, datum_zaplaceni: paid ? todayIsoDate() : null })
     .eq('id', id)
+    .eq('org_id', orgId)
     .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,created_at')
     .single();
 
@@ -1872,21 +3160,24 @@ app.patch('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
 
 app.delete('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
 
   const id = requiredString(request.params.id, 'invoice id');
-  const { error } = await supabase.from('invoices').delete().eq('id', id);
+  const { error } = await supabase.from('invoices').delete().eq('id', id).eq('org_id', orgId);
   if (error) throw error;
   response.json({ ok: true });
 }));
 
 app.get('/api/admin/products', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category')
+    .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -1895,20 +3186,34 @@ app.get('/api/admin/products', asyncRoute(async (request, response) => {
 
 app.post('/api/admin/products', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
 
   const product = request.body.product;
   if (!product || typeof product.id !== 'string' || product.id.trim().length === 0) {
     throw new Error('Invalid product: id is required.');
   }
 
-  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published'];
+  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'map_query', 'latitude', 'longitude', 'skill_category'];
   const row = Object.fromEntries(Object.entries(product).filter(([key]) => allowed.includes(key)));
 
   requiredString(row.type, 'type');
   requiredString(row.title, 'title');
   requiredString(row.city, 'city');
   requiredString(row.place, 'place');
+
+  // Org separation: a product always belongs to the admin's organization.
+  // If the product already exists, it must belong to the same org (no cross-org edits).
+  const { data: existing, error: existingError } = await supabase
+    .from('products')
+    .select('org_id')
+    .eq('id', row.id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing && existing.org_id && existing.org_id !== orgId) {
+    throw httpError('Tento produkt patří jiné organizaci.', 403);
+  }
+  row.org_id = orgId;
 
   const { data, error } = await supabase
     .from('products')
@@ -1922,14 +3227,15 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
 
 app.delete('/api/admin/products/:id', asyncRoute(async (request, response) => {
   requireServices();
-  await requireAdmin(request);
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
 
   const id = request.params.id;
   if (!id) {
     throw new Error('Product id is required.');
   }
 
-  const { error } = await supabase.from('products').delete().eq('id', id);
+  const { error } = await supabase.from('products').delete().eq('id', id).eq('org_id', orgId);
   if (error) throw error;
   response.json({ ok: true });
 }));
@@ -1943,6 +3249,36 @@ app.delete('/api/admin/products/:id', asyncRoute(async (request, response) => {
 
 const ORG_MONTHLY_PRICE_CZK = 790;
 const ORG_TRIAL_DAYS = 30;
+const ORG_SELF_REGISTRATION_ENABLED = true;
+
+// Subscription packages an organization can pick at registration. Longer plans
+// are billed as a single recurring Stripe price (e.g. every 6 months) at a
+// discount vs. paying month-by-month. Prices are the TOTAL charged per period.
+const ORG_PLANS = {
+  monthly: {
+    label: 'Měsíční',
+    priceCzk: 790,
+    recurring: { interval: 'month', interval_count: 1 },
+    productName: 'TeamVYS platforma — měsíční předplatné',
+    periodNote: '790 Kč měsíčně',
+  },
+  halfyear: {
+    label: 'Půlroční',
+    priceCzk: 4620, // 6× 790 = 4740, sleva 120 Kč
+    recurring: { interval: 'month', interval_count: 6 },
+    productName: 'TeamVYS platforma — půlroční předplatné',
+    periodNote: '4 620 Kč / 6 měsíců (sleva 120 Kč)',
+  },
+  yearly: {
+    label: 'Roční',
+    priceCzk: 9000, // 12× 790 = 9480, sleva 480 Kč
+    recurring: { interval: 'year', interval_count: 1 },
+    productName: 'TeamVYS platforma — roční předplatné',
+    periodNote: '9 000 Kč / rok (sleva 480 Kč)',
+  },
+};
+const ORG_DEFAULT_PLAN = 'monthly';
+
 
 // Organization existence verification — the IČO must exist in the Czech
 // business registry (ARES). Returns the official registered name.
@@ -1997,6 +3333,52 @@ async function orgByStripeCustomerId(customerId) {
   return data || null;
 }
 
+async function findAuthUserByEmail(email) {
+  const target = normalizedEmail(email);
+  let page = 1;
+  for (;;) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const match = (data?.users || []).find((user) => normalizedEmail(user.email) === target);
+    if (match) return match;
+    if (!data || (data.users || []).length < 200) return null;
+    page += 1;
+    if (page > 50) return null; // safety bound
+  }
+}
+
+// Create the org admin auth account with the password chosen at registration.
+// Returns the auth user id. If an account with this email already exists, we
+// only reset its password when it's our own abandoned-registration orphan
+// (flagged org_registration_pending) — never an existing real account, which
+// would be an account-takeover vector since e-mail ownership isn't verified.
+async function upsertPendingOrgAdminUser(email, password, adminName) {
+  const { data: created, error: createError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { role: 'admin', name: adminName, org_registration_pending: 'true' },
+  });
+  if (!createError) return created?.user?.id || null;
+
+  if (!/already.*registered|already.*exists|email.*exists/i.test(createError.message || '')) {
+    throw createError;
+  }
+
+  const existing = await findAuthUserByEmail(email);
+  const isOurOrphan = existing && existing.user_metadata?.org_registration_pending === 'true';
+  if (!existing || !isOurOrphan) {
+    throw httpError('Tento e-mail už má účet na TeamVYS. Přihlaste se, nebo použijte jiný e-mail.', 409);
+  }
+
+  const { error: updateError } = await supabase.auth.admin.updateUserById(existing.id, {
+    password,
+    user_metadata: { ...(existing.user_metadata || {}), role: 'admin', name: adminName, org_registration_pending: 'true' },
+  });
+  if (updateError) throw updateError;
+  return existing.id;
+}
+
 async function provisionOrganizationFromCheckout(session) {
   const metadata = session.metadata || {};
   const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
@@ -2009,8 +3391,11 @@ async function provisionOrganizationFromCheckout(session) {
   const orgName = requiredString(metadata.org_name, 'org_name');
   const contactEmail = requiredString(metadata.contact_email, 'contact_email').toLowerCase();
   const adminName = requiredString(metadata.admin_name, 'admin_name');
+  const adminUserId = optionalString(metadata.admin_user_id);
   const ico = optionalString(metadata.ico);
   const aresName = optionalString(metadata.ares_name);
+  const legalVersion = optionalString(metadata.legal_version) || 'unknown';
+  const consentAt = new Date().toISOString();
 
   // Approval gate: new orgs are NOT live after checkout. The super admin must
   // approve them in /admin/organizace; only then does the 30-day trial start.
@@ -2027,6 +3412,10 @@ async function provisionOrganizationFromCheckout(session) {
       stripe_customer_id: customerId,
       subscription_status: 'pending_approval',
       trial_ends_at: null,
+      terms_accepted_at: consentAt,
+      terms_version: legalVersion,
+      dpa_accepted_at: consentAt,
+      dpa_version: legalVersion,
       feature_flags: {
         org_type: 'external',
         participant_wristbands: false,
@@ -2039,7 +3428,7 @@ async function provisionOrganizationFromCheckout(session) {
         trainer_qr_codes: false,
         trainer_spots: false,
         trainer_leaderboard_qr_xp: false,
-        trainer_camps: false,
+        trainer_camps: true,
         shared_arenas: true,
         shared_mascots: true,
         shared_attendance_quest_map: true,
@@ -2050,25 +3439,65 @@ async function provisionOrganizationFromCheckout(session) {
     .single();
   if (orgError) throw orgError;
 
+  // Audit trail: kept even if the org row is later deleted.
+  await supabase.from('legal_consents').insert([
+    { subject_type: 'organization', subject_id: org.id, consent_type: 'terms', version: legalVersion, accepted_at: consentAt },
+    { subject_type: 'organization', subject_id: org.id, consent_type: 'dpa', version: legalVersion, accepted_at: consentAt },
+  ]);
+
   // Allow the admin email through the existing admin-invite gate, scoped to the new org.
   const { error: inviteError } = await supabase
     .from('admin_account_invites')
     .upsert({ email: contactEmail, active: true, note: `Org registration: ${orgName}`, org_id: org.id }, { onConflict: 'email' });
   if (inviteError) throw inviteError;
 
-  // Create the org admin auth account; the org-aware signup trigger stamps org_id.
-  const { data: created, error: createError } = await supabase.auth.admin.createUser({
-    email: contactEmail,
-    email_confirm: true,
-    user_metadata: { role: 'admin', name: adminName, org_id: org.id },
-  });
-  if (createError && !/already.*registered|already.*exists/i.test(createError.message || '')) throw createError;
+  // Promote the auth account (created at registration with the chosen password)
+  // to admin of the new org. app_profiles is the source of truth for server-side
+  // admin checks; updating org_id also fires the membership-sync trigger.
+  let provisionedUserId = adminUserId || null;
+  if (adminUserId) {
+    try {
+      await supabase.auth.admin.updateUserById(adminUserId, {
+        user_metadata: { role: 'admin', name: adminName, org_id: org.id },
+      });
+    } catch (metaError) {
+      console.warn(`Org provisioning: auth metadata update failed for ${adminUserId}: ${metaError.message}`);
+    }
+    const { error: profileError } = await supabase
+      .from('app_profiles')
+      .update({ role: 'admin', org_id: org.id, name: adminName, email: contactEmail })
+      .eq('id', adminUserId);
+    if (profileError) console.warn(`Org provisioning: app_profiles promote failed for ${adminUserId}: ${profileError.message}`);
 
-  // The welcome email (with password-setup link) is sent on approval; here we
-  // only notify the super admin that a new org is waiting.
+    // The signup trigger created a default VYS membership before the org existed
+    // (org_id defaulted to VYS). Updating app_profiles.org_id above adds the new
+    // org membership via the sync trigger, but the stale VYS membership lingers
+    // and would leak VYS data through org-scoped RLS. Remove every membership
+    // except the new org so the admin sees ONLY their organization.
+    const { error: membershipError } = await supabase
+      .from('organization_members')
+      .delete()
+      .eq('profile_id', adminUserId)
+      .neq('org_id', org.id);
+    if (membershipError) console.warn(`Org provisioning: stale membership cleanup failed for ${adminUserId}: ${membershipError.message}`);
+  } else {
+    // Fallback for legacy sessions without a pre-created account: create the
+    // user now; the org-aware signup trigger stamps role/org_id.
+    const { data: created, error: createError } = await supabase.auth.admin.createUser({
+      email: contactEmail,
+      email_confirm: true,
+      user_metadata: { role: 'admin', name: adminName, org_id: org.id },
+    });
+    if (createError && !/already.*registered|already.*exists/i.test(createError.message || '')) throw createError;
+    provisionedUserId = created?.user?.id || null;
+  }
+
+  // No password e-mail to the org admin here — the password already exists and
+  // the approval e-mail is sent only after the super admin approves the org.
+  // The super admin gets a heads-up that a new org is waiting for review.
   await safelySendOrgPendingApprovalEmail(org, adminName);
   console.info(`Provisioned organization ${org.id} (${orgName}) for Stripe customer ${customerId} — pending super admin approval.`);
-  return { ...org, adminUserId: created?.user?.id || null };
+  return { ...org, adminUserId: provisionedUserId };
 }
 
 async function handleOrgInvoicePaid(invoice) {
@@ -2112,7 +3541,7 @@ async function syncOrgSubscriptionStatus(subscription, isDeleted) {
   if (error) throw error;
 }
 
-async function sendOrgOnboardingEmail(org, adminName, actionLink, trialEndsAt) {
+async function sendOrgOnboardingEmail(org, adminName, trialEndsAt) {
   const emailer = paymentEmailer();
   if (!emailer || !org.contact_email) {
     console.info(`Org onboarding email skipped for ${org.id}: SMTP not configured or missing contact email.`);
@@ -2123,13 +3552,12 @@ async function sendOrgOnboardingEmail(org, adminName, actionLink, trialEndsAt) {
   const lines = [
     `Dobrý den, ${adminName},`,
     '',
-    `vítejte na platformě TeamVYS! Organizace ${org.name} je aktivní.`,
+    `vaše organizace ${org.name} byla schválena a je aktivní. Vítejte na platformě TeamVYS!`,
     '',
     `Zkušební období zdarma běží do ${trialEndDate}. Poté se účtuje ${ORG_MONTHLY_PRICE_CZK} Kč měsíčně.`,
     '',
-    actionLink ? `Nastavte si heslo a přihlaste se: ${actionLink}` : `Nastavte si heslo přes „Zapomenuté heslo" na ${WEB_APP_URL}/sign-in`,
-    '',
-    `Administrace organizace: ${WEB_APP_URL}/sign-in (záložka Admin)`,
+    `Přihlaste se do administrace na ${WEB_APP_URL}/admin/prihlaseni`,
+    'e-mailem a heslem, které jste si zvolili při registraci.',
     '',
     'První kroky: nahrajte logo, pozvěte prvního trenéra a založte první kroužek.',
     '',
@@ -2139,7 +3567,7 @@ async function sendOrgOnboardingEmail(org, adminName, actionLink, trialEndsAt) {
   await emailer.sendMail({
     from: smtpFrom,
     to: org.contact_email,
-    subject: `Vítejte na TeamVYS — ${org.name}`,
+    subject: `Organizace ${org.name} byla schválena — TeamVYS`,
     text: lines.join('\n'),
   });
 }
@@ -2163,7 +3591,7 @@ async function sendOrgTrialEndingEmail(subscription) {
 
 // --- Super admin approval gate (Phase 8) -----------------------------------
 
-const WEB_APP_URL = process.env.WEB_APP_URL || 'https://vys-web.vercel.app';
+const WEB_APP_URL = process.env.WEB_APP_URL || 'https://teamvys.cz';
 
 async function superAdminEmails() {
   const { data, error } = await supabase
@@ -2333,18 +3761,28 @@ function assertOrgRegisterRateLimit(request) {
 app.post('/api/orgs/register', asyncRoute(async (request, response) => {
   requireServices();
   requireStripe();
+  if (!ORG_SELF_REGISTRATION_ENABLED) throw httpError('Registrace nové organizace je momentálně vypnutá.', 403);
   assertOrgRegisterRateLimit(request);
 
   const orgName = requiredString(request.body.orgName, 'orgName');
   const contactEmail = requiredString(request.body.contactEmail, 'contactEmail').toLowerCase();
   const adminFirstName = requiredString(request.body.adminFirstName, 'adminFirstName');
   const adminLastName = requiredString(request.body.adminLastName, 'adminLastName');
+  const password = requiredString(request.body.password, 'password');
   const sportType = optionalString(request.body.sportType);
   const city = optionalString(request.body.city);
   const successUrl = requiredString(request.body.successUrl, 'successUrl');
   const cancelUrl = requiredString(request.body.cancelUrl, 'cancelUrl');
+  const legalVersion = requiredString(request.body.legalVersion, 'legalVersion');
+  if (request.body.acceptedTerms !== true) throw httpError('Musíte souhlasit s obchodními podmínkami a zpracováním osobních údajů.', 400);
+  if (request.body.acceptedDpa !== true) throw httpError('Musíte souhlasit se zpracovatelskou smlouvou.', 400);
+
+  const planKey = optionalString(request.body.plan) || ORG_DEFAULT_PLAN;
+  const plan = ORG_PLANS[planKey];
+  if (!plan) throw httpError('Neplatný balíček předplatného.', 400);
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) throw httpError('Neplatný kontaktní e-mail.', 400);
+  if (password.length < 8) throw httpError('Heslo musí mít alespoň 8 znaků.', 400);
 
   // Existence verification: the IČO must be a real subject in ARES.
   const { ico, aresName } = await verifyIcoInAres(requiredString(request.body.ico, 'ico'));
@@ -2369,15 +3807,26 @@ app.post('/api/orgs/register', asyncRoute(async (request, response) => {
   if (icoDuplicateError) throw icoDuplicateError;
   if (icoDuplicate) throw httpError('Organizace s tímto IČO už existuje.', 409);
 
+  const adminName = `${adminFirstName} ${adminLastName}`;
+
+  // Create the org admin auth account with the password chosen right here at
+  // registration. The account exists immediately but can't reach the admin
+  // until the super admin approves the org (org stays pending_approval).
+  // No password-setup e-mail is sent — the admin already has their password.
+  const adminUserId = await upsertPendingOrgAdminUser(contactEmail, password, adminName);
+
   const orgMetadata = {
     org_registration: 'true',
     org_name: orgName,
     sport_type: sportType || '',
     city: city || '',
     contact_email: contactEmail,
-    admin_name: `${adminFirstName} ${adminLastName}`,
+    admin_name: adminName,
+    admin_user_id: adminUserId || '',
     ico,
     ares_name: aresName || '',
+    plan: planKey,
+    legal_version: legalVersion,
   };
 
   const session = await stripe.checkout.sessions.create({
@@ -2391,11 +3840,11 @@ app.post('/api/orgs/register', asyncRoute(async (request, response) => {
         quantity: 1,
         price_data: {
           currency: 'czk',
-          unit_amount: ORG_MONTHLY_PRICE_CZK * 100,
-          recurring: { interval: 'month' },
+          unit_amount: plan.priceCzk * 100,
+          recurring: plan.recurring,
           product_data: {
-            name: 'TeamVYS platforma — měsíční předplatné',
-            description: `Organizace ${orgName} · první měsíc zdarma`,
+            name: plan.productName,
+            description: `Organizace ${orgName} · první měsíc zdarma · ${plan.periodNote}`,
           },
         },
       },
@@ -2408,6 +3857,554 @@ app.post('/api/orgs/register', asyncRoute(async (request, response) => {
   });
 
   response.json({ id: session.id, url: session.url });
+}));
+
+// Public endpoint: finalize an org registration straight from the success
+// page. The session is re-fetched from Stripe server-side, so the client
+// cannot forge anything — this makes registration work even when the Stripe
+// webhook is missing or delayed. Idempotent via orgByStripeCustomerId.
+app.post('/api/orgs/finalize', asyncRoute(async (request, response) => {
+  requireServices();
+  requireStripe();
+  if (!ORG_SELF_REGISTRATION_ENABLED) throw httpError('Registrace nové organizace je momentálně vypnutá.', 403);
+
+  const sessionId = requiredString(request.body.sessionId, 'sessionId');
+  if (!/^cs_(test|live)_[A-Za-z0-9]+$/.test(sessionId)) throw httpError('Neplatné ID platební session.', 400);
+
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  if (session.mode !== 'subscription' || session.metadata?.org_registration !== 'true') {
+    throw httpError('Session nepatří k registraci organizace.', 400);
+  }
+  if (session.status !== 'complete') throw httpError('Platba ještě není dokončená.', 409);
+
+  const org = await provisionOrganizationFromCheckout(session);
+  response.json({ ok: true, orgId: org.id, orgName: org.name, contactEmail: org.contact_email });
+}));
+
+// --- Stripe Connect for organizations ---------------------------------------
+// Each external org onboards its own Stripe Express account; parent payments
+// for the org's products are routed there via destination charges.
+async function requireOrgAdminWithOrg(request) {
+  const profile = await requireAdmin(request);
+
+  const { data: profileRow, error } = await supabase
+    .from('app_profiles')
+    .select('org_id')
+    .eq('id', profile.id)
+    .maybeSingle();
+  if (error) throw error;
+
+  const orgId = profileRow?.org_id || VYS_ORG_ID;
+  if (orgId === VYS_ORG_ID) throw httpError('Platformní organizace TeamVYS přijímá platby přímo — Stripe Connect není potřeba.', 400);
+
+  const { data: org, error: orgError } = await supabase
+    .from('organizations')
+    .select('id,name,contact_email,subscription_status,stripe_connect_account_id,stripe_connect_charges_enabled')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (orgError) throw orgError;
+  if (!org) throw httpError('Organizace nebyla nalezena.', 404);
+  return { profile, org };
+}
+
+// Like requireOrgAdminWithOrg but does NOT reject the VYS platform org. Used for
+// settings that every org (incl. VYS) can manage, e.g. default coach hourly rate.
+async function requireAnyAdminOrg(request) {
+  const profile = await requireAdmin(request);
+
+  const { data: profileRow, error } = await supabase
+    .from('app_profiles')
+    .select('org_id')
+    .eq('id', profile.id)
+    .maybeSingle();
+  if (error) throw error;
+
+  const orgId = profileRow?.org_id || VYS_ORG_ID;
+
+  const { data: org, error: orgError } = await supabase
+    .from('organizations')
+    .select('id,name')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (orgError) throw orgError;
+  if (!org) throw httpError('Organizace nebyla nalezena.', 404);
+  return { profile, org };
+}
+
+// Org admin: create / resume Stripe Express onboarding for the organization.
+app.post('/api/orgs/connect/onboarding', asyncRoute(async (request, response) => {
+  requireServices();
+  requireStripe();
+  const { org } = await requireOrgAdminWithOrg(request);
+
+  const returnUrl = requiredString(request.body.returnUrl, 'returnUrl');
+  const refreshUrl = requiredString(request.body.refreshUrl, 'refreshUrl');
+
+  let accountId = org.stripe_connect_account_id;
+  if (!accountId) {
+    const account = await stripe.accounts.create({
+      type: 'express',
+      country: 'CZ',
+      email: org.contact_email || undefined,
+      business_profile: { name: org.name },
+      metadata: { org_id: org.id, org_name: org.name },
+    });
+    accountId = account.id;
+
+    const { error: updateError } = await supabase
+      .from('organizations')
+      .update({ stripe_connect_account_id: accountId })
+      .eq('id', org.id);
+    if (updateError) throw updateError;
+  }
+
+  const accountLink = await stripe.accountLinks.create({
+    account: accountId,
+    refresh_url: refreshUrl,
+    return_url: returnUrl,
+    type: 'account_onboarding',
+  });
+
+  response.json({ accountId, onboardingUrl: accountLink.url });
+}));
+
+// Org admin: current Connect status (also syncs charges_enabled from Stripe).
+app.get('/api/orgs/connect/status', asyncRoute(async (request, response) => {
+  requireServices();
+  requireStripe();
+  const { org } = await requireOrgAdminWithOrg(request);
+
+  if (!org.stripe_connect_account_id) {
+    response.json({ connected: false, chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false });
+    return;
+  }
+
+  const account = await stripe.accounts.retrieve(org.stripe_connect_account_id);
+  const chargesEnabled = account.charges_enabled === true;
+
+  if (chargesEnabled !== org.stripe_connect_charges_enabled) {
+    await supabase
+      .from('organizations')
+      .update({ stripe_connect_charges_enabled: chargesEnabled })
+      .eq('id', org.id);
+  }
+
+  response.json({
+    connected: true,
+    accountId: org.stripe_connect_account_id,
+    chargesEnabled,
+    payoutsEnabled: account.payouts_enabled === true,
+    detailsSubmitted: account.details_submitted === true,
+  });
+}));
+
+// GET /api/orgs/stripe/status — returns per-org Stripe configuration status.
+// Returns whether keys are configured + publishable key (safe to share).
+// Used by admin panel to show "Stripe je nastavený" vs setup form.
+app.get('/api/orgs/stripe/status', asyncRoute(async (request, response) => {
+  requireServices();
+  const { org } = await requireOrgAdminWithOrg(request);
+
+  // VYS is always configured via env vars.
+  if (org.id === VYS_ORG_ID) {
+    response.json({ configured: true, publishableKey: null, webhookConfigured: false, isVys: true });
+    return;
+  }
+
+  const { data: orgData, error } = await supabase
+    .from('organizations')
+    .select('stripe_secret_key,stripe_publishable_key,stripe_webhook_secret')
+    .eq('id', org.id)
+    .maybeSingle();
+  if (error) throw error;
+
+  const secretConfigured = Boolean(orgData?.stripe_secret_key);
+
+  // Verify the key is valid by making a lightweight Stripe API call.
+  let keyValid = false;
+  if (secretConfigured) {
+    try {
+      const testClient = new Stripe(orgData.stripe_secret_key);
+      await testClient.balance.retrieve();
+      keyValid = true;
+    } catch {
+      keyValid = false;
+    }
+  }
+
+  response.json({
+    configured: secretConfigured && keyValid,
+    publishableKey: orgData?.stripe_publishable_key || null,
+    webhookConfigured: Boolean(orgData?.stripe_webhook_secret),
+    webhookUrl: `https://server-psi-ochre-40.vercel.app/api/stripe/webhook?org_id=${org.id}`,
+    isVys: false,
+    keyValid,
+  });
+}));
+
+// POST /api/orgs/stripe/save-keys — saves org's own Stripe API keys.
+// Admin-only. Validates the secret key against Stripe before saving.
+app.post('/api/orgs/stripe/save-keys', asyncRoute(async (request, response) => {
+  requireServices();
+  const { org } = await requireOrgAdminWithOrg(request);
+
+  if (org.id === VYS_ORG_ID) {
+    throw httpError('VYS organizace používá globální Stripe klíče z prostředí.', 400);
+  }
+
+  const secretKey = requiredString(request.body.secretKey, 'secretKey');
+  const publishableKey = requiredString(request.body.publishableKey, 'publishableKey');
+  const webhookSecret = optionalString(request.body.webhookSecret);
+
+  if (!secretKey.startsWith('sk_')) throw httpError('Zadej platný Stripe secret key (začíná sk_).', 400);
+  if (!publishableKey.startsWith('pk_')) throw httpError('Zadej platný Stripe publishable key (začíná pk_).', 400);
+
+  // Validate secret key against Stripe.
+  try {
+    const testClient = new Stripe(secretKey);
+    await testClient.balance.retrieve();
+  } catch (stripeError) {
+    throw httpError(`Stripe secret key není platný: ${stripeError.message}`, 400);
+  }
+
+  // Invalidate cache for this org.
+  orgStripeCache.delete(org.id);
+
+  await supabase
+    .from('organizations')
+    .update({
+      stripe_secret_key: secretKey,
+      stripe_publishable_key: publishableKey,
+      ...(webhookSecret ? { stripe_webhook_secret: webhookSecret } : {}),
+    })
+    .eq('id', org.id);
+
+  response.json({ ok: true, webhookUrl: `https://server-psi-ochre-40.vercel.app/api/stripe/webhook?org_id=${org.id}` });
+}));
+
+// DELETE /api/orgs/stripe/keys — removes org's Stripe keys (disconnect).
+app.delete('/api/orgs/stripe/keys', asyncRoute(async (request, response) => {
+  requireServices();
+  const { org } = await requireOrgAdminWithOrg(request);
+
+  if (org.id === VYS_ORG_ID) throw httpError('VYS nelze odpojit.', 400);
+
+  orgStripeCache.delete(org.id);
+
+  await supabase
+    .from('organizations')
+    .update({ stripe_secret_key: null, stripe_publishable_key: null, stripe_webhook_secret: null })
+    .eq('id', org.id);
+
+  response.json({ ok: true });
+}));
+
+// GET /api/orgs/coach-rate — returns the org's default coach hourly rate.
+app.get('/api/orgs/coach-rate', asyncRoute(async (request, response) => {
+  requireServices();
+  const { org } = await requireAnyAdminOrg(request);
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('default_coach_hourly_rate')
+    .eq('id', org.id)
+    .maybeSingle();
+  if (error) throw error;
+
+  response.json({ defaultCoachHourlyRate: data?.default_coach_hourly_rate ?? 500 });
+}));
+
+// POST /api/orgs/coach-rate — sets the org's default coach hourly rate.
+// Admin-only. This is the org-wide fallback; per-coach overrides live in
+// coach_payouts.hourly_rate.
+app.post('/api/orgs/coach-rate', asyncRoute(async (request, response) => {
+  requireServices();
+  const { org } = await requireAnyAdminOrg(request);
+
+  const rate = Number(request.body.defaultCoachHourlyRate);
+  if (!Number.isFinite(rate) || rate < 0 || rate > 100000) {
+    throw httpError('Zadej platnou hodinovou sazbu (0–100000 Kč/h).', 400);
+  }
+
+  const { error } = await supabase
+    .from('organizations')
+    .update({ default_coach_hourly_rate: Math.round(rate) })
+    .eq('id', org.id);
+  if (error) throw error;
+
+  response.json({ ok: true, defaultCoachHourlyRate: Math.round(rate) });
+}));
+
+// GET /api/orgs/dpp-template — returns the org's custom DPP template (role, scope, clauses).
+app.get('/api/orgs/dpp-template', asyncRoute(async (request, response) => {
+  requireServices();
+  const { org } = await requireAnyAdminOrg(request);
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('dpp_role, dpp_scope, dpp_clauses')
+    .eq('id', org.id)
+    .maybeSingle();
+  if (error) throw error;
+
+  response.json({
+    dppRole: data?.dpp_role ?? null,
+    dppScope: data?.dpp_scope ?? null,
+    dppClauses: Array.isArray(data?.dpp_clauses) ? data.dpp_clauses : null,
+  });
+}));
+
+// POST /api/orgs/dpp-template — saves the org's custom DPP template.
+app.post('/api/orgs/dpp-template', asyncRoute(async (request, response) => {
+  requireServices();
+  const { org } = await requireAnyAdminOrg(request);
+
+  const { dppRole, dppScope, dppClauses } = request.body ?? {};
+  if (dppClauses !== undefined && dppClauses !== null && !Array.isArray(dppClauses)) {
+    throw httpError('dppClauses musí být pole nebo null.', 400);
+  }
+  if (Array.isArray(dppClauses) && dppClauses.length > 20) {
+    throw httpError('Maximálně 20 klauzulí.', 400);
+  }
+  if (Array.isArray(dppClauses)) {
+    for (const clause of dppClauses) {
+      if (typeof clause !== 'string' || clause.length > 500) {
+        throw httpError('Každá klauzule musí být text maximálně 500 znaků.', 400);
+      }
+    }
+  }
+
+  const update = {};
+  if (dppRole !== undefined) update.dpp_role = typeof dppRole === 'string' && dppRole.trim() ? dppRole.trim() : null;
+  if (dppScope !== undefined) update.dpp_scope = typeof dppScope === 'string' && dppScope.trim() ? dppScope.trim() : null;
+  if (dppClauses !== undefined) update.dpp_clauses = Array.isArray(dppClauses) && dppClauses.length > 0 ? dppClauses.map((c) => String(c).trim()) : null;
+
+  const { error } = await supabase
+    .from('organizations')
+    .update(update)
+    .eq('id', org.id);
+  if (error) throw error;
+
+  response.json({ ok: true, dppRole: update.dpp_role ?? null, dppScope: update.dpp_scope ?? null, dppClauses: update.dpp_clauses ?? null });
+}));
+
+// --- Phone-based auth for kids without an e-mail address --------------------
+// A child registers with a phone number; the account is created server-side
+// with a deterministic alias e-mail (tel-<digits>@ucty.teamvys.cz) and
+// e-mail confirmation is skipped (there is no real inbox). Login resolves
+// the phone back to the account and verifies the password through Supabase,
+// so no credentials or e-mail addresses ever leak to the client.
+const PHONE_AUTH_RATE_LIMIT = 10;
+const PHONE_AUTH_RATE_WINDOW_MS = 15 * 60 * 1000;
+const phoneAuthHitsByIp = new Map(); // ip -> number[] (timestamps)
+
+function assertPhoneAuthRateLimit(request) {
+  const forwarded = String(request.headers['x-forwarded-for'] || '');
+  const ip = (forwarded.split(',')[0] || request.ip || 'unknown').trim() || 'unknown';
+  const now = Date.now();
+
+  const hits = (phoneAuthHitsByIp.get(ip) || []).filter((timestamp) => now - timestamp < PHONE_AUTH_RATE_WINDOW_MS);
+  if (hits.length >= PHONE_AUTH_RATE_LIMIT) {
+    throw httpError('Příliš mnoho pokusů. Zkus to znovu za 15 minut.', 429);
+  }
+
+  hits.push(now);
+  phoneAuthHitsByIp.set(ip, hits);
+
+  if (phoneAuthHitsByIp.size > 1000) {
+    for (const [key, timestamps] of phoneAuthHitsByIp) {
+      if (!timestamps.some((timestamp) => now - timestamp < PHONE_AUTH_RATE_WINDOW_MS)) phoneAuthHitsByIp.delete(key);
+    }
+  }
+}
+
+function normalizedPhoneDigits(phoneRaw) {
+  const digits = String(phoneRaw).replace(/\D/g, '');
+  if (digits.length < 9 || digits.length > 15) throw httpError('Neplatné telefonní číslo.', 400);
+  return digits;
+}
+
+function phoneAliasEmail(digits) {
+  return `tel-${digits}@ucty.teamvys.cz`;
+}
+
+// Public endpoint: register a participant account with a phone number only.
+app.post('/api/auth/phone-register', asyncRoute(async (request, response) => {
+  requireServices();
+  assertPhoneAuthRateLimit(request);
+
+  const phoneRaw = requiredString(request.body.phone, 'phone');
+  const password = requiredString(request.body.password, 'password');
+  const fullName = optionalString(request.body.fullName) || 'Účastník TeamVYS';
+  const orgId = optionalString(request.body.orgId);
+  const legalVersion = requiredString(request.body.legalVersion, 'legalVersion');
+  if (request.body.acceptedTerms !== true) throw httpError('Musíte souhlasit se zpracováním osobních údajů a obchodními podmínkami.', 400);
+  if (password.length < 6) throw httpError('Heslo musí mít alespoň 6 znaků.', 400);
+
+  const digits = normalizedPhoneDigits(phoneRaw);
+  const aliasEmail = phoneAliasEmail(digits);
+
+  const { data: created, error: createError } = await supabase.auth.admin.createUser({
+    email: aliasEmail,
+    email_confirm: true,
+    password,
+    user_metadata: {
+      role: 'participant',
+      name: fullName,
+      phone: phoneRaw.trim(),
+      phone_login: true,
+      termsVersion: legalVersion,
+      ...(orgId ? { org_id: orgId } : {}),
+    },
+  });
+  if (createError) {
+    if (/already|exist|registered/i.test(createError.message || '')) {
+      throw httpError('Účet s tímto telefonním číslem už existuje. Přihlas se.', 409);
+    }
+    throw createError;
+  }
+
+  response.json({ ok: true, email: aliasEmail, userId: created.user.id });
+}));
+
+// Public endpoint: sign in with a phone number + password. Returns Supabase
+// session tokens; the password is verified by Supabase itself, the server
+// only resolves which account the phone belongs to.
+app.post('/api/auth/phone-login', asyncRoute(async (request, response) => {
+  requireServices();
+  assertPhoneAuthRateLimit(request);
+
+  const phoneRaw = requiredString(request.body.phone, 'phone');
+  const password = requiredString(request.body.password, 'password');
+  const digits = normalizedPhoneDigits(phoneRaw);
+  const lastNine = digits.slice(-9);
+
+  const candidateEmails = [phoneAliasEmail(digits)];
+
+  // Fallback: participant registered with a real e-mail but a phone stored
+  // on the profile — match on the last 9 digits (Czech national number).
+  const { data: profiles, error: profilesError } = await supabase
+    .from('app_profiles')
+    .select('email, phone')
+    .eq('role', 'participant')
+    .not('phone', 'is', null)
+    .not('email', 'is', null)
+    .limit(5000);
+  if (profilesError) throw profilesError;
+
+  for (const profile of profiles || []) {
+    const profileDigits = String(profile.phone).replace(/\D/g, '');
+    if (profileDigits.length >= 9 && profileDigits.slice(-9) === lastNine && !candidateEmails.includes(profile.email)) {
+      candidateEmails.push(profile.email);
+    }
+  }
+
+  // Throwaway client so the password grant never touches the service-role client.
+  const authClient = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  for (const email of candidateEmails.slice(0, 5)) {
+    const { data, error } = await authClient.auth.signInWithPassword({ email, password });
+    if (!error && data?.session) {
+      response.json({ ok: true, access_token: data.session.access_token, refresh_token: data.session.refresh_token });
+      return;
+    }
+  }
+
+  throw httpError('Nesprávné telefonní číslo nebo heslo.', 401);
+}));
+
+// Public endpoint: register a coach account with an e-mail.
+// Uses the admin API with email_confirm:true so no confirmation e-mail is sent —
+// coaches are manually approved by an org admin anyway.
+app.post('/api/auth/coach-register', asyncRoute(async (request, response) => {
+  requireServices();
+
+  const email = requiredString(request.body.email, 'email').trim().toLowerCase();
+  const password = requiredString(request.body.password, 'password');
+  const fullName = optionalString(request.body.fullName) || 'Trenér TeamVYS';
+  const phone = optionalString(request.body.phone) || null;
+  const orgId = optionalString(request.body.orgId) || null;
+  const coachMessage = optionalString(request.body.coachMessage) || null;
+  const legalVersion = requiredString(request.body.legalVersion, 'legalVersion');
+  if (request.body.acceptedTerms !== true) throw httpError('Musíte souhlasit se zpracováním osobních údajů a obchodními podmínkami.', 400);
+
+  if (password.length < 6) throw httpError('Heslo musí mít alespoň 6 znaků.', 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw httpError('Zadej platný e-mail.', 400);
+
+  // Check if an account with this e-mail already exists.
+  const { data: existingUsers, error: listError } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
+  // We can't search by email in listUsers, so attempt to create and let Supabase
+  // return the "already registered" error naturally.
+
+  const { data: created, error: createError } = await supabase.auth.admin.createUser({
+    email,
+    email_confirm: true, // skip email confirmation — coach is approved by org admin
+    password,
+    user_metadata: {
+      role: 'coach',
+      name: fullName,
+      phone: phone ?? undefined,
+      coachMessage: coachMessage ?? undefined,
+      termsVersion: legalVersion,
+      ...(orgId ? { org_id: orgId } : {}),
+    },
+  });
+
+  if (createError) {
+    if (/already|exist|registered/i.test(createError.message || '')) {
+      throw httpError('Účet s tímto e-mailem už existuje. Přihlas se.', 409);
+    }
+    throw createError;
+  }
+
+  // Sign in immediately so the mobile app gets a session.
+  const authClient = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: sessionData, error: signInError } = await authClient.auth.signInWithPassword({ email, password });
+  if (signInError) throw signInError;
+
+  response.json({
+    ok: true,
+    userId: created.user.id,
+    email,
+    access_token: sessionData.session.access_token,
+    refresh_token: sessionData.session.refresh_token,
+  });
+}));
+
+// TEMPORARY diagnostic endpoint: inspect Stripe webhook configuration.
+// Protected by the Supabase service role key — only the operator has it.
+app.get('/api/stripe/debug-webhooks', asyncRoute(async (request, response) => {
+  requireStripe();
+  const token = (request.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token || token !== supabaseServiceKey) {
+    const error = new Error('Unauthorized.');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const endpoints = await stripe.webhookEndpoints.list({ limit: 20 });
+  const events = await stripe.events.list({ limit: 20 });
+  response.json({
+    webhookSecretConfigured: Boolean(stripeWebhookSecret),
+    keyMode: stripeSecretKey.startsWith('sk_test') ? 'test' : (stripeSecretKey.startsWith('sk_live') ? 'live' : 'unknown'),
+    endpoints: endpoints.data.map((endpoint) => ({
+      id: endpoint.id,
+      url: endpoint.url,
+      status: endpoint.status,
+      enabled_events: endpoint.enabled_events,
+      api_version: endpoint.api_version,
+    })),
+    recentEvents: events.data.map((event) => ({
+      id: event.id,
+      type: event.type,
+      created: new Date(event.created * 1000).toISOString(),
+      pending_webhooks: event.pending_webhooks,
+    })),
+  });
 }));
 
 // Super admin only: approve a pending organization — the 30-day trial starts now.
@@ -2427,30 +4424,9 @@ app.post('/api/orgs/:orgId/approve', asyncRoute(async (request, response) => {
 
   await alignStripeTrialEnd(org, trialEndsAt);
 
-  // Welcome email with a password-setup link for the org admin.
-  let actionLink = null;
-  try {
-    const { data: linkData } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: org.contact_email,
-      options: { redirectTo: `${WEB_APP_URL}/sign-in?mode=reset-password` },
-    });
-    actionLink = linkData?.properties?.action_link || null;
-  } catch (linkError) {
-    console.warn(`Org approval: recovery link generation failed for ${org.contact_email}: ${linkError.message}`);
-  }
-
-  // Guaranteed delivery: also trigger Supabase's own recovery email — this
-  // goes through Supabase SMTP and works even when the server has no SMTP_*
-  // configuration (in which case sendOrgOnboardingEmail is silently skipped).
-  try {
-    await supabase.auth.resetPasswordForEmail(org.contact_email, {
-      redirectTo: `${WEB_APP_URL}/sign-in?mode=reset-password`,
-    });
-  } catch (recoveryError) {
-    console.warn(`Org approval: Supabase recovery email failed for ${org.contact_email}: ${recoveryError.message}`);
-  }
-
+  // The org admin already set a password at registration, so no recovery link
+  // is needed — just promote their app_profiles role (in case provisioning's
+  // promotion was missed) and send a simple "approved, log in" e-mail.
   const { data: adminProfile } = await supabase
     .from('app_profiles')
     .select('name')
@@ -2459,7 +4435,7 @@ app.post('/api/orgs/:orgId/approve', asyncRoute(async (request, response) => {
     .maybeSingle();
 
   try {
-    await sendOrgOnboardingEmail(org, adminProfile?.name || 'správce organizace', actionLink, trialEndsAt);
+    await sendOrgOnboardingEmail(org, adminProfile?.name || 'správce organizace', trialEndsAt);
   } catch (emailError) {
     console.error(`Org approval welcome email failed for ${org.id}:`, emailError);
   }

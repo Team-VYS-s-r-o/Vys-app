@@ -283,3 +283,14 @@ a {
     animation: none;
   }
 }
+
+@media (max-width: 639px) {
+  .section-shell {
+    width: min(100% - 40px, 1180px);
+  }
+
+  .hero-outline-text {
+    -webkit-text-stroke-width: 1.5px;
+    text-stroke-width: 1.5px;
+  }
+}

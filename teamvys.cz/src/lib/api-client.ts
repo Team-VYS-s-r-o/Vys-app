@@ -653,9 +653,12 @@ export type AdminProductRow = {
   hero_image?: string;
   gallery: string[];
   map_query?: string;
+  latitude?: number;
+  longitude?: number;
   coach_ids: string[];
   training_focus: string[];
   is_published: boolean;
+  skill_category?: string;
 };
 
 export async function loadAdminProducts(): Promise<AdminProductRow[]> {
@@ -694,6 +697,35 @@ export async function saveAdminProduct(product: AdminProductRow): Promise<{ id: 
 
 export async function deleteAdminProduct(productId: string): Promise<void> {
   await requestJson(`/api/admin/products/${encodeURIComponent(productId)}`, { method: 'DELETE' }, { auth: true });
+}
+
+// ─── Admin broadcasts (parent notification center) ────────────────────────
+
+export type AdminBroadcast = {
+  id: string;
+  title: string;
+  body: string;
+  audience: 'all' | 'selected';
+  recipient_count: number;
+  sender_name: string;
+  created_at: string;
+};
+
+export async function sendBroadcast(payload: {
+  title: string;
+  body: string;
+  audience: 'all' | 'selected';
+  parentProfileIds: string[];
+}): Promise<{ ok: boolean; recipients: number; pushed: number; skipped: number }> {
+  return requestJson('/api/admin/broadcasts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }, { auth: true });
+}
+
+export async function listBroadcasts(): Promise<{ broadcasts: AdminBroadcast[] }> {
+  return requestJson('/api/admin/broadcasts', { method: 'GET', cache: 'no-store' }, { auth: true });
 }
 
 // ─── Admin invoices ──────────────────────────────────────────────────────────

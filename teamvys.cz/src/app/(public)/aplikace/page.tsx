@@ -1,14 +1,15 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Bell, Check, Info, LogIn, Play, PlusSquare, Share } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Bell, Building2, Check, ChevronDown, Gamepad2, Info, LogIn, Play, PlusSquare, Share, Sparkles, Ticket, UserPlus, Users, X, Zap } from 'lucide-react';
 import Image from 'next/image';
+import { useState, type ReactNode } from 'react';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
 const WEB_APP_URL = 'https://vys-expo-web-export.vercel.app/sign-in?source=pwa';
 const WAITLIST_MAILTO =
-  'mailto:info@teamvys.cz' +
+  'mailto:ahoj@teamvys.cz' +
   '?subject=' +
   encodeURIComponent('Chci vědět, až bude aplikace na Google Play') +
   '&body=' +
@@ -136,13 +137,13 @@ export default function AplikacePage() {
               className="pointer-events-none absolute -inset-10 rounded-full bg-[radial-gradient(circle,rgba(139,29,255,0.25),transparent_60%)] blur-2xl"
             />
             <Image
-              src="/telefon-mockup.png"
-              alt="Ukázka aplikace TeamVYS v iPhonu"
+              src="/telefon-web.png"
+              alt="Ukázka aplikace VYS v telefonu"
               width={760}
               height={960}
               priority
               sizes="(min-width: 1024px) 360px, 80vw"
-              className="relative w-full drop-shadow-[0_40px_80px_rgba(0,0,0,0.55)]"
+              className="relative w-full drop-shadow-[0_40px_80px_rgba(0,0,0,0.55)] [-webkit-mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)] [mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)]"
             />
           </div>
         </div>
@@ -196,7 +197,108 @@ export default function AplikacePage() {
           ))}
         </ol>
       </section>
+
+      <HowToBuy />
     </div>
+  );
+}
+
+function Step({ n, icon, title, children }: { n: number; icon: ReactNode; title: string; children: ReactNode }) {
+  return (
+    <li className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-purple to-brand-purple-deep text-sm font-black text-white shadow-[0_10px_24px_rgba(139,29,255,0.4)]">
+          {n}
+        </span>
+        <span className="text-brand-purple-light">{icon}</span>
+        <h3 className="text-base font-black text-white md:text-lg">{title}</h3>
+      </div>
+      <div className="mt-3 text-sm leading-7 text-white/65">{children}</div>
+    </li>
+  );
+}
+
+function HowToBuy() {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="section-shell pb-20 md:pb-28">
+      <div className="mx-auto max-w-[880px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] shadow-[0_30px_80px_rgba(0,0,0,0.4)]">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-4 p-6 text-left transition hover:bg-white/[0.02] md:p-8"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-purple/30 bg-brand-purple/15 text-brand-purple-light">
+            <Sparkles size={22} />
+          </span>
+          <div className="flex-1">
+            <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Návod krok za krokem</p>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-white md:text-3xl">Jak koupit permanentku dítěti</h2>
+            <p className="mt-1 text-sm text-white/50">Od registrace k první lekci za pár minut. Rozklikni si postup.</p>
+          </div>
+          <ChevronDown className={`shrink-0 text-brand-purple-light transition-transform duration-300 ${open ? 'rotate-180' : ''}`} size={26} aria-hidden />
+        </button>
+
+        <AnimatePresence initial={false}>
+          {open ? (
+            <motion.div
+              key="content"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.35, ease }}
+              className="overflow-hidden"
+            >
+              <ol className="space-y-4 p-6 md:p-8">
+                <Step n={1} icon={<UserPlus size={18} />} title="Vytvoř si profil rodiče">
+                  Otevři aplikaci v prohlížeči (tlačítko nahoře) nebo z plochy iPhonu a zaregistruj se jako{' '}
+                  <strong className="text-white">rodič</strong>. Stačí e-mail a heslo — hotovo za minutu.
+                </Step>
+
+                <Step n={2} icon={<Users size={18} />} title="Přidej dítě — vyber si ze dvou možností">
+                  <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white/70"><Zap size={16} /></span>
+                        <p className="text-xs font-black uppercase tracking-wide text-white/50">Rychlá varianta</p>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-white/70">Dítě vytvoříš rovnou ve svém rodičovském profilu. Nejrychlejší cesta k zaplacení.</p>
+                      <p className="mt-3 flex items-start gap-2 text-sm leading-6 text-white/50"><X size={16} className="mt-0.5 shrink-0" /> Dítě ale nevidí své postupy a nemůže hrát hru.</p>
+                    </div>
+                    <div className="relative rounded-2xl border border-brand-purple/30 bg-brand-purple/[0.1] p-5">
+                      <span className="absolute right-3 top-3 rounded-full bg-brand-purple px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">Doporučeno</span>
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-purple/25 text-brand-purple-light"><Gamepad2 size={16} /></span>
+                        <p className="text-xs font-black uppercase tracking-wide text-brand-purple-light">S hrou</p>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-white/75">Dítě si na svém telefonu otevře aplikaci a vytvoří si vlastní <strong className="text-white">profil účastníka</strong>. Pak ho k sobě přidáš pomocí <strong className="text-white">kódu (toho s pomlčkou)</strong>, který dítě najde ve svém profilu.</p>
+                      <ul className="mt-4 space-y-2.5">
+                        {['Sleduje vlastní progres a XP', 'Sbírá barevné náramky a hraje hru', 'Ty ho máš propojeného ve svém přehledu'].map((b) => (
+                          <li key={b} className="flex items-start gap-2 text-sm leading-6 text-white/70">
+                            <Check size={15} strokeWidth={3} className="mt-1 shrink-0 text-brand-purple-light" />
+                            {b}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </Step>
+
+                <Step n={3} icon={<Building2 size={18} />} title="Vyber organizaci">
+                  V nabídce aplikace zvol organizaci. Naše parkourová organizace je{' '}
+                  <strong className="text-white">Team VYS</strong>.
+                </Step>
+
+                <Step n={4} icon={<Ticket size={18} />} title="Kup permanentku a vyber účastníka">
+                  V sekci <strong className="text-white">Platby</strong> vyber permanentku (10 nebo 15 vstupů), zvol, pro které dítě je, a zaplať kartou. Potvrzení dorazí e-mailem a permanentka se objeví v aplikaci — dítě může vyrazit na první trénink.
+                </Step>
+              </ol>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+    </section>
   );
 }
 

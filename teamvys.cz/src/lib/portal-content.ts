@@ -60,9 +60,12 @@ export type ParentProduct = {
   heroImage: string;
   gallery: string[];
   mapQuery?: string;
+  latitude?: number;
+  longitude?: number;
   coachIds?: string[];
   importantInfo: Array<{ label: string; value: string }>;
   trainingFocus: string[];
+  skillCategory?: string;
 };
 
 export type RequiredDocumentTemplate = {

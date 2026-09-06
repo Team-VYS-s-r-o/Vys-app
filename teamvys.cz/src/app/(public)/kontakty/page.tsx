@@ -32,7 +32,7 @@ export default function ContactsPage() {
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <Info label="IČO" value={contacts.ico} />
-            <Info label="Účet" value={contacts.bank} />
+            {contacts.bank ? <Info label="Účet" value={contacts.bank} /> : null}
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">

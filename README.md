@@ -4,16 +4,20 @@ Parkourová komunita s mobilní aplikací (Expo) a webem (Next.js). Jedna sdíle
 
 ## Struktura repa
 
+> Mobilní aplikace (Expo) byla vyčleněna do **samostatného projektu `vys-aplikace/`**
+> (vlastní git repo, vedle této složky). Tohle repo `Vys-app/` obsahuje už jen
+> web, backend a databázi. Aplikace se sdílenou Supabase databází zůstává propojená.
+
 ```
 Vys-app/
-├── web/              Next.js 15 — public web + platby (rodič, admin)
+├── teamvys.cz/       Next.js 15 — public web + platby (rodič, admin)
 │   └── Stripe Checkout, Supabase Auth, server actions
-├── mobile/           Expo — mobilní app (účastník, trenér)
-│   └── NFC docházka, skill tree, QR triky — bez plateb
 ├── shared/           Sdílený TypeScript kód (content, brand tokens, types)
-├── server/           Express API (Stripe + Supabase service role) — používá mobile
+├── server/           Express API (Stripe + Supabase service role)
 ├── supabase/         DB schéma + migrace + Edge functions
 └── docs/             Dokumentace architektury
+
+../vys-aplikace/     Expo — mobilní app (účastník, trenér, admin) — App Store / Play Store
 ```
 
 ## Kdo se kde přihlašuje
@@ -36,8 +40,8 @@ npm run install:all
 # Spustit web (Next.js, port 3000)
 npm run web
 
-# Spustit mobile (Expo, port 8081)
-npm run mobile
+# Mobilní app se spouští ze samostatné složky ../vys-aplikace:
+#   cd ../vys-aplikace && npm run start
 
 # Spustit Express API (port 3001)
 npm run server
@@ -57,10 +61,10 @@ Schema migrace jsou v `supabase/migrations/`. Edge functions v `supabase/functio
 
 `.env` soubory:
 - `.env` — root (sdílené env vars)
-- `web/.env.local` — Next.js public + server vars
-- `mobile/.env` — Expo `EXPO_PUBLIC_*` proměnné
+- `teamvys.cz/.env.local` — Next.js public + server vars
+- `vys-aplikace/.env` — Expo `EXPO_PUBLIC_*` proměnné
 - `server/.env` — Stripe secret + Supabase service role
 
 Pro potvrzení plateb e-mailem backend navíc čte `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` a `SMTP_FROM` (případně `PAYMENT_CONFIRMATION_FROM`). E-mail příjemce se bere z aktuálního `app_profiles.email` rodiče.
 
-Vzorové soubory: `.env.example` (root), `web/.env.example`, `mobile/.env.example`, `server/.env.example`.
+Vzorové soubory: `.env.example` (root), `teamvys.cz/.env.example`, `vys-aplikace/.env.example`, `server/.env.example`.

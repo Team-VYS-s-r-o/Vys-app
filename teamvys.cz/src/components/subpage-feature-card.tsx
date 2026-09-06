@@ -13,7 +13,6 @@ type Accent = 'purple' | 'pink' | 'cyan';
  */
 export function FeatureCard({
   icon,
-  eyebrow,
   title,
   body,
   index = 0,
@@ -36,8 +35,7 @@ export function FeatureCard({
       <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/15 text-brand-purple-light ring-1 ring-inset ring-white/10">
         {icon}
       </span>
-      {eyebrow ? <p className="mt-6 text-xs font-bold uppercase tracking-wider text-brand-purple-light">{eyebrow}</p> : null}
-      <h3 className="mt-2 text-lg font-black leading-tight text-white">{title}</h3>
+      <h3 className="mt-5 text-lg font-black leading-tight text-white">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-white/55">{body}</p>
     </motion.div>
   );
@@ -45,10 +43,9 @@ export function FeatureCard({
 
 /** Compact left-aligned section intro used above subpage content (dark). */
 export function SectionIntro({
-  eyebrow,
   title,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   accent?: Accent;
 }) {
@@ -60,8 +57,7 @@ export function SectionIntro({
       transition={{ duration: 0.5, ease }}
       className="max-w-[680px]"
     >
-      <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">{eyebrow}</p>
-      <h2 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white md:text-4xl">{title}</h2>
+      <h2 className="text-2xl font-black leading-tight tracking-tight text-white md:text-4xl">{title}</h2>
     </motion.div>
   );
 }

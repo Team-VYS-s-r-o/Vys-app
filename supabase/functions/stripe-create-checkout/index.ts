@@ -10,6 +10,7 @@ type ProductRow = {
   event_date: string | null;
   expires_at: string | null;
   capacity_total: number | null;
+  org_id: string;
 };
 
 type ParticipantRow = {
@@ -19,7 +20,7 @@ type ParticipantRow = {
 
 async function getProduct(productId: string) {
   const response = await fetch(
-    supabaseRestUrl(`products?id=eq.${encodeURIComponent(productId)}&select=id,type,title,price,price_label,place,event_date,expires_at,capacity_total&limit=1`),
+    supabaseRestUrl(`products?id=eq.${encodeURIComponent(productId)}&select=id,type,title,price,price_label,place,event_date,expires_at,capacity_total,org_id&limit=1`),
     { headers: supabaseRestHeaders() },
   );
   const rows = await response.json().catch(() => []);
@@ -93,6 +94,7 @@ Deno.serve(async (request) => {
       amount: String(amount),
       price_label: product.price_label,
       place: product.place,
+      org_id: product.org_id || '00000000-0000-4000-8000-000000000001',
       event_date: product.event_date ?? '',
       expires_at: product.expires_at ?? '',
     };

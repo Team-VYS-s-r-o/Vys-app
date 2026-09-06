@@ -220,8 +220,67 @@ begin
   alter table public.course_documents drop constraint if exists course_documents_activity_type_check;
   alter table public.course_documents add constraint course_documents_activity_type_check check (activity_type in ('Kroužek', 'Tábor', 'Workshop'));
   alter table public.course_documents drop constraint if exists course_documents_kind_check;
-  alter table public.course_documents add constraint course_documents_kind_check check (kind in ('gdpr', 'guardian-consent', 'health', 'departure', 'infection-free', 'packing', 'workshop-terms'));
+  alter table public.course_documents add constraint course_documents_kind_check check (kind in ('gdpr', 'guardian-consent', 'health', 'departure', 'infection-free', 'packing', 'workshop-terms', 'custom'));
 end $$;
+
+-- Organization-defined document slots (see migration 20260707170000_document_slots.sql).
+create table if not exists public.document_slots (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  activity_type text not null check (activity_type in ('Kroužek', 'Tábor', 'Workshop')),
+  label text not null,
+  description text,
+  fulfillment text not null default 'both' check (fulfillment in ('electronic', 'upload', 'both')),
+  template_kind text,
+  product_id text references public.products(id) on delete cascade,
+  template_path text,
+  template_filename text,
+  required boolean not null default true,
+  sort_order integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.course_documents add column if not exists slot_id uuid references public.document_slots(id) on delete set null;
+
+-- Reusable document template library (see migration 20260707190000_document_templates.sql
+-- and 20260707200000_document_templates_electronic.sql).
+-- kind = 'file' -> uploaded blank form; kind = 'electronic' -> custom form in body jsonb.
+create table if not exists public.document_templates (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  kind text not null default 'file' check (kind in ('file', 'electronic')),
+  file_path text,
+  file_filename text,
+  body jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Weekly trick voting (see migration 20260707210000_trick_votes.sql).
+create table if not exists public.trick_votes (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  voter_profile_id text not null references public.app_profiles(id) on delete cascade,
+  participant_id text references public.participants(id) on delete cascade,
+  trick_name text not null,
+  week_start date not null,
+  created_at timestamptz not null default now()
+);
+
+-- Library documents attached to a coach (see migration 20260707220000_coach_documents.sql).
+create table if not exists public.coach_documents (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  coach_id text not null references public.app_profiles(id) on delete cascade,
+  template_id uuid not null references public.document_templates(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (coach_id, template_id)
+);
+
+alter table public.document_slots add column if not exists template_id uuid references public.document_templates(id) on delete set null;
 
 create or replace view public.camp_medical_overview as
 select

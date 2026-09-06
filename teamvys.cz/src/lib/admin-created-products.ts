@@ -53,10 +53,15 @@ export type AdminProductInput = {
   capacityCurrent: number;
   description: string;
   trainingFocus: string;
+  /** Kategorie kroužku: 'zacatecnici' | 'pokrocili' | 'smisene' (výchozí smisene = pro všechny) */
+  skillCategory?: string;
   /** Fotky jako base64 data-URL (kroužek / tábor) */
   photos?: string[];
   /** Mapový dotaz pro automatické vyhledání polohy (např. "ZŠ Purkyňova Vyškov") */
   mapQuery?: string;
+  /** Přesná GPS pozice vybraná adminem na mapě (použito pro ověření lokace při docházce) */
+  latitude?: number;
+  longitude?: number;
   /** Vybraní trenéři pro produkt */
   coachIds?: string[];
   /** Název triku 1 (workshop) */
@@ -128,8 +133,11 @@ function productToRow(product: ParentProduct): AdminProductRow {
     hero_image: product.heroImage,
     gallery: product.gallery,
     map_query: product.mapQuery,
+    latitude: product.latitude,
+    longitude: product.longitude,
     coach_ids: product.coachIds ?? [],
     training_focus: product.trainingFocus,
+    skill_category: product.skillCategory,
     is_published: true,
   };
 }
@@ -156,11 +164,14 @@ function rowToProduct(row: AdminProductRow): ParentProduct {
     heroImage,
     gallery: productGallery(row, type, heroImage),
     mapQuery: row.map_query ?? undefined,
+    latitude: row.latitude ?? undefined,
+    longitude: row.longitude ?? undefined,
     coachIds: row.coach_ids ?? [],
     importantInfo: Array.isArray(row.important_info) && row.important_info.length > 0
       ? row.important_info
       : importantInfoFor(type, row.primary_meta, row.capacity_current, row.capacity_total ?? 0),
     trainingFocus: Array.isArray(row.training_focus) && row.training_focus.length > 0 ? row.training_focus : defaultFocus(type),
+    skillCategory: row.skill_category ?? undefined,
     capacityTotal: row.capacity_total ?? 0,
     capacityCurrent: row.capacity_current,
     interestCount: row.interest_count ?? 0,
@@ -374,9 +385,12 @@ function createAdminCreatedProduct(input: AdminProductInput): ParentProduct {
     heroImage: uploadedPhotos ? uploadedPhotos[0] : heroImage,
     gallery,
     mapQuery: input.mapQuery?.trim() || undefined,
+    latitude: input.latitude,
+    longitude: input.longitude,
     coachIds: input.coachIds ?? [],
     importantInfo: importantInfoFor(type, primaryMeta, capacityCurrent, capacityTotal, trick1, trick2, input.workshopTrick1VideoFile, input.workshopTrick2VideoFile),
     trainingFocus: trainingFocus.length ? trainingFocus : defaultFocus(type),
+    skillCategory: type === 'Krouzek' ? (input.skillCategory || 'smisene') : undefined,
   };
 }
 

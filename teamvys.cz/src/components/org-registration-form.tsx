@@ -122,7 +122,7 @@ export function OrgRegistrationForm() {
             <p className="mt-3 text-sm text-brand-ink/80">
               Registraci dokončíme automaticky během chvilky. Vaše organizace teď čeká na schválení.
               Jakmile ji schválíme, dorazí vám e-mail a budete se moci přihlásit do administrace.
-              Pokud potřebujete pomoct, napište nám na info@teamvys.cz.
+              Pokud potřebujete pomoct, napište nám na ahoj@teamvys.cz.
             </p>
           </>
         ) : (

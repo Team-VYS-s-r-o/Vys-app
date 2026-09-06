@@ -22,7 +22,7 @@ export default function WorkshopsPage() {
       <PageHero
         eyebrow="Workshopy a open jamy"
         title="Jednorázové akce pro rychlý progres"
-        body="Kratší, intenzivní a s jasným výsledkem. Platíš online, ticket máš hned v telefonu."
+        body="Od 6 let bez horní hranice. Kratší, intenzivní a s jasným výsledkem — ticket máš hned v telefonu."
         word="workshopy"
       />
 

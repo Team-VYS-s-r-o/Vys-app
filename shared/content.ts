@@ -119,10 +119,10 @@ export const heroBullets = [
 ];
 
 export const contacts: Contacts = {
-  phone: '605 324 417',
-  email: 'info@teamvys.cz',
-  ico: '17583241',
-  bank: '3141309013/3030',
+  phone: '734 167 417',
+  email: 'ahoj@teamvys.cz',
+  ico: '29883075',
+  bank: '',
   social: ['Instagram', 'YouTube', 'Facebook', 'WhatsApp'],
   cities: ['Vyškov', 'Prostějov', 'Blansko', 'Brandýs', 'Jeseník', 'Veliny'],
 };

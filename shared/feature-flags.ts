@@ -56,7 +56,7 @@ export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
   trainer_qr_codes: false,
   trainer_spots: false,
   trainer_leaderboard_qr_xp: false,
-  trainer_camps: false,
+  trainer_camps: true,
   shared_arenas: true,
   shared_mascots: true,
   shared_attendance_quest_map: true,

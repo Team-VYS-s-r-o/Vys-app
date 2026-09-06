@@ -11,6 +11,7 @@ type StripeSession = {
 
 type PurchaseRow = {
   id: string;
+  org_id?: string;
   parent_profile_id?: string | null;
   product_id: string;
   participant_id: string;
@@ -170,6 +171,7 @@ async function upsertParentPayment(purchase: PurchaseRow) {
     headers: { ...supabaseRestHeaders(), Prefer: 'resolution=merge-duplicates' },
     body: JSON.stringify([{
       id: `payment-${purchase.id}`,
+      org_id: purchase.org_id || '00000000-0000-4000-8000-000000000001',
       participant_id: purchase.participant_id,
       participant_name: purchase.participant_name,
       title: purchase.title,
@@ -225,6 +227,7 @@ Deno.serve(async (request) => {
 
     const row: PurchaseRow = {
       id: `stripe-${session.id}`,
+      org_id: metadata.org_id || '00000000-0000-4000-8000-000000000001',
       parent_profile_id: metadata.parent_profile_id || null,
       product_id: requiredString(metadata.product_id, 'product metadata'),
       participant_id: requiredString(metadata.participant_id, 'participant metadata'),
