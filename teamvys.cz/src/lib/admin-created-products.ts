@@ -509,7 +509,7 @@ function fallbackGalleryCandidates(type: ActivityType, normalized: string) {
     if (normalized.includes('jesenik') || normalized.includes('komenskeho')) return ['/courses/jesenik_JS_Main.webp', '/courses/jesenik_JS1.webp', '/courses/jesenik_JS2.webp', '/courses/jesenik_JS3.webp'];
     if (normalized.includes('prostejov') || normalized.includes('melantrichova')) return ['/courses/prostejov_Prostejov_parkour_main.webp', '/courses/prostejov_Prostejov_parkour_1.webp', '/courses/prostejov_Prostejov_parkour_2.webp', '/courses/prostejov_Prostejov_parkour_3.webp', '/courses/prostejov_Prostejov_parkour_4.webp'];
     if (normalized.includes('nadrazni') || normalized.includes('nadrazka')) return ['/courses/nadrazka_ZS-Nadrazka-Main.webp', '/courses/nadrazka_ZS-Nadrazka-Foto1.webp', '/courses/nadrazka_ZS-Nadrazka-Foto2.webp', '/courses/nadrazka_ZS-Nadrazka-Foto3.webp'];
-    if (normalized.includes('purkynova') || normalized.includes('purkyn')) return ['/courses/purkynka_Purkynova_Main.webp'];
+    if (normalized.includes('purkynova') || normalized.includes('purkyn')) return ['/courses/purkynka_Purkynova_Main.webp', '/courses/purkynka_Purkynova_1.webp', '/courses/purkynka_Purkynova_2.webp', '/courses/purkynka_Purkynova_3.webp', '/courses/purkynka_Purkynova_4.webp', '/courses/purkynka_Purkynova_5.webp'];
   }
 
   if (type === 'Tabor') return [];
