@@ -21,6 +21,8 @@ const defaultCorsOrigins = [
   'https://vys-web.vercel.app',
   'https://vys-app.vercel.app',
   'https://aplikacevys-web.vercel.app',
+  'https://aplikacevys.cz',
+  'https://www.aplikacevys.cz',
   'http://localhost:3000',
   'http://localhost:3002',
   'http://localhost:8081',
@@ -1971,6 +1973,69 @@ app.post('/api/payments/confirm-payment-intent', asyncRoute(async (request, resp
   response.json({ purchase: toClientPurchase(purchase) });
 }));
 
+// Parent self-service cancellation of a kroužek permanentka:
+// allowed only within 14 days of purchase AND when no paid entry was used.
+// Refunds the original card payment via the owning org's Stripe account.
+app.post('/api/parent/purchases/:id/cancel', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const purchaseId = requiredString(request.params.id, 'purchase id');
+
+  const { data: purchase, error } = await supabase
+    .from('parent_purchases')
+    .select('*')
+    .eq('id', purchaseId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!purchase) throw httpError('Nákup nebyl nalezen.', 404);
+
+  if (actor.role !== 'admin' && purchase.parent_profile_id !== actor.id) {
+    throw httpError('Tento nákup nepatří k tvému účtu.', 403);
+  }
+  if (purchase.status === 'Stornováno') throw httpError('Tento nákup je už stornovaný.', 409);
+  if (purchase.type !== 'Kroužek') {
+    throw httpError('Automatické storno je možné jen u permanentky na kroužek. U ostatních produktů nám prosím napiš.', 409);
+  }
+
+  const createdAtMs = purchase.created_at ? new Date(purchase.created_at).getTime() : NaN;
+  const daysSince = Number.isNaN(createdAtMs) ? Infinity : (Date.now() - createdAtMs) / (1000 * 60 * 60 * 24);
+  if (daysSince > 14) {
+    throw httpError('Storno je možné jen do 14 dnů od zakoupení. Napiš nám prosím na e-mail o individuální posouzení.', 409);
+  }
+
+  const { data: passes, error: passErr } = await supabase
+    .from('digital_passes')
+    .select('id,used_entries')
+    .eq('purchase_id', purchase.id);
+  if (passErr) throw passErr;
+  const usedEntries = (passes ?? []).reduce((sum, p) => sum + Number(p.used_entries || 0), 0);
+  if (usedEntries > 0) {
+    throw httpError('Permanentka je už aktivovaná (byl využit vstup), automatické storno už není možné. Napiš nám o individuální řešení.', 409);
+  }
+
+  if (!purchase.stripe_payment_intent_id) {
+    throw httpError('U této platby chybí údaj pro automatické vrácení. Napiš nám prosím na e-mail a peníze vrátíme ručně.', 409);
+  }
+  const orgId = purchase.org_id || VYS_ORG_ID;
+  const stripeClient = await getOrgStripe(orgId);
+  if (!stripeClient) {
+    throw httpError('Platbu nejde automaticky vrátit (chybí Stripe). Napiš nám prosím na e-mail.', 409);
+  }
+
+  let refund;
+  try {
+    refund = await stripeClient.refunds.create({ payment_intent: purchase.stripe_payment_intent_id });
+  } catch (err) {
+    throw httpError(`Vrácení platby se nepodařilo: ${err?.message || 'zkus to prosím znovu'}`, 502);
+  }
+
+  await supabase.from('parent_purchases').update({ status: 'Stornováno', paid_at: 'Stornováno' }).eq('id', purchase.id);
+  await supabase.from('digital_passes').delete().eq('purchase_id', purchase.id);
+  await supabase.from('parent_payments').update({ status: 'refunded' }).ilike('id', `%${purchase.stripe_payment_intent_id}%`);
+
+  response.json({ ok: true, refunded: Number(purchase.amount || 0), refundId: refund?.id || null });
+}));
+
 app.post('/api/participants/manual', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireParentOrAdmin(request);
@@ -3098,7 +3163,7 @@ app.get('/api/admin/invoices', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('invoices')
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,created_at')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,zdroj,created_at')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -3126,13 +3191,14 @@ app.post('/api/admin/invoices', asyncRoute(async (request, response) => {
     datum_zaplaceni: invoice.paid ? optionalString(invoice.paidDate) || todayIsoDate() : null,
     kategorie: optionalString(invoice.category),
     file_url: optionalString(invoice.fileUrl),
+    zdroj: 'admin',
     org_id: orgId,
   };
 
   const { data, error } = await supabase
     .from('invoices')
     .insert(row)
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,created_at')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,zdroj,created_at')
     .single();
 
   if (error) throw error;
@@ -3151,7 +3217,7 @@ app.patch('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
     .update({ zaplaceno: paid, datum_zaplaceni: paid ? todayIsoDate() : null })
     .eq('id', id)
     .eq('org_id', orgId)
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,created_at')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,zdroj,created_at')
     .single();
 
   if (error) throw error;

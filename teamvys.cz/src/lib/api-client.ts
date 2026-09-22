@@ -744,6 +744,8 @@ export type AdminInvoiceRow = {
   zaplaceno: boolean;
   datum_zaplaceni: string | null;
   odeslal: string | null;
+  coach_id: string | null;
+  zdroj: string | null;
   created_at: string | null;
 };
 

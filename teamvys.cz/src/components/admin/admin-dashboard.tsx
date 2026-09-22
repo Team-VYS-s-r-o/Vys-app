@@ -212,6 +212,8 @@ type Invoice = {
   paidDate?: string;
   category: string;
   fileUrl?: string;
+  coachId?: string;
+  source?: string;
 };
 
 type AdminPaymentRow = {
@@ -909,6 +911,7 @@ export function AdminDashboard({ finance, financeError, showSignOut, devMode, su
                 coaches={coaches}
                 transfers={transfers}
                 coachAttendanceRecords={coachAttendanceRecords}
+                invoices={invoices}
                 payoutPeriod={payoutPeriod}
                 onPrevPeriod={() => setPayoutPeriodOffset((n) => n - 1)}
                 onNextPeriod={() => setPayoutPeriodOffset((n) => n + 1)}
@@ -920,8 +923,8 @@ export function AdminDashboard({ finance, financeError, showSignOut, devMode, su
                 onPayout={handlePayout}
               />
             ) : null}
-            {activeSection === 'invoices' ? <InvoicesSection invoices={invoices} message={invoiceMessage} onTogglePaid={handleToggleInvoicePaid} onAddInvoice={handleAddInvoice} onDeleteInvoice={handleDeleteInvoice} /> : null}
-            {activeSection === 'finance' ? <FinanceOverviewSection totals={totals} invoices={invoices} paymentRows={paymentRows} coaches={coaches} coachAttendanceRecords={coachAttendanceRecords} onNavigate={setActiveSection} isVysOrg={isVysOrg} /> : null}
+            {activeSection === 'invoices' ? <InvoicesSection invoices={invoices} coaches={coaches} message={invoiceMessage} onTogglePaid={handleToggleInvoicePaid} onAddInvoice={handleAddInvoice} onDeleteInvoice={handleDeleteInvoice} /> : null}
+            {activeSection === 'finance' ? <FinanceOverviewSection totals={totals} invoices={invoices} paymentRows={paymentRows} coaches={coaches} coachAttendanceRecords={coachAttendanceRecords} products={allProducts} onNavigate={setActiveSection} isVysOrg={isVysOrg} /> : null}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -1371,9 +1374,10 @@ function CollapsibleEventAttendancePanel({ title, subtitle, countLabel, activiti
 
 function WorkshopCalendarAttendancePanel({ slots, allSlots, activities, attendanceRecords }: { slots: WorkshopSlot[]; allSlots: WorkshopSlot[]; activities: ReturnType<typeof adminActivityRows>; attendanceRecords: WorkshopAttendanceRecord[] }) {
   const now = new Date();
+  const initialMonthWeb = initialSeasonMonthWeb(now);
   const [isOpen, setIsOpen] = useState(false);
-  const [calYear, setCalYear] = useState(now.getFullYear());
-  const [calMonth, setCalMonth] = useState(now.getMonth());
+  const [calYear, setCalYear] = useState(initialMonthWeb.year);
+  const [calMonth, setCalMonth] = useState(initialMonthWeb.month);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const grid = useMemo(() => getMonthGridWeb(calYear, calMonth), [calYear, calMonth]);
@@ -2118,8 +2122,28 @@ function CoachXpLeaderboardPanel({ products, coaches, coachAttendanceRecords, qu
 const WEEK_DAY_NAMES_WEB = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'];
 const WEEK_DAY_ABBR_WEB = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 const CZECH_MONTH_NAMES_WEB = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
-const SEASON_START_WEB = { year: 2025, month: 9 }; // October 2025
-const SEASON_END_WEB = { year: 2026, month: 5 };   // June 2026
+// Season runs October (month 9) through June (month 5) of the following year.
+// Computed from the current date so the calendar always tracks the live season
+// (Jul–Dec => this year's October start; Jan–Jun => last year's October start)
+// instead of a hardcoded year that silently goes stale each summer.
+function currentSeasonBoundsWeb(reference: Date = new Date()): { start: { year: number; month: number }; end: { year: number; month: number } } {
+  const startYear = reference.getMonth() >= 6 ? reference.getFullYear() : reference.getFullYear() - 1;
+  return { start: { year: startYear, month: 9 }, end: { year: startYear + 1, month: 5 } };
+}
+const SEASON_BOUNDS_WEB = currentSeasonBoundsWeb();
+const SEASON_START_WEB = SEASON_BOUNDS_WEB.start;
+const SEASON_END_WEB = SEASON_BOUNDS_WEB.end;
+
+// Initial calendar month: clamp "now" into the season so the calendar always
+// opens on a real season month (and both arrows work), even during the summer
+// gap between seasons.
+function initialSeasonMonthWeb(reference: Date = new Date()): { year: number; month: number } {
+  const value = reference.getFullYear() * 12 + reference.getMonth();
+  const startValue = SEASON_START_WEB.year * 12 + SEASON_START_WEB.month;
+  const endValue = SEASON_END_WEB.year * 12 + SEASON_END_WEB.month;
+  const clamped = Math.min(Math.max(value, startValue), endValue);
+  return { year: Math.floor(clamped / 12), month: clamped % 12 };
+}
 
 function slotDayIndicesWeb(dayStr: string): number[] {
   return dayStr.split(/\s*\/\s*/).map((d) => WEEK_DAY_NAMES_WEB.indexOf(d.trim())).filter((i) => i >= 0);
@@ -2173,8 +2197,9 @@ type SharedTrainingOverride = { id: string; productId: string; occurrenceDate: s
 function SharedTrainerCalendarPanel({ slots, coaches, onRelease, onAssign }: { slots: SharedTrainingSlot[]; coaches: AdminCoachSummary[]; onRelease: (slot: SharedTrainingSlot, position?: 'first' | 'second') => void; onAssign: (slot: SharedTrainingSlot, coach: AdminCoachSummary) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const now = new Date();
-  const [calYear, setCalYear] = useState(now.getFullYear());
-  const [calMonth, setCalMonth] = useState(now.getMonth());
+  const initialMonthWeb = initialSeasonMonthWeb(now);
+  const [calYear, setCalYear] = useState(initialMonthWeb.year);
+  const [calMonth, setCalMonth] = useState(initialMonthWeb.month);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   // Default scope is "just this day" — per-date overrides never touch the
   // regular weekly roster. Switching to "všechny termíny" replicates the old
@@ -2540,8 +2565,9 @@ function WorkshopCalendarPanel({ slots, products, coaches, onAddCoach, onRemoveC
   const [isOpen, setIsOpen] = useState(false);
   const [cityFilter, setCityFilter] = useState<WorkshopCity>('Brno');
   const now = new Date();
-  const [calYear, setCalYear] = useState(now.getFullYear());
-  const [calMonth, setCalMonth] = useState(now.getMonth());
+  const initialMonthWeb = initialSeasonMonthWeb(now);
+  const [calYear, setCalYear] = useState(initialMonthWeb.year);
+  const [calMonth, setCalMonth] = useState(initialMonthWeb.month);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addingSlotDate, setAddingSlotDate] = useState<string | null>(null);
   const [addingSlotCity, setAddingSlotCity] = useState<WorkshopCity>('Brno');
@@ -3000,6 +3026,7 @@ function PayoutsSection({
   coaches,
   transfers,
   coachAttendanceRecords,
+  invoices,
   payoutPeriod,
   onPrevPeriod,
   onNextPeriod,
@@ -3013,6 +3040,7 @@ function PayoutsSection({
   coaches: AdminCoachSummary[];
   transfers: TrainerPayoutTransfer[];
   coachAttendanceRecords: CoachAttendanceRecord[];
+  invoices: Invoice[];
   payoutPeriod: { key: string; label: string; periodStart: string; periodEnd: string };
   onPrevPeriod: () => void;
   onNextPeriod: () => void;
@@ -3066,6 +3094,12 @@ function PayoutsSection({
             const hasBankDetails = Boolean(coach.iban || (coach.bankAccount && coach.bankAccount !== 'není vyplněn'));
             const ready = !!hasConnect && amount > 0;
             const onboardingUrl = onboardingLinks[coach.id];
+            const coachInvoices = invoices.filter((inv) => inv.coachId === coach.id);
+            const invoicedTotal = coachInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+            const invoicedUnpaid = coachInvoices.filter((inv) => !inv.paid).reduce((sum, inv) => sum + inv.amount, 0);
+            const expectedFromAttendance = coach.baseAmount;
+            const invoiceDiff = invoicedTotal - expectedFromAttendance;
+            const invoiceMatches = Math.abs(invoiceDiff) < 1;
             return (
               <Panel key={coach.id} className="overflow-hidden p-0">
                 <div className={`h-1.5 ${ready ? 'bg-brand-purple' : 'bg-brand-orange'}`} />
@@ -3084,6 +3118,25 @@ function PayoutsSection({
                       <Metric value={currency(coach.baseAmount)} label="základ" />
                       <Metric value={currency(coach.approvedBonuses)} label="bonus" />
                     </div>
+
+                    {coachInvoices.length > 0 ? (
+                      <div className={`rounded-[16px] border p-4 ${invoiceMatches ? 'border-emerald-200 bg-emerald-50/60' : 'border-brand-orange/25 bg-brand-orange/6'}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] font-black uppercase text-brand-ink-soft">Kontrola faktury vs. docházka</p>
+                          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black ${invoiceMatches ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {invoiceMatches ? 'Sedí' : invoiceDiff > 0 ? `Faktura o ${currency(invoiceDiff)} víc` : `Faktura o ${currency(Math.abs(invoiceDiff))} míň`}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                          <Metric value={`${coach.loggedHours} h`} label="odtrénováno" />
+                          <Metric value={currency(expectedFromAttendance)} label="dle docházky" />
+                          <Metric value={currency(invoicedTotal)} label="fakturováno" />
+                        </div>
+                        <p className="mt-2 text-xs font-bold text-brand-ink-soft">
+                          {coachInvoices.length} {coachInvoices.length === 1 ? 'faktura' : coachInvoices.length < 5 ? 'faktury' : 'faktur'} od trenéra{invoicedUnpaid > 0 ? ` · ${currency(invoicedUnpaid)} neuhrazeno` : ' · vše uhrazeno'}. Detail a označení „uhrazeno" v sekci Faktury.
+                        </p>
+                      </div>
+                    ) : null}
 
                     {hasConnect ? (
                       <div className="flex items-center gap-3 rounded-[16px] border border-brand-purple/10 bg-brand-paper px-4 py-3">
@@ -3163,8 +3216,9 @@ function PayoutsSection({
   );
 }
 
-function InvoicesSection({ invoices, message, onTogglePaid, onAddInvoice, onDeleteInvoice }: {
+function InvoicesSection({ invoices, coaches, message, onTogglePaid, onAddInvoice, onDeleteInvoice }: {
   invoices: Invoice[];
+  coaches: AdminCoachSummary[];
   message: string | null;
   onTogglePaid: (id: string) => void | Promise<void>;
   onAddInvoice: (invoice: Invoice) => void | Promise<void>;
@@ -3172,6 +3226,14 @@ function InvoicesSection({ invoices, message, onTogglePaid, onAddInvoice, onDele
 }) {
   const [filterCategory, setFilterCategory] = useState<string>('Vše');
   const [filterPaid, setFilterPaid] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [filterCoach, setFilterCoach] = useState<string>('Vše');
+
+  const coachNameById = useMemo(() => new Map(coaches.map((c) => [c.id, c.name])), [coaches]);
+  // Coaches that actually have at least one invoice → drive the coach filter.
+  const invoicingCoaches = useMemo(() => {
+    const ids = [...new Set(invoices.map((inv) => inv.coachId).filter((id): id is string => Boolean(id)))];
+    return ids.map((id) => ({ id, name: coachNameById.get(id) ?? 'Trenér' })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [invoices, coachNameById]);
 
   // PDF upload state
   const [dragOver, setDragOver] = useState(false);
@@ -3197,6 +3259,8 @@ function InvoicesSection({ invoices, message, onTogglePaid, onAddInvoice, onDele
     if (filterCategory !== 'Vše' && inv.category !== filterCategory) return false;
     if (filterPaid === 'paid' && !inv.paid) return false;
     if (filterPaid === 'unpaid' && inv.paid) return false;
+    if (filterCoach === 'Trenéři' && !inv.coachId) return false;
+    if (filterCoach !== 'Vše' && filterCoach !== 'Trenéři' && inv.coachId !== filterCoach) return false;
     return true;
   });
 
@@ -3422,9 +3486,19 @@ function InvoicesSection({ invoices, message, onTogglePaid, onAddInvoice, onDele
               </div>
             )}
           </div>
+          {invoicingCoaches.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1">
+              <span className="mr-1 text-[11px] font-black uppercase text-brand-ink-soft">Trenér:</span>
+              {[{ id: 'Vše', name: 'Vše' }, { id: 'Trenéři', name: 'Všichni trenéři' }, ...invoicingCoaches].map((c) => (
+                <button key={c.id} type="button" onClick={() => setFilterCoach(c.id)} className={`rounded-[10px] px-3 py-1.5 text-xs font-black transition ${filterCoach === c.id ? 'bg-brand-purple/10 text-brand-purple ring-1 ring-brand-purple/30' : 'bg-brand-paper text-brand-ink-soft hover:text-brand-purple'}`}>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mt-4 grid gap-2">
             {visible.map((inv) => (
-              <InvoiceCard key={inv.id} inv={inv} onTogglePaid={onTogglePaid} onDelete={onDeleteInvoice} />
+              <InvoiceCard key={inv.id} inv={inv} coachName={inv.coachId ? coachNameById.get(inv.coachId) ?? 'Trenér' : undefined} onTogglePaid={onTogglePaid} onDelete={onDeleteInvoice} />
             ))}
             {visible.length === 0 ? <EmptyState text="Žádné faktury pro vybraný filtr." /> : null}
           </div>
@@ -3434,7 +3508,7 @@ function InvoicesSection({ invoices, message, onTogglePaid, onAddInvoice, onDele
   );
 }
 
-function InvoiceCard({ inv, onTogglePaid, onDelete }: { inv: Invoice; onTogglePaid: (id: string) => void | Promise<void>; onDelete: (id: string) => void | Promise<void> }) {
+function InvoiceCard({ inv, coachName, onTogglePaid, onDelete }: { inv: Invoice; coachName?: string; onTogglePaid: (id: string) => void | Promise<void>; onDelete: (id: string) => void | Promise<void> }) {
   const [loadingPdf, setLoadingPdf] = useState(false);
 
   async function openPdf() {
@@ -3457,6 +3531,7 @@ function InvoiceCard({ inv, onTogglePaid, onDelete }: { inv: Invoice; onTogglePa
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-black text-brand-ink">{inv.supplier}</p>
             <span className="rounded-full bg-brand-purple/10 px-2 py-0.5 text-[10px] font-black text-brand-purple">{inv.category}</span>
+            {coachName ? <span className="rounded-full bg-brand-orange/12 px-2 py-0.5 text-[10px] font-black text-brand-orange-deep">Trenér · {coachName}</span> : null}
           </div>
           {inv.description ? <p className="mt-0.5 text-xs font-bold text-brand-ink-soft">{inv.description}</p> : null}
         </div>
@@ -3740,9 +3815,9 @@ function ProductCreateForm({ coaches, onAddProduct }: { coaches: AdminCoachSumma
   const [type, setType] = useState<ActivityType>('Krouzek');
   const availableCoaches = useMemo(() => coaches.filter((coach) => coach.status !== 'Pozastaveny'), [coaches]);
   const [title, setTitle] = useState('');
-  const [city, setCity] = useState('Praha');
-  const [venue, setVenue] = useState('Nová tělocvična');
-  const [primaryMeta, setPrimaryMeta] = useState('Pondělí 16:00-17:00');
+  const [city, setCity] = useState('');
+  const [venue, setVenue] = useState('');
+  const [primaryMeta, setPrimaryMeta] = useState('');
   // Workshop – datum a čas (separátní pole)
   const [wsDate, setWsDate] = useState('');
   const [wsTimeFrom, setWsTimeFrom] = useState('10:00');
@@ -6866,6 +6941,8 @@ function mapAdminInvoiceRow(row: AdminInvoiceRow): Invoice {
     paidDate: row.datum_zaplaceni || undefined,
     category: (row.kategorie as Invoice['category']) || categorizeInvoice(`${supplier} ${description}`),
     fileUrl: row.file_url || undefined,
+    coachId: row.coach_id || undefined,
+    source: row.zdroj || undefined,
   };
 }
 
@@ -7789,10 +7866,15 @@ function participantDisplayName(participant: ParentParticipant) {
 
 function parseCourseSchedule(primaryMeta: string) {
   const cleaned = primaryMeta.trim();
-  const dayMatch = cleaned.match(/(pondělí|pondeli|úterý|utery|středa|streda|čtvrtek|ctvrtek|pátek|patek|sobota|neděle|nedele)/i);
+  // Match ALL day tokens — a kroužek can run on multiple days (e.g.
+  // "Úterý / Čtvrtek"). The calendar splits slot.day on " / " to place the slot
+  // on every matching weekday, so we must preserve them all here instead of
+  // grabbing only the first match (which silently dropped the 2nd day).
+  const dayMatches = cleaned.match(/(pondělí|pondeli|úterý|utery|středa|streda|čtvrtek|ctvrtek|pátek|patek|sobota|neděle|nedele)/gi);
   const timeMatch = cleaned.match(/\d{1,2}:\d{2}\s*(?:[-–]\s*\d{1,2}:\d{2})?/);
+  const days = dayMatches ? Array.from(new Set(dayMatches.map((day) => capitalizeCzechDay(day)))) : [];
   return {
-    day: dayMatch ? capitalizeCzechDay(dayMatch[0]) : 'Den není vyplněný',
+    day: days.length > 0 ? days.join(' / ') : 'Den není vyplněný',
     time: timeMatch?.[0]?.replace(/\s*[-–]\s*/, ' - ') ?? 'Čas není vyplněný',
   };
 }
@@ -8291,74 +8373,316 @@ function PaymentHistorySection({ paymentRows, isVysOrg }: { paymentRows: AdminPa
   );
 }
 
-function FinanceOverviewSection({ totals, invoices, paymentRows, coaches, coachAttendanceRecords, onNavigate, isVysOrg }: {
+function FinanceOverviewSection({ totals, invoices, paymentRows, coaches, coachAttendanceRecords, products, onNavigate, isVysOrg }: {
   totals: AdminTotals;
   invoices: Invoice[];
   paymentRows: AdminPaymentRow[];
   coaches: AdminCoachSummary[];
   coachAttendanceRecords: CoachAttendanceRecord[];
+  products: ParentProduct[];
   onNavigate: (section: SectionKey) => void;
   isVysOrg: boolean;
 }) {
   const today = new Date().toISOString().slice(0, 10);
-  const currentMonth = today.slice(0, 7);
+  const now = new Date();
 
-  // Příjmy
-  const revenueTotal = paymentRows.filter((r) => isPaidStatus(r.status)).reduce((s, r) => s + Number(r.amount || 0), 0);
-  const revenuePending = paymentRows.filter((r) => !isPaidStatus(r.status)).reduce((s, r) => s + Number(r.amount || 0), 0);
-  const revenueThisMonth = paymentRows.filter((r) => isPaidStatus(r.status) && (r.dueDate ?? '').startsWith(currentMonth)).reduce((s, r) => s + Number(r.amount || 0), 0);
+  // ── Období (přepínání měsíc / rok / celkově) ─────────────────────────────
+  const CZECH_MONTH_ABBR = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro'];
+  type FinancePeriodMode = 'all' | 'month' | 'range';
+  const [periodMode, setPeriodMode] = useState<FinancePeriodMode>('month');
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState<number | null>(null); // null = celý rok
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [gymRates, setGymRates] = useState<Record<string, number>>({});
+  const [rentDraft, setRentDraft] = useState<Record<string, string>>({});
+  const [rentStatus, setRentStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const allTime = periodMode === 'all';
 
-  // Výdaje (faktury)
-  const expensesTotal = invoices.reduce((s, inv) => s + inv.amount, 0);
-  const expensesPaid = invoices.filter((inv) => inv.paid).reduce((s, inv) => s + inv.amount, 0);
-  const expensesUnpaid = invoices.filter((inv) => !inv.paid).reduce((s, inv) => s + inv.amount, 0);
-  const expensesOverdue = invoices.filter((inv) => !inv.paid && inv.dueDate < today);
+  useEffect(() => {
+    if (!hasSupabaseBrowserConfig()) return;
+    let cancelled = false;
+    void (async () => {
+      const supabase = createBrowserSupabaseClient();
+      const orgId = await currentAdminOrgId(supabase);
+      const { data } = orgId
+        ? await supabase.from('gym_rents').select('location_key,hourly_rate').eq('org_id', orgId)
+        : await supabase.from('gym_rents').select('location_key,hourly_rate');
+      if (cancelled || !data) return;
+      const rates: Record<string, number> = {};
+      const draft: Record<string, string> = {};
+      for (const row of data as { location_key: string; hourly_rate: number }[]) {
+        const value = Number(row.hourly_rate) || 0;
+        rates[row.location_key] = value;
+        draft[row.location_key] = value ? String(value) : '';
+      }
+      setGymRates(rates);
+      setRentDraft(draft);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
-  // Výplaty trenérů
+  async function saveAllGymRates() {
+    if (!hasSupabaseBrowserConfig()) { setRentStatus('saved'); setTimeout(() => setRentStatus('idle'), 2000); return; }
+    setRentStatus('saving');
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const orgId = await currentAdminOrgId(supabase);
+      const nextRates: Record<string, number> = {};
+      const nowIso = new Date().toISOString();
+      const rows = rentLocations.map((loc) => {
+        const rate = Math.max(0, Number((rentDraft[loc.key] || '').replace(',', '.')) || 0);
+        nextRates[loc.key] = rate;
+        return { org_id: orgId as string, location_key: loc.key, label: loc.label, hourly_rate: rate, updated_at: nowIso };
+      });
+      setGymRates((prev) => ({ ...prev, ...nextRates }));
+      if (orgId && rows.length) await supabase.from('gym_rents').upsert(rows, { onConflict: 'org_id,location_key' });
+      setRentStatus('saved');
+      setTimeout(() => setRentStatus('idle'), 2500);
+    } catch {
+      setRentStatus('idle');
+    }
+  }
+
+  const isoOf = (dateStr?: string): string | null => {
+    if (!dateStr) return null;
+    const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+    const cz = dateStr.match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+    if (cz) return `${cz[3]}-${String(Number(cz[2])).padStart(2, '0')}-${String(Number(cz[1])).padStart(2, '0')}`;
+    return null;
+  };
+  const inPeriod = (dateStr?: string): boolean => {
+    if (periodMode === 'all') return true;
+    const iso = isoOf(dateStr);
+    if (!iso) return false;
+    if (periodMode === 'range') {
+      if (rangeFrom && iso < rangeFrom) return false;
+      if (rangeTo && iso > rangeTo) return false;
+      return true;
+    }
+    const rowYear = Number(iso.slice(0, 4));
+    const rowMonth = Number(iso.slice(5, 7));
+    if (rowYear !== year) return false;
+    return month === null ? true : rowMonth === month + 1;
+  };
+  const fmtCz = (iso: string) => { const p = iso.split('-'); return p.length === 3 ? `${Number(p[2])}. ${Number(p[1])}. ${p[0]}` : iso; };
+  const periodLabel =
+    periodMode === 'all' ? 'Celkově'
+    : periodMode === 'range'
+      ? (rangeFrom || rangeTo ? `${rangeFrom ? fmtCz(rangeFrom) : '…'} – ${rangeTo ? fmtCz(rangeTo) : '…'}` : 'Zvol rozsah')
+      : month === null ? `Celý rok ${year}` : `${CZECH_MONTH_NAMES_WEB[month]} ${year}`;
+
+  const filteredPaymentRows = allTime ? paymentRows : paymentRows.filter((r) => inPeriod(r.dueDate));
+  const filteredInvoices = allTime ? invoices : invoices.filter((inv) => inPeriod(inv.issuedDate || inv.dueDate));
+  const filteredCoachAttendance = allTime ? coachAttendanceRecords : coachAttendanceRecords.filter((a) => inPeriod(a.date));
+
+  // Příjmy (v období)
+  const paidRows = filteredPaymentRows.filter((r) => isPaidStatus(r.status));
+  const revenueTotal = paidRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const paidCount = paidRows.length;
+  const revenuePending = filteredPaymentRows.filter((r) => !isPaidStatus(r.status)).reduce((s, r) => s + Number(r.amount || 0), 0);
+
+  // Náklady na trenéry v období (ze zapsané docházky — má datum i částku)
+  const coachCostPeriod = filteredCoachAttendance.reduce((s, a) => s + Number(a.amount || 0), 0);
+
+  // Výdaje (faktury v období)
+  const expensesTotal = filteredInvoices.reduce((s, inv) => s + inv.amount, 0);
+  const expensesPaid = filteredInvoices.filter((inv) => inv.paid).reduce((s, inv) => s + inv.amount, 0);
+  const expensesOverdue = filteredInvoices.filter((inv) => !inv.paid && inv.dueDate < today);
+
+  // Výplaty trenérů (celkový odhad — base+bonusy, nejsou vázané na datum)
   const coachPayoutTotal = coaches.reduce((s, c) => s + payoutAmountForCoach(c, coachAttendanceRecords), 0);
+  const periodCoachPayout = allTime ? coachPayoutTotal : coachCostPeriod;
 
-  // Výdaje celkem = faktury + výplaty trenérů (jednotný přehled pro účetnictví)
-  const totalExpenses = expensesTotal + coachPayoutTotal;
-  const invoiceCategoryTotals = [...new Set(invoices.map((inv) => inv.category).filter(Boolean))]
-    .map((cat) => ({ label: cat, value: invoices.filter((inv) => inv.category === cat).reduce((s, inv) => s + inv.amount, 0) }))
+  // Nájem tělocvičen: klíč lokality = město bez diakritiky (sjednocuje platby
+  // "Kroužek Vyškov", docházku "Vyškov · ZŠ …" i produkty). Nájem = konané
+  // tréninky v období × délka lekce × sazba Kč/h dané lokality (odhad dle rozvrhu).
+  const cityLabelOf = (title: string): string => {
+    const t = (title || '').trim();
+    if (!t) return '—';
+    if (t.includes('·')) return (t.split('·')[0] || t).trim();
+    const m = t.match(/^(?:Krou[žz]ek|T[áa]bor|Workshop)\s+(.+)$/i);
+    return ((m ? m[1] : t).split(/\s[–-]\s/)[0] || t).trim();
+  };
+  const cityKeyOf = (title: string): string => normalizeText(cityLabelOf(title));
+
+  const krouzky = uniqueParticipantProducts(products).filter((p) => p.type === 'Krouzek');
+  const labelByKey = new Map<string, string>();
+  const venueLabelByKey = new Map<string, string>();
+  for (const p of krouzky) {
+    const ck = normalizeText(p.city); if (ck && !labelByKey.has(ck)) labelByKey.set(ck, p.city);
+    const vk = normalizeText(p.place || p.venue || p.city); if (vk && !venueLabelByKey.has(vk)) venueLabelByKey.set(vk, p.place || p.venue || p.city);
+  }
+
+  const sessionHours = (primaryMeta: string): number => {
+    const m = primaryMeta.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+    if (!m) return 1;
+    const diff = (Number(m[3]) * 60 + Number(m[4]) - Number(m[1]) * 60 - Number(m[2])) / 60;
+    return diff > 0 ? diff : 1;
+  };
+  const rentBounds = (() => {
+    const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
+    const clampEnd = (d: Date) => (d > todayD ? todayD : d);
+    if (periodMode === 'month') {
+      if (month === null) return { start: new Date(year, 0, 1), end: clampEnd(new Date(year, 11, 31)) };
+      return { start: new Date(year, month, 1), end: clampEnd(new Date(year, month + 1, 0)) };
+    }
+    if (periodMode === 'range') {
+      if (!rangeFrom && !rangeTo) return null;
+      return { start: rangeFrom ? new Date(rangeFrom) : new Date(2020, 0, 1), end: clampEnd(rangeTo ? new Date(rangeTo) : todayD) };
+    }
+    const dates = [...paidRows.map((r) => isoOf(r.dueDate)), ...coachAttendanceRecords.map((a) => isoOf(a.date))].filter(Boolean) as string[];
+    const earliest = dates.length ? dates.slice().sort()[0] : todayD.toISOString().slice(0, 10);
+    return { start: new Date(earliest), end: todayD };
+  })();
+  const rentByLocation = (() => {
+    const map = new Map<string, number>();
+    if (!rentBounds) return map;
+    const start = new Date(rentBounds.start); start.setHours(0, 0, 0, 0);
+    const end = new Date(rentBounds.end); end.setHours(0, 0, 0, 0);
+    if (end < start) return map;
+    const holidays = new Set<string>();
+    for (let y = start.getFullYear() - 1; y <= end.getFullYear(); y++) for (const d of czechHolidaySetWeb(y)) holidays.add(d);
+    for (const p of krouzky) {
+      const cityKey = normalizeText(p.city);
+      const venueKey = normalizeText(p.place || p.venue || p.city);
+      const rate = gymRates[venueKey] ?? 0;
+      if (!rate) continue;
+      const weekdays = slotDayIndicesWeb(parseCourseSchedule(p.primaryMeta).day);
+      if (weekdays.length === 0) continue;
+      const hours = sessionHours(p.primaryMeta);
+      let occ = 0;
+      const d = new Date(start); let guard = 0;
+      while (d <= end && guard < 4000) {
+        const czIdx = (d.getDay() + 6) % 7;
+        if (weekdays.includes(czIdx) && !holidays.has(dateKeyWeb(d))) occ++;
+        d.setDate(d.getDate() + 1); guard++;
+      }
+      map.set(cityKey, (map.get(cityKey) ?? 0) + occ * hours * rate);
+    }
+    return map;
+  })();
+  const totalRent = Array.from(rentByLocation.values()).reduce((s, v) => s + v, 0);
+
+  // Výdaje celkem = faktury + náklady na trenéry + nájem tělocvičen
+  const totalExpenses = expensesTotal + periodCoachPayout + totalRent;
+  const invoiceCategoryTotals = [...new Set(filteredInvoices.map((inv) => inv.category).filter(Boolean))]
+    .map((cat) => ({ label: cat, value: filteredInvoices.filter((inv) => inv.category === cat).reduce((s, inv) => s + inv.amount, 0) }))
     .filter((c) => c.value > 0)
     .sort((a, b) => b.value - a.value);
   const expenseBreakdown = [
     ...invoiceCategoryTotals,
-    ...(coachPayoutTotal > 0 ? [{ label: 'Výplaty trenérů', value: coachPayoutTotal }] : []),
+    ...(periodCoachPayout > 0 ? [{ label: 'Výplaty trenérů', value: periodCoachPayout }] : []),
+    ...(totalRent > 0 ? [{ label: 'Nájem tělocvičen', value: totalRent }] : []),
   ];
 
-  // Cash flow estimate
-  const cashFlow = revenueTotal - expensesPaid - coachPayoutTotal;
+  // Čistý zisk = příjmy − (zaplacené faktury + náklady na trenéry + nájem)
+  const cashFlow = revenueTotal - expensesPaid - periodCoachPayout - totalRent;
 
-  // Top 5 nezaplacených od rodičů
-  const unpaidParents = paymentRows.filter((r) => !isPaidStatus(r.status)).slice(0, 5);
+  // Top 5 nezaplacených od rodičů (v období)
+  const unpaidParents = filteredPaymentRows.filter((r) => !isPaidStatus(r.status)).slice(0, 5);
 
-  // Výdělek podle kroužku/produktu (zaplacené platby seskupené podle názvu)
-  const earningsByCourse = (() => {
-    const map = new Map<string, { title: string; type: string; total: number; count: number }>();
-    for (const r of paymentRows) {
-      if (!isPaidStatus(r.status)) continue;
-      const key = r.title || '—';
-      const entry = map.get(key) ?? { title: key, type: r.type, total: 0, count: 0 };
-      entry.total += Number(r.amount || 0);
-      entry.count += 1;
-      map.set(key, entry);
-    }
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  // Finance podle lokality (příjmy, trenéři, nájem, čistý zisk)
+  const locationPnL = (() => {
+    const map = new Map<string, { key: string; location: string; income: number; coachCost: number; rent: number; count: number }>();
+    const ensure = (key: string, label: string) => {
+      let e = map.get(key);
+      if (!e) { e = { key, location: labelByKey.get(key) || label, income: 0, coachCost: 0, rent: 0, count: 0 }; map.set(key, e); }
+      return e;
+    };
+    for (const r of paidRows) { const e = ensure(cityKeyOf(r.title), cityLabelOf(r.title)); e.income += Number(r.amount || 0); e.count += 1; }
+    for (const a of filteredCoachAttendance) { const e = ensure(cityKeyOf(a.sessionTitle), cityLabelOf(a.sessionTitle)); e.coachCost += Number(a.amount || 0); }
+    for (const [key, rent] of rentByLocation) { const e = ensure(key, labelByKey.get(key) || key); e.rent += rent; }
+    return Array.from(map.values()).map((e) => ({ ...e, net: e.income - e.coachCost - e.rent })).sort((a, b) => b.net - a.net);
   })();
-  const topCourse = earningsByCourse[0] ?? null;
-  const maxCourseEarning = topCourse ? topCourse.total : 0;
+  const topLocation = locationPnL[0] ?? null;
+  const maxLocationValue = Math.max(1, ...locationPnL.map((l) => Math.max(l.income, Math.abs(l.net))));
+  const rentLocations = Array.from(venueLabelByKey.entries()).map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label, 'cs'));
 
   return (
     <div className="space-y-5">
+      {/* Přepínání období */}
+      <Panel className="p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">Období</span>
+            {([
+              { key: 'month', label: 'Podle měsíce' },
+              { key: 'range', label: 'Rozsah od–do' },
+              { key: 'all', label: 'Celkově' },
+            ] as { key: FinancePeriodMode; label: string }[]).map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setPeriodMode(opt.key)}
+                className={`rounded-full px-3.5 py-1.5 text-xs font-black transition ${periodMode === opt.key ? 'bg-brand-purple text-white shadow-sm' : 'bg-brand-paper text-brand-purple hover:bg-brand-purple/10'}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <span className="ml-auto rounded-full bg-brand-purple/5 px-3 py-1.5 text-[11px] font-black text-brand-purple-deep">{periodLabel}</span>
+          </div>
+
+          {periodMode === 'month' ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-full bg-brand-paper px-1 py-0.5">
+                <button type="button" onClick={() => setYear((y) => y - 1)} className="flex h-7 w-7 items-center justify-center rounded-full text-brand-purple transition hover:bg-brand-purple/10" aria-label="Předchozí rok">
+                  <ChevronDown size={14} className="rotate-90" />
+                </button>
+                <span className="min-w-[48px] text-center text-sm font-black text-brand-purple-deep">{year}</span>
+                <button type="button" onClick={() => setYear((y) => y + 1)} className="flex h-7 w-7 items-center justify-center rounded-full text-brand-purple transition hover:bg-brand-purple/10" aria-label="Další rok">
+                  <ChevronDown size={14} className="-rotate-90" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMonth(null)}
+                className={`rounded-full px-3 py-1.5 text-xs font-black transition ${month === null ? 'bg-brand-purple text-white' : 'bg-brand-paper text-brand-purple hover:bg-brand-purple/10'}`}
+              >
+                Celý rok
+              </button>
+              <div className="flex flex-wrap gap-1">
+                {CZECH_MONTH_ABBR.map((abbr, idx) => (
+                  <button
+                    key={abbr}
+                    type="button"
+                    onClick={() => setMonth(idx)}
+                    className={`rounded-full px-2.5 py-1.5 text-xs font-black transition ${month === idx ? 'bg-brand-purple text-white' : 'bg-brand-paper text-brand-ink-soft hover:bg-brand-purple/10 hover:text-brand-purple'}`}
+                  >
+                    {abbr}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {periodMode === 'range' ? (
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">Od</span>
+                <input type="date" value={rangeFrom} max={rangeTo || undefined} onChange={(e) => setRangeFrom(e.target.value)} className="rounded-[12px] border border-brand-purple/20 bg-white px-3 py-2 text-sm font-bold text-brand-ink outline-none focus:border-brand-purple" />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">Do</span>
+                <input type="date" value={rangeTo} min={rangeFrom || undefined} onChange={(e) => setRangeTo(e.target.value)} className="rounded-[12px] border border-brand-purple/20 bg-white px-3 py-2 text-sm font-bold text-brand-ink outline-none focus:border-brand-purple" />
+              </label>
+              {(rangeFrom || rangeTo) ? (
+                <button type="button" onClick={() => { setRangeFrom(''); setRangeTo(''); }} className="rounded-full bg-brand-paper px-3 py-1.5 text-xs font-black text-brand-purple transition hover:bg-brand-purple/10">Vymazat</button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </Panel>
+
       {/* Hlavní metriky */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
             label: 'Příjmy celkem',
             value: `${revenueTotal.toLocaleString('cs-CZ')} Kč`,
-            sub: `${revenueThisMonth.toLocaleString('cs-CZ')} Kč tento měsíc`,
+            sub: `${paidCount}× zaplaceno · ${periodLabel}`,
             color: 'text-emerald-600',
             bg: 'bg-emerald-50',
             border: 'border-emerald-200',
@@ -8378,7 +8702,7 @@ function FinanceOverviewSection({ totals, invoices, paymentRows, coaches, coachA
           {
             label: 'Výdaje celkem',
             value: `${totalExpenses.toLocaleString('cs-CZ')} Kč`,
-            sub: `${expensesTotal.toLocaleString('cs-CZ')} Kč faktury · ${coachPayoutTotal.toLocaleString('cs-CZ')} Kč trenéři`,
+            sub: `${expensesTotal.toLocaleString('cs-CZ')} Kč faktury · ${periodCoachPayout.toLocaleString('cs-CZ')} Kč trenéři`,
             color: 'text-brand-pink',
             bg: 'bg-brand-pink/5',
             border: 'border-brand-pink/20',
@@ -8411,39 +8735,95 @@ function FinanceOverviewSection({ totals, invoices, paymentRows, coaches, coachA
         ))}
       </div>
 
-      {/* Výdělek podle kroužku/produktu */}
+      {/* Nájem tělocvičen */}
       <Panel className="p-5">
-        <SectionTitle icon={<TrendingUp size={18} />} title="Výdělek podle kroužku" subtitle="kolik který kroužek / produkt vydělal (zaplacené platby)" />
-        {earningsByCourse.length === 0 ? (
-          <EmptyState text="Zatím žádné zaplacené platby." />
+        <SectionTitle icon={<Banknote size={18} />} title="Nájem tělocvičen" subtitle="kolik platíš za hodinu — odečte se z každého konaného tréninku" />
+        {rentLocations.length === 0 ? (
+          <EmptyState text="Zatím žádné kroužky s lokalitou." />
+        ) : (
+          <>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {rentLocations.map((loc) => (
+              <div key={loc.key} className="flex items-center justify-between gap-3 rounded-[14px] border border-brand-purple/10 bg-white px-4 py-2.5">
+                <span className="min-w-0 truncate text-sm font-black text-brand-ink">{loc.label}</span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    inputMode="numeric"
+                    value={rentDraft[loc.key] ?? ''}
+                    placeholder="0"
+                    onChange={(e) => setRentDraft((prev) => ({ ...prev, [loc.key]: e.target.value.replace(/[^0-9]/g, '') }))}
+                    className="w-24 rounded-[10px] border border-brand-purple/20 bg-white px-2.5 py-1.5 text-right text-sm font-bold text-brand-ink outline-none focus:border-brand-purple"
+                  />
+                  <span className="text-xs font-bold text-brand-ink-soft">Kč/h</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[11px] font-bold text-brand-ink-soft">Nájem = počet konaných tréninků v období × délka lekce × sazba. Zadej jen čísla (Kč/h) a ulož.</p>
+            <div className="flex items-center gap-3">
+              {rentStatus === 'saved' ? <span className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600"><CheckCircle2 size={15} /> Uloženo</span> : null}
+              <button type="button" onClick={saveAllGymRates} disabled={rentStatus === 'saving'} className="rounded-[14px] bg-brand-purple px-5 py-2.5 text-sm font-black text-white transition hover:bg-brand-purple-deep disabled:opacity-60">
+                {rentStatus === 'saving' ? 'Ukládám…' : 'Uložit sazby'}
+              </button>
+            </div>
+          </div>
+          </>
+        )}
+      </Panel>
+
+      {/* Finance podle lokality */}
+      <Panel className="p-5">
+        <SectionTitle icon={<MapPin size={18} />} title="Finance podle lokality" subtitle="příjmy, trenéři, nájem a čistý zisk za zvolené období" />
+        {locationPnL.length === 0 ? (
+          <EmptyState text="Zatím žádná data pro toto období." />
         ) : (
           <div className="mt-4 space-y-4">
-            {topCourse ? (
+            {topLocation ? (
               <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4">
-                <p className="text-[11px] font-black uppercase tracking-wide text-emerald-600">Nejvíc vydělal</p>
+                <p className="text-[11px] font-black uppercase tracking-wide text-emerald-600">Nejvyšší čistý zisk</p>
                 <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-lg font-black text-brand-ink">{topCourse.title}</p>
-                  <p className="text-2xl font-black text-emerald-600">{topCourse.total.toLocaleString('cs-CZ')} Kč</p>
+                  <p className="text-lg font-black text-brand-ink">{topLocation.location}</p>
+                  <p className="text-2xl font-black text-emerald-600">{topLocation.net.toLocaleString('cs-CZ')} Kč</p>
                 </div>
-                <p className="mt-0.5 text-xs font-bold text-brand-ink-soft">{topCourse.count}× zaplaceno</p>
+                <p className="mt-0.5 text-xs font-bold text-brand-ink-soft">příjmy {topLocation.income.toLocaleString('cs-CZ')} Kč · trenéři {topLocation.coachCost.toLocaleString('cs-CZ')} Kč · nájem {topLocation.rent.toLocaleString('cs-CZ')} Kč</p>
               </div>
             ) : null}
-            <div className="space-y-2">
-              {earningsByCourse.map((course) => {
-                const pct = maxCourseEarning > 0 ? Math.round((course.total / maxCourseEarning) * 100) : 0;
+            <div className="space-y-3">
+              {locationPnL.map((loc) => {
+                const pct = Math.round((Math.max(loc.net, 0) / maxLocationValue) * 100);
                 return (
-                  <div key={course.title}>
-                    <div className="mb-1 flex justify-between gap-3 text-xs font-bold text-brand-ink">
-                      <span className="min-w-0 truncate">{course.title}</span>
-                      <span className="shrink-0 text-brand-ink-soft">{course.total.toLocaleString('cs-CZ')} Kč · {course.count}×</span>
+                  <div key={loc.key} className="rounded-[16px] border border-brand-purple/10 bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="min-w-0 truncate text-sm font-black text-brand-ink">{loc.location}</span>
+                      <span className="shrink-0 text-xs font-bold text-brand-ink-soft">{loc.count}× platba</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-brand-paper">
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className="rounded-[10px] bg-emerald-50 px-2.5 py-1.5">
+                        <p className="text-[10px] font-black uppercase text-emerald-600">Příjmy</p>
+                        <p className="text-sm font-black text-emerald-700">{loc.income.toLocaleString('cs-CZ')} Kč</p>
+                      </div>
+                      <div className="rounded-[10px] bg-brand-pink/5 px-2.5 py-1.5">
+                        <p className="text-[10px] font-black uppercase text-brand-pink">Trenéři</p>
+                        <p className="text-sm font-black text-brand-pink">{loc.coachCost.toLocaleString('cs-CZ')} Kč</p>
+                      </div>
+                      <div className="rounded-[10px] bg-amber-50 px-2.5 py-1.5">
+                        <p className="text-[10px] font-black uppercase text-amber-600">Nájem</p>
+                        <p className="text-sm font-black text-amber-700">{loc.rent.toLocaleString('cs-CZ')} Kč</p>
+                      </div>
+                      <div className={`rounded-[10px] px-2.5 py-1.5 ${loc.net >= 0 ? 'bg-brand-purple/5' : 'bg-brand-pink/10'}`}>
+                        <p className="text-[10px] font-black uppercase text-brand-purple-deep">Čistý zisk</p>
+                        <p className={`text-sm font-black ${loc.net >= 0 ? 'text-brand-purple-deep' : 'text-brand-pink'}`}>{loc.net.toLocaleString('cs-CZ')} Kč</p>
+                      </div>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-paper">
                       <div className="h-full rounded-full bg-brand-purple transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
               })}
             </div>
+            <p className="text-[11px] font-bold text-brand-ink-soft">Trenéři = zapsaná docházka trenérů. Nájem = odhad podle konaných tréninků v rozvrhu × sazba tělocvičny. Faktury (ostatní provozní náklady) najdeš v celkových výdajích.</p>
           </div>
         )}
       </Panel>
@@ -8565,7 +8945,33 @@ function FinanceOverviewSection({ totals, invoices, paymentRows, coaches, coachA
         </Panel>
       ) : null}
 
-      <PaymentHistorySection paymentRows={paymentRows} isVysOrg={isVysOrg} />
+      {/* Historie plateb (sbalitelná, má vlastní filtr nezávislý na období výše) */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowHistory((v) => !v)}
+          className="flex w-full items-center justify-between rounded-[16px] border border-brand-purple/10 bg-white px-5 py-3 text-sm font-black text-brand-purple transition hover:bg-brand-purple/5"
+        >
+          <span className="flex items-center gap-2"><History size={16} /> {showHistory ? 'Skrýt historii plateb' : 'Zobrazit historii plateb'}</span>
+          <ChevronDown size={16} className={`transition-transform duration-300 ${showHistory ? 'rotate-180' : ''}`} />
+        </button>
+        <AnimatePresence initial={false}>
+          {showHistory ? (
+            <motion.div
+              key="payment-history"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="mt-4">
+                <PaymentHistorySection paymentRows={paymentRows} isVysOrg={isVysOrg} />
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

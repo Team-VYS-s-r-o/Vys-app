@@ -78,7 +78,7 @@ export default function AplikacePage() {
               transition={{ duration: 0.6, delay: 0.06, ease }}
               className="mt-5 max-w-[14ch] text-4xl font-black leading-[1.02] tracking-tight text-white md:text-7xl"
             >
-              Celý TeamVYS v telefonu
+              Celý Team VYS v telefonu
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 16 }}

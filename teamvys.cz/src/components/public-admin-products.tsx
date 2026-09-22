@@ -730,7 +730,6 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
   void delay;
   const firstLesson = firstOctoberLessonLabel(product.primaryMeta);
   const [open, setOpen] = useState(false);
-  const remaining = Math.max(0, product.capacityTotal - product.capacityCurrent);
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft">
@@ -738,35 +737,40 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
         <ProductImage src={product.heroImage} alt={product.venue} className="h-full w-full object-cover" />
         <div aria-hidden className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(23,18,32,0)_48%,rgba(23,18,32,0.44)_100%)]" />
         <span className="absolute left-3 top-3 rounded-[16px] bg-white px-3 py-2 text-xs font-black uppercase text-brand-ink shadow-brand-soft">{product.city}</span>
-        <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-[16px] bg-white px-3 py-2 text-xs font-black text-brand-purple shadow-brand-soft">
-          <Users size={14} />
-          {remaining} volných
-        </span>
       </div>
 
       <div className="flex h-full flex-col p-5">
         {/* Název místa */}
         <h3 className="text-xl font-black leading-tight text-brand-ink">{product.venue}</h3>
 
-        {/* Město + cena na vlastním řádku, ať se cena nepřekrývá s názvem */}
+        {/* Město + úroveň */}
         <div className="mt-2 flex items-center justify-between gap-3">
           <p className="inline-flex min-w-0 items-center gap-1.5 text-sm font-bold text-brand-ink-soft">
             <MapPin size={16} className="shrink-0 text-brand-pink" />
             <span className="truncate">{product.city}</span>
           </p>
-          <span className="shrink-0 rounded-[14px] bg-brand-purple-light px-3 py-1.5 text-sm font-black text-brand-purple-deep">{coursePriceLabel(product)}</span>
+          {product.skillCategory && product.skillCategory !== 'smisene' ? (
+            <span className="shrink-0 rounded-[12px] bg-brand-purple-light px-2.5 py-1 text-[11px] font-black uppercase text-brand-purple-deep">
+              {product.skillCategory === 'zacatecnici' ? 'Začátečníci' : 'Pokročilí'}
+            </span>
+          ) : null}
         </div>
 
-        {product.skillCategory && product.skillCategory !== 'smisene' ? (
-          <span className="mt-2 inline-flex w-fit rounded-[12px] bg-brand-purple-light px-2.5 py-1 text-[11px] font-black uppercase text-brand-purple-deep">
-            {product.skillCategory === 'zacatecnici' ? 'Začátečníci' : 'Pokročilí'}
+        {/* Termín (datum a čas) — místo ceny a kapacity */}
+        <div className="mt-4 grid gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
+          <span className="inline-flex items-center gap-2">
+            <CalendarDays size={16} className="text-brand-purple" />
+            {product.primaryMeta}
           </span>
-        ) : null}
+          <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
+            <Clock size={16} className="text-brand-cyan" />
+            <span>
+              {firstLesson ? <>1. lekce {firstLesson}</> : <>Startujeme v říjnu</>} · <span className="text-brand-cyan">zdarma</span>
+            </span>
+          </span>
+        </div>
 
-        {/* Kapacita */}
-        <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
-
-        {/* Rozbalení zbytku informací */}
+        {/* Rozbalení: cena + živá kapacita */}
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -787,22 +791,15 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
               className="overflow-hidden"
             >
-              <div className="mt-3 grid gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
-                <span className="inline-flex items-center gap-2">
-                  <Clock size={16} className="text-brand-cyan" />
-                  {product.primaryMeta}
-                </span>
-                <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
-                  <CalendarDays size={16} className="text-brand-purple" />
-                  <span>
-                    {firstLesson ? <>1. lekce {firstLesson}</> : <>Startujeme v říjnu</>} · <span className="text-brand-cyan">zdarma</span>
-                  </span>
-                </span>
-                <span className="inline-flex items-start gap-2 leading-5">
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-[16px] bg-brand-paper px-3 py-2.5">
+                <span className="inline-flex items-center gap-2 text-sm font-bold text-brand-ink">
                   <ScanLine size={16} className="text-brand-pink" />
                   Permanentka 10 nebo 15 vstupů
                 </span>
+                <span className="shrink-0 rounded-[14px] bg-brand-purple-light px-3 py-1.5 text-sm font-black text-brand-purple-deep">{coursePriceLabel(product)}</span>
               </div>
+
+              <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
 
               <Link
                 href={`/krouzky/${product.id}`}

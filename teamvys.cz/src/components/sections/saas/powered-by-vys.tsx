@@ -28,7 +28,7 @@ export function PoweredByVys() {
                 transition={{ duration: 0.6, ease }}
                 className="text-xs font-black uppercase tracking-[0.2em] text-brand-ember"
               >
-                Powered by TeamVYS
+                Powered by Team VYS
               </motion.p>
               <motion.h2
                 initial={{ opacity: 0, y: 24 }}

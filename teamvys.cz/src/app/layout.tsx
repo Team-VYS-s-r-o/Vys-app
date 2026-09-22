@@ -15,10 +15,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: {
     default: 'TeamVYS — platforma pro dětské sportovní organizace',
-    template: '%s · TeamVYS',
+    template: '%s · Team VYS',
   },
   description:
-    'Digitální platforma pro dětské sportovní kluby: docházka, skupiny, trenéři, platby, NFC čipy a gamifikace. Mobilní aplikace i webový portál. Powered by TeamVYS.',
+    'Digitální platforma pro dětské sportovní kluby: docházka, skupiny, trenéři, platby, NFC čipy a gamifikace. Mobilní aplikace i webový portál. Powered by Team VYS.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
   openGraph: {
     title: 'TeamVYS — platforma pro dětské sportovní organizace',

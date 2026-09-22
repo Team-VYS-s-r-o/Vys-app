@@ -29,7 +29,7 @@ export function SiteFooter() {
             </Link>
             <p className="max-w-[410px] text-sm leading-6 text-white/70">
               Digitální platforma pro dětské sportovní organizace — docházka, platby, gamifikace a mobilní
-              aplikace v jednom. Powered by TeamVYS, parkourovým klubem, který na ní denně jede.
+              aplikace v jednom. Powered by Team VYS, parkourovým klubem, který na ní denně jede.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {contacts.cities.slice(0, 4).map((city) => (
