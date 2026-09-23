@@ -545,9 +545,7 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
             <div className="mt-5 grid gap-3 text-sm font-bold text-slate-700">
               <Stat icon={<CalendarDays size={18} />} label="Den" value={day} />
               <Stat icon={<Clock size={18} />} label="Čas" value={time} />
-              {product.skillCategory && product.skillCategory !== 'smisene' ? (
-                <Stat icon={<CheckCircle2 size={18} />} label="Úroveň" value={product.skillCategory === 'zacatecnici' ? 'Začátečníci' : 'Pokročilí'} />
-              ) : null}
+              <Stat icon={<CheckCircle2 size={18} />} label="Úroveň" value={product.skillCategory === 'zacatecnici' ? 'Začátečníci' : product.skillCategory === 'pokrocili' ? 'Pokročilí' : 'Všechny úrovně'} />
               <Stat icon={<Users size={18} />} label="Živá kapacita" value={`${product.capacityCurrent}/${product.capacityTotal} dětí`} />
               <Stat icon={<MapPin size={18} />} label="Místo" value={`${product.city} · ${product.venue}`} />
             </div>
@@ -749,11 +747,9 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
             <MapPin size={16} className="shrink-0 text-brand-pink" />
             <span className="truncate">{product.city}</span>
           </p>
-          {product.skillCategory && product.skillCategory !== 'smisene' ? (
-            <span className="shrink-0 rounded-[12px] bg-brand-purple-light px-2.5 py-1 text-[11px] font-black uppercase text-brand-purple-deep">
-              {product.skillCategory === 'zacatecnici' ? 'Začátečníci' : 'Pokročilí'}
-            </span>
-          ) : null}
+          <span className="shrink-0 rounded-[12px] bg-brand-purple-light px-2.5 py-1 text-[11px] font-black uppercase text-brand-purple-deep">
+            {product.skillCategory === 'zacatecnici' ? 'Začátečníci' : product.skillCategory === 'pokrocili' ? 'Pokročilí' : 'Všechny úrovně'}
+          </span>
         </div>
 
         {/* Termín (datum a čas) — místo ceny a kapacity */}

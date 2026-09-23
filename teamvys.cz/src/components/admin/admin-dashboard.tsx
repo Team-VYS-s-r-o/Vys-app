@@ -4054,9 +4054,9 @@ function ProductCreateForm({ coaches, onAddProduct }: { coaches: AdminCoachSumma
         {/* Kroužek: kategorie úrovně */}
         {type === 'Krouzek' ? (
           <label className="grid gap-2 text-sm font-black text-brand-ink">
-            Kategorie
+            Úroveň kroužku
             <select value={skillCategory} onChange={(event) => setSkillCategory(event.target.value)} className="rounded-[16px] border border-brand-purple/15 bg-white px-3 py-2.5 text-sm font-bold outline-none focus:border-brand-purple">
-              <option value="smisene">Smíšené (pro všechny)</option>
+              <option value="smisene">Všechny úrovně (bez rozdílu)</option>
               <option value="zacatecnici">Začátečníci</option>
               <option value="pokrocili">Pokročilí</option>
             </select>
