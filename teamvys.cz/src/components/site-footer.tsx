@@ -54,7 +54,7 @@ export function SiteFooter() {
             <FooterContact icon={<Mail size={16} />} value={contacts.email} href={`mailto:${contacts.email}`} />
             <FooterContact icon={<Phone size={16} />} value={contacts.phone} href={`tel:${contacts.phone.replaceAll(' ', '')}`} />
             <FooterContact icon={<MapPin size={16} />} value={contacts.cities.join(', ')} />
-            <p className="text-sm leading-6 text-white/[0.58]">IČO {contacts.ico}{contacts.bank ? ` · ${contacts.bank}` : ''}</p>
+            <p className="text-sm leading-6 text-white/[0.58]">Team VYS s.r.o. · IČO {contacts.ico}{contacts.bank ? ` · ${contacts.bank}` : ''}</p>
           </div>
         </div>
 

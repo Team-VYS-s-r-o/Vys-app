@@ -1,5 +1,4 @@
-// Veřejný obsah — sdílený mezi web (Next.js) a mobile (Expo).
-// Pure data, žádné platform-specific kódy.
+// Public content used by the web app.
 
 import type { AboutPillar, Camp, Contacts, Course, Stat, Testimonial, Workshop } from './types';
 
@@ -73,7 +72,7 @@ export const campSchedule = [
 ];
 
 export const aboutText =
-  'TeamVYS je největší parkourová komunita v regionu. Učíme děti i teenagery hýbat se s odvahou, hlavou a kamarády po boku – v bezpečí, krok za krokem, na nejlepších tréninkových místech.';
+  'Největší parkourová komunita v regionu. Odvaha, hlava a kamarádi po boku — bezpečně, krok za krokem.';
 
 export const aboutPillars: AboutPillar[] = [
   {
