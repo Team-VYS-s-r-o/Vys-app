@@ -43,3 +43,7 @@ app-example
 /ios
 /android
 .vercel
+
+# Next.js
+.next/
+next-env.d.ts
