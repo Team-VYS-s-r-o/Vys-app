@@ -121,7 +121,7 @@ export const contacts: Contacts = {
   phone: '734 167 417',
   email: 'ahoj@teamvys.cz',
   ico: '30059496',
-  bank: '',
+  bank: '3730284010/3030',
   social: ['Instagram', 'YouTube', 'Facebook', 'WhatsApp'],
   cities: ['Vyškov', 'Prostějov', 'Blansko', 'Brandýs', 'Jeseník', 'Veliny'],
 };

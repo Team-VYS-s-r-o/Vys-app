@@ -41,7 +41,7 @@ begin
       {
         "intro": "Závazná přihláška dítěte do aktivity pořádané organizací Team VYS.",
         "clauses": [
-          "Pořadatel: Team VYS s.r.o., IČO 30059496, se sídlem Puškinova 520/37, 682 01 Vyškov. Kontakt: info@teamvys.cz, +420 734 167 417.",
+          "Pořadatel: Team VYS s.r.o., IČO 30059496, se sídlem č.p. 198, 683 04 Ruprechtov, zapsaná v obchodním rejstříku vedeném Krajským soudem v Brně, oddíl C, vložka 154077. Kontakt: info@teamvys.cz, +420 734 167 417.",
           "Přihlašuji níže uvedené dítě k účasti v aktivitě. Přihláška je závazná po zaplacení."
         ],
         "fields": [
@@ -87,7 +87,7 @@ begin
       {
         "intro": "Souhlas se zpracováním osobních údajů dle nařízení (EU) 2016/679 (GDPR).",
         "clauses": [
-          "Správcem osobních údajů je Team VYS s.r.o., IČO 30059496, se sídlem Puškinova 520/37, 682 01 Vyškov.",
+          "Správcem osobních údajů je Team VYS s.r.o., IČO 30059496, se sídlem č.p. 198, 683 04 Ruprechtov, zapsaná v obchodním rejstříku vedeném Krajským soudem v Brně, oddíl C, vložka 154077.",
           "Osobní údaje dítěte a zákonného zástupce zpracováváme za účelem evidence účasti, docházky, plateb a komunikace, a to po dobu trvání účasti a po dobu zákonných lhůt.",
           "Máte právo na přístup k údajům, jejich opravu, výmaz a další práva dle GDPR. Souhlas lze kdykoli odvolat na info@teamvys.cz."
         ],
