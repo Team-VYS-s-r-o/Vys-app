@@ -252,6 +252,14 @@ type ManualCoachAttendanceInput = {
   reason: string;
 };
 
+type ChildAttendanceRecord = {
+  id: string;
+  sessionId: string | null;
+  dateKey: string;
+  location: string;
+  attendees: { name: string; time?: string; method?: string }[];
+};
+
 type ParticipantGroup = {
   key: string;
   type: ActivityType;
@@ -402,6 +410,7 @@ export function AdminDashboard({ finance, financeError, showSignOut, devMode, su
   const [onboardingLinks, setOnboardingLinks] = useState<Record<string, string>>({});
   const [generatingOnboarding, setGeneratingOnboarding] = useState<string | null>(null);
   const [coachAttendanceRecords, setCoachAttendanceRecords] = useState<CoachAttendanceRecord[]>(() => buildInitialCoachAttendanceRecords());
+  const [childAttendanceRecords, setChildAttendanceRecords] = useState<ChildAttendanceRecord[]>([]);
   const [coachDppDocuments, setCoachDppDocuments] = useState<AdminCoachDppDocument[]>([]);
   const [orgDppTemplate, setOrgDppTemplate] = useState<OrgDppTemplate | null>(null);
   const [keyRequests, setKeyRequests] = useState<AdminCoachAccessRequest[]>(() => initialCoachAccessRequests ?? []);
@@ -440,6 +449,16 @@ export function AdminDashboard({ finance, financeError, showSignOut, devMode, su
     });
     return () => { cancelled = true; };
   }, [allProducts]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadChildAttendanceRecords().then((records) => {
+      if (!cancelled) setChildAttendanceRecords(records);
+    }).catch(() => {
+      if (!cancelled) setChildAttendanceRecords([]);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -892,7 +911,7 @@ export function AdminDashboard({ finance, financeError, showSignOut, devMode, su
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
             {activeSection === 'overview' ? <OverviewSection totals={totals} coaches={coaches} coachAttendanceRecords={coachAttendanceRecords} dppDocuments={coachDppDocuments} keyRequests={keyRequests} approvalMessage={approvalMessage} approvingRequestId={approvingRequestId} onApproveKeyRequest={(request) => handleCoachRequestDecision(request, 'approve')} onRejectKeyRequest={(request) => handleCoachRequestDecision(request, 'reject')} onNavigate={setActiveSection} /> : null}
-            {activeSection === 'attendance' ? <AttendanceSection query={attendanceQuery} onQueryChange={setAttendanceQuery} activityRows={activityRows} campTurnusy={campTurnusyState} workshopSlots={workshopSlots} workshopAttendanceRecords={workshopAttendanceRecords} coaches={coaches} coachAttendanceRecords={coachAttendanceRecords} onAddCoachAttendance={handleAddCoachAttendance} onOpenActivityDetail={setSelectedActivityDetail} onOpenParticipantDetail={openParticipantDetail} participants={liveParticipants} products={allProducts} /> : null}
+            {activeSection === 'attendance' ? <AttendanceSection query={attendanceQuery} onQueryChange={setAttendanceQuery} activityRows={activityRows} campTurnusy={campTurnusyState} workshopSlots={workshopSlots} workshopAttendanceRecords={workshopAttendanceRecords} coaches={coaches} coachAttendanceRecords={coachAttendanceRecords} childAttendanceRecords={childAttendanceRecords} onAddCoachAttendance={handleAddCoachAttendance} onOpenActivityDetail={setSelectedActivityDetail} onOpenParticipantDetail={openParticipantDetail} participants={liveParticipants} products={allProducts} /> : null}
             {activeSection === 'participants' ? <ParticipantsSection products={allProducts} participants={liveParticipants} campTurnusy={campTurnusyState} workshopSlots={workshopSlots} workshopAttendanceRecords={workshopAttendanceRecords} onOpenParticipantDetail={openParticipantDetail} /> : null}
             {activeSection === 'registry' ? <RegistrySection participants={liveParticipants} paymentRows={paymentRows} onOpenParticipantDetail={openParticipantDetail} /> : null}
             {activeSection === 'products' ? <ProductsSection products={allProducts} coaches={coaches} onAddProduct={addAdminCreatedProduct} onRemoveProduct={removeAdminCreatedProduct} onUpdateProduct={updateAdminProduct} onProductCoachIdsChange={handleProductCoachIdsChange} /> : null}
@@ -938,6 +957,7 @@ export function AdminDashboard({ finance, financeError, showSignOut, devMode, su
           documents={liveDocuments}
           coaches={coaches}
           coachAttendanceRecords={coachAttendanceRecords}
+          childAttendanceRecords={childAttendanceRecords}
           onClose={() => setSelectedActivityDetail(null)}
           onOpenParticipant={(participant) => openParticipantDetail(participant, selectedActivityDetail.type, selectedActivityDetail.place)}
         />
@@ -1088,11 +1108,11 @@ function OverviewSection({ totals, coaches, coachAttendanceRecords, dppDocuments
   );
 }
 
-function AttendanceSection({ query, onQueryChange, activityRows, campTurnusy, workshopSlots, workshopAttendanceRecords, coaches, coachAttendanceRecords, onAddCoachAttendance, onOpenActivityDetail, onOpenParticipantDetail, participants, products }: { query: string; onQueryChange: (value: string) => void; activityRows: ReturnType<typeof adminActivityRows>; campTurnusy: CampTurnus[]; workshopSlots: WorkshopSlot[]; workshopAttendanceRecords: WorkshopAttendanceRecord[]; coaches: AdminCoachSummary[]; coachAttendanceRecords: CoachAttendanceRecord[]; onAddCoachAttendance: (input: ManualCoachAttendanceInput) => CoachAttendanceRecord; onOpenActivityDetail: (activity: ReturnType<typeof adminActivityRows>[number]) => void; onOpenParticipantDetail: (participant: ParentParticipant, activityType: ActivityType, place: string) => void; participants: ParentParticipant[]; products: ParentProduct[] }) {
+function AttendanceSection({ query, onQueryChange, activityRows, campTurnusy, workshopSlots, workshopAttendanceRecords, coaches, coachAttendanceRecords, childAttendanceRecords, onAddCoachAttendance, onOpenActivityDetail, onOpenParticipantDetail, participants, products }: { query: string; onQueryChange: (value: string) => void; activityRows: ReturnType<typeof adminActivityRows>; campTurnusy: CampTurnus[]; workshopSlots: WorkshopSlot[]; workshopAttendanceRecords: WorkshopAttendanceRecord[]; coaches: AdminCoachSummary[]; coachAttendanceRecords: CoachAttendanceRecord[]; childAttendanceRecords: ChildAttendanceRecord[]; onAddCoachAttendance: (input: ManualCoachAttendanceInput) => CoachAttendanceRecord; onOpenActivityDetail: (activity: ReturnType<typeof adminActivityRows>[number]) => void; onOpenParticipantDetail: (participant: ParentParticipant, activityType: ActivityType, place: string) => void; participants: ParentParticipant[]; products: ParentProduct[] }) {
   const { flags } = useFeatureFlags();
   const visibleActivities = filterActivityRows(activityRows, query);
   const visibleCoaches = coaches.filter((coach) => matchesQuery(`${coach.name} ${coach.locations.join(' ')}`, query) || recordsForCoach(coach, coachAttendanceRecords).some((record) => matchesQuery(`${record.coachName} ${record.sessionTitle} ${record.date}`, query)));
-  const courseStats = buildCourseLocationStats(visibleActivities);
+  const courseStats = buildCourseLocationStats(visibleActivities, childAttendanceRecords);
   const eventActivities = visibleActivities.filter((activity) => activity.type !== 'Krouzek');
   const workshopActivities = eventActivities.filter((activity) => activity.type === 'Workshop');
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -5796,6 +5816,9 @@ function CourseLocationStatCard({ stat, onOpenDetail }: { stat: ReturnType<typeo
         <StatusPill label={`${stat.lastPresent}/${stat.capacityTotal}`} tone="purple" />
       </div>
       <div className="mt-4 flex h-24 items-end gap-2 rounded-[16px] bg-white px-3 py-3">
+        {stat.sessions.length === 0 ? (
+          <p className="w-full self-center text-center text-xs font-bold text-brand-ink-soft">Zatím žádná zaznamenaná lekce.</p>
+        ) : null}
         {stat.sessions.map((session) => (
           <div key={`${stat.key}-${session.date}`} className="flex min-w-0 flex-1 flex-col items-center gap-1">
             <div className="w-full rounded-t-[8px] bg-brand-cyan" style={{ height: `${Math.max(12, Math.round((session.present / maxPresent) * 68))}px` }} />
@@ -5804,20 +5827,6 @@ function CourseLocationStatCard({ stat, onOpenDetail }: { stat: ReturnType<typeo
         ))}
       </div>
     </button>
-  );
-}
-
-type ChildAttendanceRecord = { id: string; participantName: string; location: string; date: string; time: string; method: string };
-
-function ParticipantAttendanceRow({ record }: { record: ChildAttendanceRecord; onOpenParticipant: (participant: ParentParticipant, activityType: ActivityType, place: string) => void }) {
-  return (
-    <div className="grid gap-2 rounded-[16px] border border-brand-purple/10 bg-brand-paper p-3 text-sm transition hover:-translate-y-0.5 hover:border-brand-purple/24 hover:bg-white hover:shadow-brand-soft md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
-      <span className="min-w-0 text-left font-black text-brand-ink">
-        {record.participantName} · {record.location}
-      </span>
-      <span className="font-bold text-brand-ink-soft">{record.date} · {record.time}</span>
-      <StatusPill label={record.method} tone="purple" />
-    </div>
   );
 }
 
@@ -5844,15 +5853,15 @@ function ActivityAttendanceRow({ activity, onOpenDetail }: { activity: ReturnTyp
   );
 }
 
-function ActivityDetailModal({ activity, products, participants, documents, coaches, coachAttendanceRecords, onClose, onOpenParticipant }: { activity: ReturnType<typeof adminActivityRows>[number]; products: ParentProduct[]; participants: ParentParticipant[]; documents: AdminDocument[]; coaches: AdminCoachSummary[]; coachAttendanceRecords: CoachAttendanceRecord[]; onClose: () => void; onOpenParticipant: (participant: ParentParticipant) => void }) {
+function ActivityDetailModal({ activity, products, participants, documents, coaches, coachAttendanceRecords, childAttendanceRecords, onClose, onOpenParticipant }: { activity: ReturnType<typeof adminActivityRows>[number]; products: ParentProduct[]; participants: ParentParticipant[]; documents: AdminDocument[]; coaches: AdminCoachSummary[]; coachAttendanceRecords: CoachAttendanceRecord[]; childAttendanceRecords: ChildAttendanceRecord[]; onClose: () => void; onOpenParticipant: (participant: ParentParticipant) => void }) {
   const [selectedSessionDate, setSelectedSessionDate] = useState<string | null>(null);
-  const [monthIdx, setMonthIdx] = useState(() => {
-    const groups = buildActivitySessions(activity);
-    return Math.max(0, groups.length - 1);
-  });
-  const monthGroups = buildActivitySessions(activity);
-  const safeMonthIdx = Math.min(monthIdx, monthGroups.length - 1);
-  const currentMonthGroup = monthGroups[safeMonthIdx];
+  const monthGroups = buildActivitySessions(activity, childAttendanceRecords);
+  const [monthIdx, setMonthIdx] = useState(() => Math.max(0, monthGroups.length - 1));
+  useEffect(() => {
+    setMonthIdx(Math.max(0, monthGroups.length - 1));
+  }, [monthGroups.length]);
+  const safeMonthIdx = Math.max(0, Math.min(monthIdx, monthGroups.length - 1));
+  const currentMonthGroup = monthGroups[safeMonthIdx] ?? { month: '', sessions: [] };
   const sessions = currentMonthGroup.sessions;
   const registeredParticipants = registeredParticipantsForActivity(activity, products, participants, documents);
   const maxPresent = Math.max(...sessions.map((session) => session.present), 1);
@@ -5874,8 +5883,8 @@ function ActivityDetailModal({ activity, products, participants, documents, coac
 
       {showLessonRecords ? (
         <section className="mt-5 rounded-[18px] border border-brand-purple/10 bg-brand-paper p-4">
-          <SectionTitle icon={<Gauge size={18} />} title="Časový graf docházky" subtitle={selectedSession ? `vybraný den ${selectedSession.date} · klikni na jiný sloupec pro změnu` : 'klikni na sloupec a dole uvidíš děti z konkrétní lekce'} />
-          {monthGroups.length > 1 && (
+          <SectionTitle icon={<Gauge size={18} />} title="Časový graf docházky" subtitle={selectedSession ? `vybraný den ${selectedSession.date} · klikni na jiný sloupec pro změnu` : 'každý sloupec je jeden trénink · klikni na sloupec a dole uvidíš děti z konkrétní lekce'} />
+          {monthGroups.length > 0 && (
             <div className="mt-3 flex items-center gap-1">
               <button type="button" disabled={safeMonthIdx === 0} onClick={() => { setMonthIdx(safeMonthIdx - 1); setSelectedSessionDate(null); }} className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-white text-brand-purple transition hover:bg-brand-purple/10 disabled:cursor-default disabled:opacity-30">
                 <ChevronDown size={13} className="rotate-90" />
@@ -5886,6 +5895,9 @@ function ActivityDetailModal({ activity, products, participants, documents, coac
               </button>
             </div>
           )}
+          {sessions.length === 0 ? (
+            <p className="mt-4 rounded-[16px] bg-white px-4 py-6 text-center text-sm font-bold text-brand-ink-soft">Zatím tu není žádná zaznamenaná lekce — sloupce s jednotlivými dny se objeví po prvním zapsání docházky (NFC sken nebo ruční zápis trenéra).</p>
+          ) : (
           <div className="mt-4 flex h-36 items-end gap-2 rounded-[16px] bg-white px-3 py-4">
             {sessions.map((session) => {
               const active = selectedSessionDate === session.date;
@@ -5902,6 +5914,7 @@ function ActivityDetailModal({ activity, products, participants, documents, coac
               );
             })}
           </div>
+          )}
         </section>
       ) : null}
 
@@ -5910,7 +5923,7 @@ function ActivityDetailModal({ activity, products, participants, documents, coac
       {showLessonRecords ? (
         <section className="mt-5 rounded-[18px] border border-brand-purple/10 bg-brand-paper p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <SectionTitle icon={<History size={18} />} title={selectedSession ? `Účastníci ${selectedSession.date}` : 'Přesné záznamy lekcí'} subtitle={selectedSession ? 'děti z vybraného sloupce grafu, účastníka můžeš rozkliknout' : `${currentMonthGroup.month} · kliknutím na den v grafu vyfiltrujete`} />
+            <SectionTitle icon={<History size={18} />} title={selectedSession ? `Účastníci ${selectedSession.date}` : 'Přesné záznamy lekcí'} subtitle={selectedSession ? 'děti z vybraného sloupce grafu, účastníka můžeš rozkliknout' : `${currentMonthGroup.month || 'zatím bez lekcí'} · kliknutím na den v grafu vyfiltrujete`} />
             {selectedSession ? (
               <button type="button" onClick={() => setSelectedSessionDate(null)} className="inline-flex items-center justify-center rounded-[14px] bg-white px-4 py-3 text-xs font-black text-brand-purple transition hover:bg-brand-purple hover:text-white">
                 Zobrazit všechny dny
@@ -5918,8 +5931,13 @@ function ActivityDetailModal({ activity, products, participants, documents, coac
             ) : null}
           </div>
           <div className="mt-4 grid gap-2">
+            {visibleSessions.length === 0 ? (
+              <p className="rounded-[16px] bg-white px-4 py-4 text-sm font-bold text-brand-ink-soft">Zatím žádné zaznamenané lekce.</p>
+            ) : null}
             {visibleSessions.map((session) => {
-              const sessionParticipants = sessionParticipantsForActivity(activity, session.present, products, participants, documents);
+              const sessionParticipants = sessionParticipantsForActivity(activity, session.presentNames, products, participants, documents);
+              const matchedNames = new Set(sessionParticipants.map((record) => normalizeText(record.name)));
+              const unmatchedNames = session.presentNames.filter((name) => !matchedNames.has(normalizeText(name)));
               const sessionCoaches = buildActivityCoachPresence(activity, products, coaches, coachAttendanceRecords, session.date);
               return (
                 <div key={`session-${session.date}`} className="rounded-[16px] bg-white p-3">
@@ -5933,6 +5951,9 @@ function ActivityDetailModal({ activity, products, participants, documents, coac
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {sessionParticipants.map((participant) => <ActivityParticipantChip key={`${session.date}-${participant.id}`} participant={participant} onOpenParticipant={onOpenParticipant} />)}
+                    {unmatchedNames.map((name) => (
+                      <span key={`${session.date}-${name}`} className="inline-flex items-center rounded-[12px] bg-brand-paper px-3 py-2 text-xs font-black text-brand-ink-soft">{name}</span>
+                    ))}
                   </div>
                 </div>
               );
@@ -7487,6 +7508,36 @@ function buildInitialCoachAttendanceRecords(): CoachAttendanceRecord[] {
   return [];
 }
 
+type ChildAttendanceRow = { id: string; session_id: string | null; date_text: string; location: string; attendees: unknown };
+
+async function loadChildAttendanceRecords(): Promise<ChildAttendanceRecord[]> {
+  if (!hasSupabaseBrowserConfig()) return [];
+
+  const supabase = createBrowserSupabaseClient();
+  const { data, error } = await supabase
+    .from('child_attendance_records')
+    .select('id,session_id,date_text,location,attendees');
+  if (error || !data) return [];
+
+  return (data as ChildAttendanceRow[]).map((row) => ({
+    id: row.id,
+    sessionId: row.session_id,
+    dateKey: childAttendanceDateKey(row.id, row.date_text),
+    location: row.location,
+    attendees: Array.isArray(row.attendees)
+      ? (row.attendees as { name?: string; time?: string; method?: string }[])
+          .filter((attendee) => typeof attendee?.name === 'string' && attendee.name.trim().length > 0)
+          .map((attendee) => ({ name: (attendee.name as string).trim(), time: attendee.time, method: attendee.method }))
+      : [],
+  }));
+}
+
+function childAttendanceDateKey(id: string, dateText: string) {
+  const fromId = id.match(/(\d{4}-\d{2}-\d{2})$/);
+  if (fromId) return fromId[1];
+  return czechDateKey(dateText) ?? '';
+}
+
 function recordsForCoach(coach: AdminCoachSummary, records: CoachAttendanceRecord[]) {
   return records.filter((record) => record.coachId === coach.id || normalizeText(record.coachName) === normalizeText(coach.name));
 }
@@ -8029,7 +8080,7 @@ function documentKindForTitle(title: string) {
   return normalizedTitle;
 }
 
-function buildCourseLocationStats(activityRows: ReturnType<typeof adminActivityRows>) {
+function buildCourseLocationStats(activityRows: ReturnType<typeof adminActivityRows>, childAttendanceRecords: ChildAttendanceRecord[]) {
   const courseActivities = activityRows.filter((activity) => activity.type === 'Krouzek');
   const uniqueActivities = new Map<string, (typeof courseActivities)[number]>();
 
@@ -8042,7 +8093,7 @@ function buildCourseLocationStats(activityRows: ReturnType<typeof adminActivityR
   }
 
   return Array.from(uniqueActivities.entries()).map(([key, activity]) => {
-    const monthGroups = buildActivitySessions(activity);
+    const monthGroups = buildActivitySessions(activity, childAttendanceRecords);
     const sessions = monthGroups.flatMap((g) => g.sessions);
     const presentCounts = sessions.map((s) => s.present);
     const averagePresent = Math.round(presentCounts.reduce((sum, value) => sum + value, 0) / Math.max(1, presentCounts.length));
@@ -8060,18 +8111,64 @@ function buildCourseLocationStats(activityRows: ReturnType<typeof adminActivityR
   });
 }
 
-function buildActivitySessions(activity: ReturnType<typeof adminActivityRows>[number]) {
-  const present = Math.max(0, activity.registered);
-  return [{
-    month: 'Souhrn z databáze',
-    sessions: [{
-      date: 'Aktuální souhrn',
-      shortDate: 'souhrn',
-      present,
-      absent: Math.max(0, activity.capacityTotal - present),
-      capacityTotal: activity.capacityTotal,
-    }],
-  }];
+const CZECH_MONTH_NAMES = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
+
+function czechDateKey(value: string) {
+  const match = value.match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+  return match ? `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}` : null;
+}
+
+function childRecordProductId(record: ChildAttendanceRecord) {
+  // id format: children-coach-session-<coach uuid>-<product id>-<YYYY-MM-DD>
+  const match = record.id.match(/^children-coach-session-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)-\d{4}-\d{2}-\d{2}$/i);
+  return match ? match[1] : null;
+}
+
+function childRecordsForActivity(activity: ReturnType<typeof adminActivityRows>[number], records: ChildAttendanceRecord[]) {
+  const activityBase = activity.id.replace(/-15$/, '');
+  const placeNeedle = normalizeText(activity.place);
+
+  return records.filter((record) => {
+    const productId = childRecordProductId(record);
+    if (productId) return productId.replace(/-15$/, '') === activityBase;
+    const location = normalizeText(record.location);
+    return Boolean(placeNeedle && location && (location.includes(placeNeedle) || placeNeedle.includes(location)));
+  });
+}
+
+function buildActivitySessions(activity: ReturnType<typeof adminActivityRows>[number], childAttendanceRecords: ChildAttendanceRecord[]) {
+  const namesByDate = new Map<string, Set<string>>();
+
+  for (const record of childRecordsForActivity(activity, childAttendanceRecords)) {
+    if (!record.dateKey) continue;
+    const names = namesByDate.get(record.dateKey) ?? new Set<string>();
+    for (const attendee of record.attendees) names.add(attendee.name);
+    namesByDate.set(record.dateKey, names);
+  }
+
+  const sessions = Array.from(namesByDate.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([dateKey, names]) => {
+      const [year, month, day] = dateKey.split('-').map(Number);
+      return {
+        monthKey: dateKey.slice(0, 7),
+        monthLabel: `${CZECH_MONTH_NAMES[month - 1]} ${year}`,
+        date: `${day}. ${month}. ${year}`,
+        shortDate: `${day}. ${month}.`,
+        present: names.size,
+        presentNames: Array.from(names),
+        absent: Math.max(0, activity.capacityTotal - names.size),
+        capacityTotal: activity.capacityTotal,
+      };
+    });
+
+  const groups = new Map<string, { month: string; sessions: typeof sessions }>();
+  for (const session of sessions) {
+    const group = groups.get(session.monthKey);
+    if (group) group.sessions.push(session);
+    else groups.set(session.monthKey, { month: session.monthLabel, sessions: [session] });
+  }
+  return Array.from(groups.values());
 }
 
 function productForActivity(activity: ReturnType<typeof adminActivityRows>[number], products: ParentProduct[]) {
@@ -8107,14 +8204,16 @@ function coachAttendanceRecordsForActivity(activity: ReturnType<typeof adminActi
     product?.place,
     product?.venue,
   ].map((value) => normalizeText(value ?? '')).filter(Boolean)));
-  const hasSpecificDate = Boolean(selectedDate && normalizeText(selectedDate) !== normalizeText('Aktuální souhrn'));
+  const selectedKey = selectedDate ? czechDateKey(selectedDate) : null;
 
   return records.filter((record) => {
     const recordText = normalizeText(`${record.sessionTitle} ${record.reason}`);
     const matchesActivity = needles.some((needle) => recordText.includes(needle) || (recordText.length > 0 && needle.includes(recordText)));
     if (!matchesActivity) return false;
-    if (!hasSpecificDate) return true;
-    return normalizeText(record.date) === normalizeText(selectedDate ?? '');
+    if (!selectedDate) return true;
+    const recordKey = czechDateKey(record.date);
+    if (selectedKey && recordKey) return selectedKey === recordKey;
+    return normalizeText(record.date) === normalizeText(selectedDate);
   });
 }
 
@@ -8135,8 +8234,9 @@ function registeredParticipantsForActivity(activity: ReturnType<typeof adminActi
   return participantsForActivity(activity, products, participants).map((participant) => participantRecordForLinkedParticipant(participant, activity, documents));
 }
 
-function sessionParticipantsForActivity(activity: ReturnType<typeof adminActivityRows>[number], presentCount: number, products: ParentProduct[], participants: ParentParticipant[], documents: AdminDocument[]) {
-  return registeredParticipantsForActivity(activity, products, participants, documents).slice(0, presentCount);
+function sessionParticipantsForActivity(activity: ReturnType<typeof adminActivityRows>[number], presentNames: string[], products: ParentProduct[], participants: ParentParticipant[], documents: AdminDocument[]) {
+  const needles = presentNames.map((name) => normalizeText(name)).filter(Boolean);
+  return registeredParticipantsForActivity(activity, products, participants, documents).filter((record) => needles.includes(normalizeText(record.name)));
 }
 
 function participantRecordForLinkedParticipant(participant: ParentParticipant, activity: ReturnType<typeof adminActivityRows>[number], documents: AdminDocument[]): ActivityParticipantRecord {
