@@ -540,6 +540,15 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
   const [hero, ...rest] = gallery;
   const { day, time } = splitCourseMeta(product.primaryMeta);
   const coaches = coachesForIds(product.coachIds ?? []);
+  const sameVenue = products
+    .filter((item) => item.type === 'Krouzek' && !item.id.endsWith('-15') && venueKey(item.city) === venueKey(product.city) && venueKey(item.venue) === venueKey(product.venue))
+    .sort((a, b) => startMinutes(a.primaryMeta) - startMinutes(b.primaryMeta));
+  const group = sameVenue.length > 0 ? sameVenue : [product];
+  const merged = group.length > 1;
+  const scheduleDays = parseScheduleDays(product.primaryMeta);
+  const multiDay = !merged && scheduleDays.length >= 2;
+  const uniformLevel = group.every((item) => item.skillCategory === product.skillCategory);
+  const minPrice = Math.min(...group.map((item) => item.price));
 
   return (
     <article className="section-shell py-10">
@@ -595,13 +604,46 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
             </div>
 
             <div className="mt-5 grid gap-3 text-sm font-bold text-slate-700">
-              <Stat icon={<CalendarDays size={18} />} label="Den" value={day} />
-              <Stat icon={<Clock size={18} />} label="Čas" value={time} />
-              <Stat icon={<CheckCircle2 size={18} />} label="Úroveň" value={product.skillCategory === 'zacatecnici' ? 'Začátečníci' : product.skillCategory === 'pokrocili' ? 'Pokročilí' : 'Všechny úrovně'} />
-              <Stat icon={<Users size={18} />} label="Živá kapacita" value={`${product.capacityCurrent}/${product.capacityTotal} dětí`} />
+              {merged ? (
+                group.map((item) => {
+                  const meta = splitCourseMeta(item.primaryMeta);
+                  return <Stat key={item.id} icon={<CalendarDays size={18} />} label={`${meta.day} · ${meta.time}`} value={skillLabel(item)} />;
+                })
+              ) : (
+                <>
+                  <Stat icon={<CalendarDays size={18} />} label="Den" value={day} />
+                  <Stat icon={<Clock size={18} />} label="Čas" value={time} />
+                  <Stat icon={<CheckCircle2 size={18} />} label="Úroveň" value={skillLabel(product)} />
+                  <Stat icon={<Users size={18} />} label="Živá kapacita" value={`${product.capacityCurrent}/${product.capacityTotal} dětí`} />
+                </>
+              )}
+              <Stat icon={<CreditCard size={18} />} label="Cena" value={`od ${minPrice.toLocaleString('cs-CZ')} Kč`} />
               <Stat icon={<MapPin size={18} />} label="Místo" value={`${product.city} · ${product.venue}`} />
             </div>
-            <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
+            {merged ? (
+              group.map((item) => {
+                const meta = splitCourseMeta(item.primaryMeta);
+                return (
+                  <div key={item.id}>
+                    <p className="mt-4 text-xs font-black uppercase text-slate-400">
+                      {meta.day} · {meta.time} <span className="text-brand-purple-deep">({skillLabel(item)})</span>
+                    </p>
+                    <CourseCapacityMeter current={item.capacityCurrent} total={item.capacityTotal} />
+                  </div>
+                );
+              })
+            ) : (
+              <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
+            )}
+            {multiDay ? (
+              <p className="mt-4 rounded-[14px] bg-brand-purple-light px-3 py-2 text-xs font-black leading-5 text-brand-purple-deep">
+                Při přihlášce si vybereš {scheduleDays.join(', ')}, nebo oba dny — cena je stejná.
+              </p>
+            ) : merged ? (
+              <p className="mt-4 rounded-[14px] bg-brand-purple-light px-3 py-2 text-xs font-black leading-5 text-brand-purple-deep">
+                Na tomhle místě běží kroužek ve více časech. Při přihlášce v aplikaci si vybereš čas, který vám sedí{uniformLevel ? '' : ' — každý čas má svoji úroveň'}.
+              </p>
+            ) : null}
 
             <div className="mt-5 border-t border-black/10 pt-5">
               <p className="text-xs font-black uppercase text-slate-400">Trenéři na lokaci</p>
@@ -835,12 +877,9 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
   const product = products[0];
   const merged = products.length > 1;
   const firstLesson = firstOctoberLessonLabel(product.primaryMeta);
-  const [open, setOpen] = useState(false);
   const scheduleDays = parseScheduleDays(product.primaryMeta);
   const scheduleTime = parseScheduleTime(product.primaryMeta);
   const multiDay = !merged && scheduleDays.length >= 2;
-  const uniformLevel = products.every((item) => item.skillCategory === product.skillCategory);
-  const minPrice = Math.min(...products.map((item) => item.price));
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft">
@@ -854,38 +893,26 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
         {/* Název místa */}
         <h3 className="text-xl font-black leading-tight text-brand-ink">{product.venue}</h3>
 
-        {/* Město + úroveň */}
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <p className="inline-flex min-w-0 items-center gap-1.5 text-sm font-bold text-brand-ink-soft">
-            <MapPin size={16} className="shrink-0 text-brand-pink" />
-            <span className="truncate">{product.city}</span>
-          </p>
-          <span className="shrink-0 rounded-[12px] bg-brand-purple-light px-2.5 py-1 text-[11px] font-black uppercase text-brand-purple-deep">
-            {uniformLevel ? skillLabel(product) : 'Více úrovní'}
-          </span>
-        </div>
+        {/* Město */}
+        <p className="mt-2 inline-flex min-w-0 items-center gap-1.5 text-sm font-bold text-brand-ink-soft">
+          <MapPin size={16} className="shrink-0 text-brand-pink" />
+          <span className="truncate">{product.city}</span>
+        </p>
 
-        {/* Termín (datum a čas) — místo ceny a kapacity */}
+        {/* Termíny — úroveň u každého času */}
         <div className="mt-4 grid gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
-          {merged ? (
-            products.map((item) => {
-              const meta = splitCourseMeta(item.primaryMeta);
-              return (
-                <span key={item.id} className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-2">
-                    <CalendarDays size={16} className="text-brand-purple" />
-                    {meta.day} · {meta.time}
-                  </span>
-                  <span className="shrink-0 rounded-[10px] bg-brand-purple-light px-2 py-1 text-[10px] font-black uppercase text-brand-purple-deep">{skillLabel(item)}</span>
+          {products.map((item) => {
+            const meta = splitCourseMeta(item.primaryMeta);
+            return (
+              <span key={item.id} className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-2">
+                  <CalendarDays size={16} className="shrink-0 text-brand-purple" />
+                  {merged ? `${meta.day} · ${meta.time}` : multiDay && scheduleTime ? `${scheduleDays.join(' a ')} · ${scheduleTime}` : item.primaryMeta}
                 </span>
-              );
-            })
-          ) : (
-            <span className="inline-flex items-center gap-2">
-              <CalendarDays size={16} className="text-brand-purple" />
-              {multiDay && scheduleTime ? `${scheduleDays.join(' a ')} · ${scheduleTime}` : product.primaryMeta}
-            </span>
-          )}
+                <span className="shrink-0 rounded-[10px] bg-brand-purple-light px-2 py-1 text-[10px] font-black uppercase text-brand-purple-deep">{skillLabel(item)}</span>
+              </span>
+            );
+          })}
           <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
             <Clock size={16} className="text-brand-cyan" />
             <span>
@@ -894,79 +921,16 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
           </span>
         </div>
 
-        {/* Rozbalení: cena + živá kapacita */}
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="mt-3 inline-flex items-center justify-between gap-2 rounded-[16px] bg-brand-paper px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-brand-purple-light"
+        {/* Vše ostatní (cena, kapacita, trenéři) na detailu produktu */}
+        <Link
+          href={`/krouzky/${product.id}`}
+          className="group mt-3 flex items-center justify-between gap-2 rounded-[16px] bg-brand-paper px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-brand-purple-light"
         >
-          {open ? 'Skrýt info' : 'Zobrazit více info'}
-          <ChevronDown size={18} className={`text-brand-purple transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
-        </button>
-
-        <AnimatePresence initial={false}>
-          {open ? (
-            <motion.div
-              key="more"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden"
-            >
-              <div className="mt-3 flex items-center justify-between gap-3 rounded-[16px] bg-brand-paper px-3 py-2.5">
-                <span className="inline-flex items-center gap-2 text-sm font-bold text-brand-ink">
-                  <ScanLine size={16} className="text-brand-pink" />
-                  Permanentka 10 nebo 15 vstupů
-                </span>
-                <span className="shrink-0 rounded-[14px] bg-brand-purple-light px-3 py-1.5 text-sm font-black text-brand-purple-deep">od {minPrice.toLocaleString('cs-CZ')} Kč</span>
-              </div>
-
-              {merged ? (
-                products.map((item) => {
-                  const meta = splitCourseMeta(item.primaryMeta);
-                  return (
-                    <div key={item.id}>
-                      <p className="mt-4 text-xs font-black uppercase text-slate-400">
-                        {meta.day} · {meta.time} <span className="text-brand-purple-deep">({skillLabel(item)})</span>
-                      </p>
-                      <CourseCapacityMeter current={item.capacityCurrent} total={item.capacityTotal} />
-                    </div>
-                  );
-                })
-              ) : (
-                <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
-              )}
-
-              {products.map((item) => {
-                const meta = splitCourseMeta(item.primaryMeta);
-                return (
-                  <Link
-                    key={item.id}
-                    href={`/krouzky/${item.id}`}
-                    className="group mt-3 flex items-center justify-between gap-3 rounded-[18px] border border-black/10 px-4 py-3 transition-colors hover:border-brand-purple/30"
-                  >
-                    <p className="text-xs font-black uppercase text-slate-400">{merged ? `Detail · ${meta.day} ${meta.time}` : 'Detail lokality a trenéři'}</p>
-                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
-                      <ArrowRight size={18} />
-                    </span>
-                  </Link>
-                );
-              })}
-
-              {multiDay ? (
-                <p className="mt-3 rounded-[14px] bg-brand-purple-light px-3 py-2 text-xs font-black leading-5 text-brand-purple-deep">
-                  Při přihlášce si vybereš {scheduleDays.join(', ')}, nebo oba dny — cena je stejná.
-                </p>
-              ) : merged ? (
-                <p className="mt-3 rounded-[14px] bg-brand-purple-light px-3 py-2 text-xs font-black leading-5 text-brand-purple-deep">
-                  Na tomhle místě běží kroužek ve více časech. Při přihlášce v aplikaci si vybereš čas, který vám sedí{uniformLevel ? '' : ' — každý čas má svoji úroveň'}.
-                </p>
-              ) : null}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+          Zobrazit více info
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
+            <ArrowRight size={16} />
+          </span>
+        </Link>
       </div>
     </div>
   );
