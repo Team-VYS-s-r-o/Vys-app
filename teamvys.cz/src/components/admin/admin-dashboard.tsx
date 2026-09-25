@@ -5601,7 +5601,7 @@ function CoachDetailCard({ products, coach, coachAttendanceRecords, dppDocument,
             </div>
             {rateMessage ? <p className={`mt-2 text-xs font-bold ${rateMessage.includes('✓') ? 'text-emerald-600' : 'text-brand-pink'}`}>{rateMessage}</p> : null}
           </div>
-          <CoachDppPanel coach={coach} document={dppDocument} onMarkSigned={onMarkCoachDppSigned} onMarkPhysical={onMarkCoachDppPhysical} />
+          <CoachDppPanel coach={coach} document={dppDocument} onCreate={onCreateCoachDpp} onMarkSigned={onMarkCoachDppSigned} onMarkPhysical={onMarkCoachDppPhysical} />
         </section>
       ) : null}
 
@@ -5633,7 +5633,7 @@ function CoachDetailCard({ products, coach, coachAttendanceRecords, dppDocument,
   );
 }
 
-function CoachDppPanel({ coach, document, onMarkSigned, onMarkPhysical }: { coach: AdminCoachSummary; document: AdminCoachDppDocument; onMarkSigned: (coachId: string) => void; onMarkPhysical: (coachId: string) => void }) {
+function CoachDppPanel({ coach, document, onCreate, onMarkSigned, onMarkPhysical }: { coach: AdminCoachSummary; document: AdminCoachDppDocument; onCreate: (coach: AdminCoachSummary) => AdminCoachDppDocument; onMarkSigned: (coachId: string) => void; onMarkPhysical: (coachId: string) => void }) {
   const [message, setMessage] = useState<string | null>(null);
   const isSigned = document.status === 'signed' || document.status === 'physical';
   const year = new Date().getFullYear();
@@ -5684,6 +5684,11 @@ function CoachDppPanel({ coach, document, onMarkSigned, onMarkPhysical }: { coac
 
   function markSigned() { onMarkSigned(coach.id); setMessage('DPP označena jako digitálně podepsaná.'); }
   function markPhysical() { onMarkPhysical(coach.id); setMessage('Fyzická smlouva označena jako podepsaná a archivovaná.'); }
+  function createDigital() { onCreate(coach); setMessage('Digitální DPP vytvořena — trenér ji uvidí k podpisu v aplikaci.'); }
+
+  const hasDigital = document.status !== 'missing';
+  const hasFile = Boolean(dppFile?.original_path);
+  const showChooser = !hasDigital && !hasFile;
 
   return (
     <CollapsiblePanel icon={<FileText size={18} />} title="DPP dokument" subtitle={`${document.title} · ${coachDppStatusLabel(document.status)}`} count={coachDppStatusLabel(document.status)} defaultOpen={!isSigned}>
@@ -5698,6 +5703,29 @@ function CoachDppPanel({ coach, document, onMarkSigned, onMarkPhysical }: { coac
         <InfoBlock label="Majitel účtu" value={coach.payoutAccountHolder ?? coach.name} />
       </div>
 
+      <input ref={fileInputRef} type="file" accept=".pdf,application/pdf" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadOriginal(f); e.target.value = ''; }} />
+
+      {showChooser ? (
+        <div className="mt-3 rounded-[16px] border border-brand-purple/10 bg-white p-4">
+          <p className="text-xs font-black uppercase text-brand-purple">Založení DPP</p>
+          <p className="mt-1 text-sm font-bold leading-6 text-brand-ink-soft">Vyber, jak chceš smlouvu pro trenéra založit — buď digitální dokument k podpisu v aplikaci, nebo nahraješ vlastní PDF.</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <button type="button" onClick={createDigital}
+              className="inline-flex items-center justify-center gap-2 rounded-[16px] bg-gradient-brand px-5 py-3 text-sm font-black text-white transition hover:opacity-90">
+              <PenLine size={15} />
+              Vytvořit digitální DPP
+            </button>
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
+              className="inline-flex items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-brand-purple/20 bg-white px-5 py-3 text-sm font-black text-brand-ink-soft transition hover:border-brand-purple/50 disabled:opacity-50">
+              <FileUp size={15} />
+              {uploading ? 'Nahrávám…' : 'Nahrát PDF soubor'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {hasDigital ? (
       <div className="mt-3 rounded-[16px] border border-brand-purple/10 bg-white p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -5720,8 +5748,10 @@ function CoachDppPanel({ coach, document, onMarkSigned, onMarkPhysical }: { coac
           <InfoBlock label="Podepsáno" value={document.signedAt ?? (document.status === 'physical' ? 'fyzicky archivováno' : 'čeká na podpis')} />
         </div>
       </div>
+      ) : null}
 
       {/* ── File attachments ── */}
+      {!showChooser ? (
       <div className="mt-4 rounded-[16px] border border-brand-purple/10 bg-brand-paper p-4">
         <p className="text-xs font-black uppercase tracking-[0.12em] text-brand-purple">Soubory</p>
 
@@ -5747,8 +5777,6 @@ function CoachDppPanel({ coach, document, onMarkSigned, onMarkPhysical }: { coac
               {uploading ? 'Nahrávám…' : 'Přiložit PDF smlouvy pro trenéra'}
             </button>
           )}
-          <input ref={fileInputRef} type="file" accept=".pdf,application/pdf" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadOriginal(f); e.target.value = ''; }} />
         </div>
 
         {/* Signed version from coach */}
@@ -5767,7 +5795,9 @@ function CoachDppPanel({ coach, document, onMarkSigned, onMarkPhysical }: { coac
           )}
         </div>
       </div>
+      ) : null}
 
+      {!showChooser ? (
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" onClick={markSigned} disabled={isSigned} className="inline-flex items-center justify-center gap-2 rounded-[16px] border border-brand-purple/15 bg-white px-4 py-3 text-sm font-black text-brand-ink transition hover:bg-brand-paper disabled:cursor-not-allowed disabled:opacity-55">
           <CheckCircle2 size={17} />
@@ -5778,6 +5808,7 @@ function CoachDppPanel({ coach, document, onMarkSigned, onMarkPhysical }: { coac
           Fyzická smlouva ✓
         </button>
       </div>
+      ) : null}
       {message ? <p className="mt-3 rounded-[16px] bg-white p-3 text-sm font-bold leading-6 text-brand-ink-soft">{message}</p> : null}
     </CollapsiblePanel>
   );
