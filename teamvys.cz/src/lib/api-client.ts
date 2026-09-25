@@ -24,6 +24,7 @@ export type EmbeddedPaymentIntentPayload = {
   participantName: string;
   receiptEmail?: string;
   discountCode?: string;
+  trainingDays?: string[];
 };
 
 export type EmbeddedPaymentIntentResponse = {

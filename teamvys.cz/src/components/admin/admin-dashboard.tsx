@@ -82,6 +82,7 @@ import {
     type WorkshopCity,
     type WorkshopSlot
 } from '@/lib/portal-content';
+import { normalizeDayName, parseScheduleDays } from '@/lib/schedule-days';
 import { createBrowserSupabaseClient, hasSupabaseBrowserConfig } from '@/lib/supabase/browser';
 import { seedFeatureFlags, useFeatureFlags } from '@/lib/use-feature-flags';
 import { WORKSHOP_TRICK_LEVELS } from '@/lib/workshop-tricks';
@@ -135,6 +136,7 @@ type AdminPurchaseRow = {
   amount?: number;
   status: string;
   expires_at?: string | null;
+  training_days?: string[] | null;
 };
 
 type AdminParentProfileRow = {
@@ -4400,6 +4402,47 @@ function GroupedCampCard({ group, coaches, onRemoveAll, onRemoveTurnus, onCoachI
   );
 }
 
+function CourseDayCounts({ product }: { product: ParentProduct }) {
+  const scheduleDays = useMemo(() => (product.type === 'Krouzek' ? parseScheduleDays(product.primaryMeta) : []), [product.type, product.primaryMeta]);
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    if (scheduleDays.length < 2 || !hasSupabaseBrowserConfig()) return;
+    let cancelled = false;
+    const supabase = createBrowserSupabaseClient();
+    void supabase
+      .from('parent_purchases')
+      .select('id,parent_profile_id,participant_id,participant_name,training_days,status')
+      .in('product_id', [product.id, `${product.id}-15`])
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const rows = (data as Array<{ id: string; parent_profile_id?: string | null; participant_id?: string | null; participant_name?: string | null; training_days?: string[] | null; status?: string | null }>)
+          .filter((row) => String(row.status || '') === 'Zaplaceno' && !isDemoAdminRecord(row.id, row.parent_profile_id, row.participant_id, row.participant_name));
+        const next: Record<string, number> = {};
+        for (const day of scheduleDays) {
+          const participants = new Set<string>();
+          for (const row of rows) {
+            const days = Array.isArray(row.training_days) ? row.training_days : [];
+            const attendsDay = days.length === 0 || days.some((item) => normalizeDayName(String(item)) === normalizeDayName(day));
+            if (attendsDay) participants.add(String(row.participant_id || row.id));
+          }
+          next[day] = participants.size;
+        }
+        setCounts(next);
+      });
+    return () => { cancelled = true; };
+  }, [product.id, scheduleDays]);
+
+  if (scheduleDays.length < 2 || !counts) return null;
+  return (
+    <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+      {scheduleDays.map((day) => (
+        <Metric key={day} value={`${counts[day] ?? 0} dětí`} label={day} />
+      ))}
+    </div>
+  );
+}
+
 function GroupedCourseCard({ group, coaches, isCreated, onRemove, onEdit, onEditVariant15, onCoachIdsChange }: { group: { baseId: string; base: ParentProduct; variant15: ParentProduct | null }; coaches: AdminCoachSummary[]; isCreated: boolean; onRemove: () => void; onEdit: (edits: ProductEdits) => void; onEditVariant15?: (edits: ProductEdits) => void; onCoachIdsChange: (coachIds: string[]) => Promise<void> }) {
   const { base, variant15 } = group;
   const coachNames = productCoachNames(base, coaches);
@@ -4485,6 +4528,7 @@ function GroupedCourseCard({ group, coaches, isCreated, onRemove, onEdit, onEdit
           <Metric value={`${base.capacityCurrent}/${base.capacityTotal}`} label="kapacita" />
           <Metric value={isCreated ? 'Přidáno' : 'Vestavěný'} label="původ" />
         </div>
+        <CourseDayCounts product={base} />
         <ProductCoachAssignment product={base} coaches={coaches} onChange={onCoachIdsChange} />
       </div>
 
@@ -6058,7 +6102,7 @@ function ParticipantDetailModal({ detail, documents: allDocuments, onClose }: { 
                   <div key={`${purchase.type}-${purchase.title}`} className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-white px-4 py-3">
                     <div className="min-w-0">
                       <p className="text-sm font-black text-brand-ink">{purchase.title}</p>
-                      <p className="mt-0.5 text-xs font-bold text-brand-ink-soft">{activityLabel(purchase.type)}</p>
+                      <p className="mt-0.5 text-xs font-bold text-brand-ink-soft">{activityLabel(purchase.type)}{purchase.trainingDays && purchase.trainingDays.length > 0 ? ` · Dny: ${purchase.trainingDays.join(' + ')}` : ''}</p>
                     </div>
                     <StatusPill label={purchase.status} tone={purchase.status === 'Aktivní' ? 'mint' : purchase.status === 'Zaplaceno' ? 'orange' : 'purple'} />
                   </div>
@@ -7003,7 +7047,7 @@ async function loadAdminParticipants(products: ParentProduct[]): Promise<AdminPa
       .select('id,parent_profile_id,first_name,last_name,claim_code,level,xp,next_bracelet_xp,attendance_done,attendance_total,active_course,next_training,active_purchases,bracelet,bracelet_color,paid_status,extra_courses'),
     supabase
       .from('parent_purchases')
-      .select('id,parent_profile_id,product_id,participant_id,participant_name,type,title,amount,status,expires_at'),
+      .select('id,parent_profile_id,product_id,participant_id,participant_name,type,title,amount,status,expires_at,training_days'),
     supabase
       .from('digital_passes')
       .select('participant_id,total_entries,used_entries'),
@@ -7150,11 +7194,12 @@ function purchaseToActivePurchase(purchase: AdminPurchaseRow, product?: ParentPr
     type: product?.type ?? dbActivityType(purchase.type),
     title: product?.title || purchase.title || product?.place || '',
     status: purchase.status || 'Zaplaceno',
+    trainingDays: Array.isArray(purchase.training_days) && purchase.training_days.length > 0 ? purchase.training_days : undefined,
   };
 }
 
-function dedupePurchases(purchases: Array<{ type: ActivityType; title: string; status: string }>) {
-  const map = new Map<string, { type: ActivityType; title: string; status: string }>();
+function dedupePurchases(purchases: Array<{ type: ActivityType; title: string; status: string; trainingDays?: string[] }>) {
+  const map = new Map<string, { type: ActivityType; title: string; status: string; trainingDays?: string[] }>();
   for (const purchase of purchases) {
     const key = `${purchase.type}-${normalizeText(purchase.title)}`;
     if (!map.has(key)) map.set(key, purchase);

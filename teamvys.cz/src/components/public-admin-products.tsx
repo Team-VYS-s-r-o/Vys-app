@@ -3,11 +3,13 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ChevronsLeft, ChevronsRight, Clock, CreditCard, MapPin, ScanLine, Search, Users, X } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Reveal } from '@/components/animated/reveal';
+import { CourseLocationsMap, normalizeCity } from '@/components/course-locations-map';
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
 import { type ParentProduct } from '@/lib/portal-content';
+import { parseScheduleDays, parseScheduleTime } from '@/lib/schedule-days';
 import { usePublicCoaches, type PublicCoachSummary } from '@/lib/use-public-coaches';
 
 const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
@@ -258,13 +260,26 @@ export function WorkshopBrowser() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {filteredWorkshops.map((workshop, index) => (
-            <Reveal key={workshop.id} delay={index * 80}>
-              <WorkshopPublicCard product={workshop} coaches={coachesForIds(workshop.coachIds ?? [])} />
-            </Reveal>
-          ))}
-        </div>
+        <>
+          {filteredWorkshops.length > 1 ? (
+            <div className="flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">
+              <motion.span animate={{ x: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
+                <ChevronsLeft size={16} className="text-brand-purple" />
+              </motion.span>
+              Potáhni prstem pro další workshopy
+              <motion.span animate={{ x: [3, -3, 3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
+                <ChevronsRight size={16} className="text-brand-purple" />
+              </motion.span>
+            </div>
+          ) : null}
+          <div className="flex snap-x snap-mandatory items-start gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 pt-2 touch-pan-x sm:gap-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {filteredWorkshops.map((workshop) => (
+              <div key={workshop.id} className="w-[92%] shrink-0 snap-center [scroll-snap-stop:always] sm:w-[70%] lg:w-[55%]">
+                <WorkshopPublicCard product={workshop} coaches={coachesForIds(workshop.coachIds ?? [])} />
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -331,32 +346,31 @@ export function AdminCreatedCourseCards({ startDelay = 0 }: { startDelay?: numbe
 export function PublicCourseCatalog() {
   const { products, loading, error } = useAdminCreatedProducts();
   const courses = publicProductsByType(products, 'Krouzek');
-  const totalCapacity = courses.reduce((sum, course) => sum + course.capacityTotal, 0);
-  const registered = courses.reduce((sum, course) => sum + course.capacityCurrent, 0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [cityFocus, setCityFocus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!cityFocus) return;
+    const timer = setTimeout(() => setCityFocus(null), 2600);
+    return () => clearTimeout(timer);
+  }, [cityFocus]);
+
+  const handleCityPick = (cityKey: string) => {
+    setCityFocus(cityKey);
+    const carousel = carouselRef.current;
+    const target = carousel?.querySelector<HTMLElement>(`[data-city="${cityKey}"]`);
+    if (!carousel || !target) return;
+    carousel.scrollTo({ left: target.offsetLeft - (carousel.clientWidth - target.clientWidth) / 2, behavior: 'smooth' });
+    window.scrollTo({ top: carousel.getBoundingClientRect().top + window.scrollY - 96, behavior: 'smooth' });
+  };
 
   return (
-    <section className="section-shell py-10">
+    <section className="w-full py-6 md:py-10">
       <Reveal>
-        <div className="relative flex flex-col gap-4 rounded-[34px] border border-brand-purple/12 bg-white p-6 shadow-brand-soft lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-[720px]">
-            <h2 className="text-2xl font-black leading-tight text-brand-ink md:text-4xl">
-              Kroužky <span className="text-brand-purple">startují v říjnu</span>
-            </h2>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="inline-flex items-center rounded-full bg-brand-purple/10 px-3 py-1.5 text-xs font-black text-brand-purple-deep">
-                První lekce zdarma
-              </span>
-              <span className="inline-flex items-center rounded-full bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-ink">
-                Permanentka 10 nebo 15 vstupů
-              </span>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:min-w-[390px]">
-            <CatalogSummaryTile value={loading ? '...' : `${courses.length}`} label="lokalit" />
-            <CatalogSummaryTile value={loading ? '...' : `${registered}/${totalCapacity}`} label="dětí" />
-            <CatalogSummaryTile value="10 / 15" label="vstupů" />
-          </div>
-        </div>
+        <p className="flex items-center justify-center gap-2 text-base font-black text-brand-purple-deep">
+          <CheckCircle2 size={18} className="text-brand-purple" />
+          První lekce zdarma
+        </p>
       </Reveal>
 
       <CatalogState loading={loading} error={error} empty={!loading && courses.length === 0} emptyTitle="Žádné kroužky nejsou aktuálně vypsané" emptyText="Jakmile admin zveřejní lokalitu v databázi, objeví se tady s aktuální kapacitou." />
@@ -374,13 +388,25 @@ export function PublicCourseCatalog() {
       ) : null}
 
       {courses.length > 0 ? (
-        <div className="mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 touch-pan-x sm:gap-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={carouselRef} className="mt-4 flex snap-x snap-mandatory items-start gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 pt-2 touch-pan-x sm:gap-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {courses.map((course, index) => (
-            <div key={course.id} className="w-[86%] shrink-0 snap-center [scroll-snap-stop:always] sm:w-[47%] xl:w-[31.5%]">
+            <div
+              key={course.id}
+              data-city={normalizeCity(course.city)}
+              className={`w-[91%] shrink-0 snap-center rounded-[30px] transition-shadow duration-500 [scroll-snap-stop:always] sm:w-[47%] xl:w-[31.5%] ${
+                cityFocus === normalizeCity(course.city) ? 'ring-2 ring-brand-purple shadow-[0_0_30px_rgba(139,29,255,0.35)]' : ''
+              }`}
+            >
               <CoursePublicCard product={course} delay={index * 55} />
             </div>
           ))}
         </div>
+      ) : null}
+
+      {courses.length > 0 ? (
+        <Reveal>
+          <CourseLocationsMap locations={courses.map((course) => ({ city: course.city, venue: course.venue }))} onCityPick={handleCityPick} />
+        </Reveal>
       ) : null}
     </section>
   );
@@ -392,7 +418,7 @@ export function PublicCampCatalog() {
   const camps = publicProductsByType(products, 'Tabor');
 
   return (
-    <section className="section-shell py-10">
+    <section className="w-full py-6 md:py-10">
       <Reveal>
         <div className="max-w-[760px]">
           <p className="text-xs font-black uppercase text-brand-cyan">Aktuální turnusy</p>
@@ -402,12 +428,24 @@ export function PublicCampCatalog() {
 
       <CatalogState loading={loading} error={error} empty={!loading && camps.length === 0} emptyTitle="Žádné tábory nejsou aktuálně vypsané" emptyText="Turnusy se zobrazují až z publikovaných produktů v administraci." />
 
+      {camps.length > 1 ? (
+        <div className="mt-6 flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">
+          <motion.span animate={{ x: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
+            <ChevronsLeft size={16} className="text-brand-purple" />
+          </motion.span>
+          Potáhni prstem pro další turnusy
+          <motion.span animate={{ x: [3, -3, 3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
+            <ChevronsRight size={16} className="text-brand-purple" />
+          </motion.span>
+        </div>
+      ) : null}
+
       {camps.length > 0 ? (
-        <div className="mt-7 grid gap-4 md:grid-cols-2">
-          {camps.map((camp, index) => (
-            <Reveal key={camp.id} delay={index * 80}>
+        <div className="mt-4 flex snap-x snap-mandatory items-start gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 pt-2 touch-pan-x sm:gap-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {camps.map((camp) => (
+            <div key={camp.id} className="w-[92%] shrink-0 snap-center [scroll-snap-stop:always] sm:w-[70%] lg:w-[55%]">
               <CampPublicCard product={camp} coaches={coachesForIds(camp.coachIds ?? [])} />
-            </Reveal>
+            </div>
           ))}
         </div>
       ) : null}
@@ -419,15 +457,6 @@ function publicProductsByType(products: ParentProduct[], type: ParentProduct['ty
   return products
     .filter((product) => product.type === type && (type !== 'Krouzek' || !product.id.endsWith('-15')))
     .sort((a, b) => a.city.localeCompare(b.city, 'cs') || a.venue.localeCompare(b.venue, 'cs'));
-}
-
-function CatalogSummaryTile({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-[22px] border border-brand-purple/10 bg-white px-4 py-3 text-center shadow-brand-soft">
-      <p className="text-xl font-black text-brand-ink">{value}</p>
-      <p className="mt-1 text-[11px] font-black uppercase text-brand-ink-soft">{label}</p>
-    </div>
-  );
 }
 
 function CatalogState({ loading, error, empty, emptyTitle, emptyText }: { loading: boolean; error: string | null; empty: boolean; emptyTitle: string; emptyText: string }) {
@@ -597,6 +626,44 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
   );
 }
 
+function CardMoreInfo({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="inline-flex w-full items-center justify-between gap-2 rounded-[16px] bg-brand-paper px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-brand-purple-light"
+      >
+        {open ? 'Skrýt info' : 'Zobrazit více info'}
+        <ChevronDown size={18} className={`text-brand-purple transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            key="more"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.3, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {children}
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function CampPublicCard({ product, coaches = [] }: { product: ParentProduct; coaches?: PublicCoachSummary[] }) {
   const hasImage = Boolean(product.heroImage);
   return (
@@ -629,23 +696,31 @@ function CampPublicCard({ product, coaches = [] }: { product: ParentProduct; coa
           </div>
         </div>
         <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
-        <p className="mt-5 text-sm font-bold leading-6 text-brand-ink-soft">{product.description}</p>
-        {product.trainingFocus.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {product.trainingFocus.slice(0, 5).map((focus) => (
-              <span key={focus} className="rounded-[14px] bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-cyan">{focus}</span>
-            ))}
+        <CardMoreInfo className="mt-5">
+          <div className="mt-4 rounded-[20px] bg-brand-paper p-4">
+            <p className="text-xs font-black uppercase text-slate-400">O táboře</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-brand-ink-soft">{product.description}</p>
           </div>
-        ) : null}
-        {coaches.length > 0 ? (
-          <div className="mt-5 border-t border-black/10 pt-4">
-            <p className="text-xs font-black uppercase text-slate-400">Trenéři tábora</p>
-            <div className="mt-3 grid gap-2">
-              {coaches.map((coach) => <CoachCompact key={coach.id} name={coach.name} photoUrl={coach.photoUrl} />)}
+          {product.trainingFocus.length > 0 ? (
+            <div className="mt-4">
+              <p className="text-xs font-black uppercase text-slate-400">Na co se zaměříme</p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {product.trainingFocus.slice(0, 5).map((focus) => (
+                  <span key={focus} className="rounded-[14px] bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-cyan">{focus}</span>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : null}
-        <Link href="/aplikace" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-brand bg-gradient-brand px-6 py-4 text-sm font-black text-white shadow-brand-soft transition-transform hover:-translate-y-0.5">
+          ) : null}
+          {coaches.length > 0 ? (
+            <div className="mt-5 border-t border-black/10 pt-4">
+              <p className="text-xs font-black uppercase text-slate-400">Trenéři tábora</p>
+              <div className="mt-3 grid gap-2">
+                {coaches.map((coach) => <CoachCompact key={coach.id} name={coach.name} photoUrl={coach.photoUrl} />)}
+              </div>
+            </div>
+          ) : null}
+        </CardMoreInfo>
+        <Link href="/aplikace" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-brand bg-gradient-brand px-6 py-4 text-sm font-black text-white shadow-brand-soft transition-transform hover:-translate-y-0.5">
           Stáhnout aplikaci
           <ArrowRight size={18} />
         </Link>
@@ -681,41 +756,49 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
           <Info label="Kapacita" value={`${product.capacityCurrent}/${product.capacityTotal} míst`} />
         </div>
         <WorkshopCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
-        <p className="mt-5 text-sm leading-6 text-slate-600">{product.description}</p>
-        {product.trainingFocus.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {product.trainingFocus.map((focus) => (
-              <span key={focus} className="rounded-[14px] bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-cyan">{focus}</span>
-            ))}
+        <CardMoreInfo className="mt-5">
+          <div className="mt-4 rounded-[20px] bg-brand-paper p-4">
+            <p className="text-xs font-black uppercase text-slate-400">O workshopu</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-brand-ink-soft">{product.description}</p>
           </div>
-        ) : null}
-        {(() => {
-          const videos = product.importantInfo.filter((i) => i.label === 'Video trik 1' || i.label === 'Video trik 2');
-          if (videos.length === 0) return null;
-          return (
-            <div className="mt-5 border-t border-black/10 pt-4">
-              <p className="text-xs font-black uppercase text-slate-400">Ukázky triků</p>
-              <div className="mt-3 grid gap-3">
-                {videos.map((v) => (
-                  <div key={v.label}>
-                    <p className="mb-1.5 text-xs font-black text-brand-ink-soft">{v.label.replace('Video t', 'T')}</p>
-                    <video src={v.value} controls className="w-full rounded-[18px] bg-black" style={{ maxHeight: 260 }} playsInline />
-                  </div>
+          {product.trainingFocus.length > 0 ? (
+            <div className="mt-4">
+              <p className="text-xs font-black uppercase text-slate-400">Co se naučíš</p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {product.trainingFocus.map((focus) => (
+                  <span key={focus} className="rounded-[14px] bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-cyan">{focus}</span>
                 ))}
               </div>
             </div>
-          );
-        })()}
-        <p className="mt-4 inline-flex gap-2 text-sm font-bold text-brand-ink"><CheckCircle2 size={18} className="text-brand-cyan" /> QR ticket po zaplacení</p>
-        {coaches.length > 0 ? (
-          <div className="mt-5 border-t border-black/10 pt-4">
-            <p className="text-xs font-black uppercase text-slate-400">Trenéři workshopu</p>
-            <div className="mt-3 grid gap-2">
-              {coaches.map((coach) => <CoachCompact key={coach.id} name={coach.name} photoUrl={coach.photoUrl} />)}
+          ) : null}
+          {(() => {
+            const videos = product.importantInfo.filter((i) => i.label === 'Video trik 1' || i.label === 'Video trik 2');
+            if (videos.length === 0) return null;
+            return (
+              <div className="mt-5 border-t border-black/10 pt-4">
+                <p className="text-xs font-black uppercase text-slate-400">Ukázky triků</p>
+                <div className="mt-3 grid gap-3">
+                  {videos.map((v) => (
+                    <div key={v.label}>
+                      <p className="mb-1.5 text-xs font-black text-brand-ink-soft">{v.label.replace('Video t', 'T')}</p>
+                      <video src={v.value} controls className="w-full rounded-[18px] bg-black" style={{ maxHeight: 260 }} playsInline />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          <p className="mt-4 inline-flex gap-2 text-sm font-bold text-brand-ink"><CheckCircle2 size={18} className="text-brand-cyan" /> QR ticket po zaplacení</p>
+          {coaches.length > 0 ? (
+            <div className="mt-5 border-t border-black/10 pt-4">
+              <p className="text-xs font-black uppercase text-slate-400">Trenéři workshopu</p>
+              <div className="mt-3 grid gap-2">
+                {coaches.map((coach) => <CoachCompact key={coach.id} name={coach.name} photoUrl={coach.photoUrl} />)}
+              </div>
             </div>
-          </div>
-        ) : null}
-        <Link href="/aplikace" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-brand bg-gradient-brand px-6 py-4 text-sm font-black text-white shadow-brand-soft transition-transform hover:-translate-y-0.5">
+          ) : null}
+        </CardMoreInfo>
+        <Link href="/aplikace" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-brand bg-gradient-brand px-6 py-4 text-sm font-black text-white shadow-brand-soft transition-transform hover:-translate-y-0.5">
           Stáhnout aplikaci
           <ArrowRight size={18} />
         </Link>
@@ -728,6 +811,9 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
   void delay;
   const firstLesson = firstOctoberLessonLabel(product.primaryMeta);
   const [open, setOpen] = useState(false);
+  const scheduleDays = parseScheduleDays(product.primaryMeta);
+  const scheduleTime = parseScheduleTime(product.primaryMeta);
+  const multiDay = scheduleDays.length >= 2;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft">
@@ -756,7 +842,7 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
         <div className="mt-4 grid gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
           <span className="inline-flex items-center gap-2">
             <CalendarDays size={16} className="text-brand-purple" />
-            {product.primaryMeta}
+            {multiDay && scheduleTime ? `${scheduleDays.join(' a ')} · ${scheduleTime}` : product.primaryMeta}
           </span>
           <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
             <Clock size={16} className="text-brand-cyan" />
@@ -764,6 +850,11 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
               {firstLesson ? <>1. lekce {firstLesson}</> : <>Startujeme v říjnu</>} · <span className="text-brand-cyan">zdarma</span>
             </span>
           </span>
+          {multiDay ? (
+            <span className="rounded-[14px] bg-brand-purple-light px-3 py-2 text-xs font-black leading-5 text-brand-purple-deep">
+              Při přihlášce si vybereš {scheduleDays.join(', ')}, nebo oba dny — cena je stejná.
+            </span>
+          ) : null}
         </div>
 
         {/* Rozbalení: cena + živá kapacita */}

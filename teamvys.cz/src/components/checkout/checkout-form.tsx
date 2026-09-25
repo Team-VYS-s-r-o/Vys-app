@@ -1,10 +1,11 @@
 'use client';
 
-import { BadgePercent, CreditCard, ShieldCheck } from 'lucide-react';
+import { BadgePercent, CalendarDays, CreditCard, ShieldCheck } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
 
 import { EmbeddedPaymentForm } from '@/components/checkout/embedded-payment-form';
 import { confirmEmbeddedPaymentIntent, createEmbeddedPaymentIntent, saveCourseDocuments } from '@/lib/api-client';
+import { parseScheduleDays, parseScheduleTime } from '@/lib/schedule-days';
 import {
     applyRewardDiscount,
     findRewardDiscountByCode,
@@ -59,6 +60,10 @@ export function CheckoutForm({ product, userId, userEmail, parentProfileId, defa
   const [message, setMessage] = useState<string | null>(null);
   const participantId = useMemo(() => `web-${userId.slice(0, 12)}`, [userId]);
   const activityType = normalizeCheckoutActivityType(product.type);
+  const scheduleDays = useMemo(() => (product.type === 'Kroužek' ? parseScheduleDays(product.meta) : []), [product.type, product.meta]);
+  const scheduleTime = useMemo(() => parseScheduleTime(product.meta), [product.meta]);
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const hasDayChoice = scheduleDays.length >= 2;
   const requiredDocuments = useMemo(() => requiredDocumentTemplates.filter((document) => document.requiredFor.includes(activityType)), [activityType]);
   const rewardParticipant = useMemo(() => {
     const parts = participantName.trim().split(/\s+/).filter(Boolean);
@@ -91,6 +96,11 @@ export function CheckoutForm({ product, userId, userEmail, parentProfileId, defa
 
     if (!participantName.trim()) {
       setMessage('Doplň jméno dítěte nebo účastníka.');
+      return;
+    }
+
+    if (hasDayChoice && selectedDays.length === 0) {
+      setMessage(`Vyber prosím tréninkové dny — ${scheduleDays.join(', ')} nebo oba. Cena je stejná.`);
       return;
     }
 
@@ -128,6 +138,7 @@ export function CheckoutForm({ product, userId, userEmail, parentProfileId, defa
         participantName: participantName.trim(),
         receiptEmail: userEmail,
         discountCode: selectedDiscount?.code,
+        trainingDays: hasDayChoice ? selectedDays : undefined,
       });
 
       setEmbeddedPayment({
@@ -173,6 +184,56 @@ export function CheckoutForm({ product, userId, userEmail, parentProfileId, defa
           placeholder="Např. Eliška Nováková"
         />
       </label>
+
+      {hasDayChoice ? (
+        <div className="rounded-brand border border-brand-purple/15 bg-brand-paper p-4">
+          <div className="flex items-start gap-2">
+            <CalendarDays size={18} className="mt-0.5 shrink-0 text-brand-purple" />
+            <div>
+              <p className="text-xs font-black uppercase text-brand-purple">Tréninkové dny</p>
+              <p className="mt-1 text-sm font-bold leading-6 text-slate-600">
+                Kroužek běží {scheduleDays.join(' i ')}{scheduleTime ? ` (${scheduleTime})` : ''}. Vyber, kdy bude dítě chodit —
+                jeden den, nebo klidně oba. <span className="font-black text-brand-ink">Cena je stejná</span> a jedna permanentka
+                platí na všechny vybrané dny.
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {scheduleDays.map((day) => {
+              const checked = selectedDays.includes(day);
+              return (
+                <label
+                  key={day}
+                  className={`flex cursor-pointer items-center gap-3 rounded-brand border p-3 text-sm font-black transition ${
+                    checked ? 'border-brand-purple bg-white text-brand-purple' : 'border-black/10 bg-white text-brand-ink hover:border-brand-purple/40'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(event) =>
+                      setSelectedDays((current) =>
+                        event.target.checked
+                          ? scheduleDays.filter((item) => current.includes(item) || item === day)
+                          : current.filter((item) => item !== day),
+                      )
+                    }
+                    className="h-4 w-4 accent-brand-purple"
+                  />
+                  <span>{day}{scheduleTime ? ` · ${scheduleTime}` : ''}</span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-xs font-bold text-slate-500">
+            {selectedDays.length === 0
+              ? 'Zaškrtni alespoň jeden den.'
+              : selectedDays.length === scheduleDays.length
+                ? 'Super — dítě bude chodit oba dny za stejnou cenu.'
+                : `Dítě bude chodit každý týden v den: ${selectedDays.join(', ')}. Kdykoli později to můžeme změnit.`}
+          </p>
+        </div>
+      ) : null}
 
       <div className="rounded-brand bg-brand-paper p-4">
         <p className="text-xs font-black uppercase text-slate-400">Přihlášený účet</p>

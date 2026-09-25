@@ -27,18 +27,18 @@ export default function WorkshopsPage() {
       />
 
       <section className="section-shell py-16 md:py-24">
+        <SectionIntro eyebrow="Nejbližší akce" title="Workshopy s digitálním ticketem" />
+        <div className="mx-[calc(50%-50vw)] mt-10 bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:mx-0 md:rounded-[28px] md:p-6 lg:p-8">
+          <WorkshopBrowser />
+        </div>
+      </section>
+
+      <section className="section-shell pb-16 md:pb-24">
         <SectionIntro eyebrow="Jak to funguje" title="Jednorázově, ale s výsledkem" />
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {workshopSteps.map((s, i) => (
             <FeatureCard key={s.title} {...s} index={i} />
           ))}
-        </div>
-      </section>
-
-      <section className="section-shell pb-16 md:pb-24">
-        <SectionIntro eyebrow="Nejbližší akce" title="Workshopy s digitálním ticketem" />
-        <div className="mt-10 rounded-[28px] bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6 lg:p-8">
-          <WorkshopBrowser />
         </div>
       </section>
 

@@ -21,7 +21,7 @@ export type ParentParticipant = {
   attendanceTotal: number;
   activeCourse: string;
   nextTraining: string;
-  activePurchases: Array<{ type: ActivityType; title: string; status: string }>;
+  activePurchases: Array<{ type: ActivityType; title: string; status: string; trainingDays?: string[] }>;
 };
 
 export type ParentOrganization = {
@@ -90,6 +90,7 @@ export type ParentPayment = {
   paidAt: string;
   method: string;
   status: PaymentStatus;
+  trainingDays?: string[];
 };
 
 export type ParentDocument = {

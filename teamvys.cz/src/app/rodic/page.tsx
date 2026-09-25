@@ -327,6 +327,7 @@ function mapPurchaseRow(row: DbRow): ParentPayment {
     paidAt,
     method: text(row.stripe_payment_intent_id) ? 'Stripe karta' : 'Supabase',
     status: paymentStatusFromPurchase(row.status),
+    trainingDays: Array.isArray(row.training_days) && row.training_days.length > 0 ? row.training_days.map((day) => String(day)) : undefined,
   };
 }
 

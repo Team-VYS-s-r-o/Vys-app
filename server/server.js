@@ -644,7 +644,34 @@ function toClientPurchase(row) {
     paidAt: row.paid_at,
     eventDate: row.event_date || undefined,
     expiresAt: row.expires_at || undefined,
+    trainingDays: Array.isArray(row.training_days) && row.training_days.length > 0 ? row.training_days : undefined,
   };
+}
+
+const SCHEDULE_DAY_NAMES = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'];
+
+function normalizeDayName(value) {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+// "Úterý / Čtvrtek 17:00 - 18:00" → ['Úterý', 'Čtvrtek']
+function parseScheduleDays(primaryMeta) {
+  const normalizedMeta = normalizeDayName(primaryMeta);
+  return SCHEDULE_DAY_NAMES.filter((day) => normalizedMeta.includes(normalizeDayName(day)));
+}
+
+function resolveTrainingDaysSelection(product, requestedDays) {
+  if (product?.type !== 'Kroužek') return null;
+
+  const scheduleDays = parseScheduleDays(product.primary_meta);
+  if (scheduleDays.length < 2) return null;
+
+  const requested = Array.isArray(requestedDays) ? requestedDays.map((day) => String(day)) : [];
+  const selected = scheduleDays.filter((day) => requested.some((req) => normalizeDayName(req) === normalizeDayName(day)));
+  if (selected.length === 0) {
+    throw httpError(`Vyber prosím tréninkové dny (${scheduleDays.join(', ')} nebo oba).`, 400);
+  }
+  return selected;
 }
 
 function nextMonthFirstIso(periodEndIso) {
@@ -874,6 +901,7 @@ function purchaseRowFromPaymentIntent(paymentIntent, metadata, status = 'Čeká 
     paid_at: status === 'Zaplaceno' ? new Date().toLocaleDateString('cs-CZ') : 'Čeká na zaplacení',
     event_date: metadata.event_date || null,
     expires_at: metadata.expires_at || null,
+    training_days: metadata.training_days ? String(metadata.training_days).split(',').filter(Boolean) : null,
     stripe_payment_intent_id: paymentIntent.id,
   };
 }
@@ -1131,12 +1159,58 @@ async function syncParentPaymentForPurchase(purchase) {
   if (error) throw error;
 }
 
+// Drží coach_sessions.enrolled v souladu s nákupy: u kroužků s více tréninkovými
+// dny (Út/Čt) se dítě počítá jen do dnů, které si rodič vybral při platbě.
+async function syncCoachSessionEnrollment(product) {
+  if (product?.type !== 'Kroužek' || !product.city || !product.venue) return;
+
+  const { data: sessions, error: sessionsError } = await supabase
+    .from('coach_sessions')
+    .select('id,day,enrolled')
+    .eq('city', product.city)
+    .eq('venue', product.venue);
+
+  if (sessionsError) throw sessionsError;
+  if (!sessions || sessions.length === 0) return;
+
+  const { data: purchases, error: purchasesError } = await supabase
+    .from('parent_purchases')
+    .select('id,parent_profile_id,participant_id,participant_name,training_days')
+    .in('product_id', capacityProductIds(product))
+    .eq('status', 'Zaplaceno');
+
+  if (purchasesError) throw purchasesError;
+
+  for (const session of sessions) {
+    const sessionDay = normalizeDayName(session.day);
+    if (!sessionDay) continue;
+
+    const participants = new Set();
+    for (const purchase of purchases || []) {
+      if (isDemoAdminRecord(purchase.id, purchase.parent_profile_id, purchase.participant_id, purchase.participant_name)) continue;
+      const days = Array.isArray(purchase.training_days) ? purchase.training_days : null;
+      if (days && days.length > 0 && !days.some((day) => normalizeDayName(day) === sessionDay)) continue;
+      participants.add(purchase.participant_id || normalizeAdminSeedText(purchase.participant_name) || purchase.id);
+    }
+
+    if (Number(session.enrolled) === participants.size) continue;
+
+    const { error: updateError } = await supabase
+      .from('coach_sessions')
+      .update({ enrolled: participants.size })
+      .eq('id', session.id);
+
+    if (updateError) throw updateError;
+  }
+}
+
 async function syncPaidPurchaseSideEffects(purchase) {
   if (!purchase || purchase.status !== 'Zaplaceno') return;
 
   const product = await getProduct(purchase.product_id);
   await Promise.all([
     syncProductCapacity(product),
+    syncCoachSessionEnrollment(product),
     syncParticipantPaidPurchases(purchase.participant_id, product),
     syncParentPaymentForPurchase(purchase),
     createDigitalPassForPurchase(purchase, product),
@@ -1911,6 +1985,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
   const amount = Math.max(0, originalAmount - discountAmount);
   if (amount <= 0) throw new Error('Částka platby musí být větší než 0 Kč.');
 
+  const trainingDays = resolveTrainingDaysSelection(product, request.body.trainingDays);
   const priceLabel = discount ? `${product.price_label} · sleva ${discount.percent} %` : product.price_label;
   const metadata = {
     parent_profile_id: parentProfileId,
@@ -1930,6 +2005,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
     org_id: product.org_id || VYS_ORG_ID,
     event_date: product.event_date || '',
     expires_at: product.expires_at || '',
+    training_days: trainingDays ? trainingDays.join(',') : '',
   };
 
   const connectDestination = await connectDestinationForProduct(product);

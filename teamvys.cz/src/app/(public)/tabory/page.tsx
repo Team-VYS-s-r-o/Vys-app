@@ -28,8 +28,16 @@ export default function CampsPage() {
         word="tábory"
       />
 
-      {/* Co je v ceně */}
+      {/* Katalog turnusů */}
       <section className="section-shell py-16 md:py-24">
+        <SectionIntro eyebrow="Nabídka" title="Vyber si turnus" />
+        <div className="mx-[calc(50%-50vw)] mt-10 bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:mx-0 md:rounded-[28px] md:p-6 lg:p-8">
+          <PublicCampCatalog />
+        </div>
+      </section>
+
+      {/* Co je v ceně */}
+      <section className="section-shell pb-16 md:pb-24">
         <SectionIntro eyebrow="Co je v ceně" title="Vše bez skrytých příplatků" />
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {includes.map((item, i) => (
@@ -67,14 +75,6 @@ export default function CampsPage() {
             <p className="text-sm font-black text-white">Bez ranního papírování</p>
             <p className="mt-0.5 text-sm leading-6 text-white/55">Přihláška, souhlasy i anamnéza jsou připravené v systému pro trenéra.</p>
           </div>
-        </div>
-      </section>
-
-      {/* Katalog turnusů */}
-      <section className="section-shell pb-16 md:pb-24">
-        <SectionIntro eyebrow="Nabídka" title="Vyber si turnus" />
-        <div className="mt-10 rounded-[28px] bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6 lg:p-8">
-          <PublicCampCatalog />
         </div>
       </section>
 

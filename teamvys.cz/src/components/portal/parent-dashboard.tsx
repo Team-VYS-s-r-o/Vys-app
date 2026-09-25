@@ -71,6 +71,7 @@ import {
     type ParentProductTrainer,
     type RequiredDocumentTemplate,
 } from '@/lib/portal-content';
+import { parseScheduleDays, parseScheduleTime } from '@/lib/schedule-days';
 import { createBrowserSupabaseClient, hasSupabaseBrowserConfig } from '@/lib/supabase/browser';
 import { useFeatureFlags } from '@/lib/use-feature-flags';
 
@@ -133,6 +134,7 @@ type PurchaseFlow = {
   group: ProductGroup;
   selectedProductId: string;
   participantId: string;
+  trainingDays: string[];
   discountCode: string;
   documentValues: DocumentFormValues;
   paymentClientSecret?: string;
@@ -265,6 +267,7 @@ export function ParentPortalDashboard({ displayName, displayEmail, parentProfile
       group,
       selectedProductId: defaultProduct.id,
       participantId: defaultParticipant,
+      trainingDays: [],
       discountCode: '',
       documentValues: defaultDocumentValues(displayName),
       isSubmitting: false,
@@ -336,6 +339,13 @@ export function ParentPortalDashboard({ displayName, displayEmail, parentProfile
       return;
     }
 
+    const scheduleDays = selectedProduct.type === 'Krouzek' ? parseScheduleDays(selectedProduct.primaryMeta) : [];
+    const hasDayChoice = scheduleDays.length >= 2;
+    if (hasDayChoice && purchaseFlow.trainingDays.length === 0) {
+      setPurchaseFlow({ ...purchaseFlow, message: `Vyber prosím tréninkové dny — ${scheduleDays.join(', ')} nebo oba. Cena je stejná.` });
+      return;
+    }
+
     setPurchaseFlow({ ...purchaseFlow, isSubmitting: true, message: null });
 
     try {
@@ -357,6 +367,7 @@ export function ParentPortalDashboard({ displayName, displayEmail, parentProfile
         participantName: `${participant.firstName} ${participant.lastName}`,
         receiptEmail: profileEmail,
         discountCode: appliedDiscount?.code,
+        trainingDays: hasDayChoice ? purchaseFlow.trainingDays : undefined,
       });
 
       setPurchaseFlow({
@@ -1129,6 +1140,9 @@ function PaymentHistoryRow({ payment }: { payment: ParentPayment }) {
       <div className="min-w-0">
         <p className="truncate font-medium text-neutral-900">{payment.title}</p>
         <p className="mt-1 text-xs text-neutral-500">{payment.participantName} · {payment.method}</p>
+        {payment.trainingDays && payment.trainingDays.length > 0 ? (
+          <p className="mt-1 inline-flex rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700">Tréninkové dny: {payment.trainingDays.join(' + ')}</p>
+        ) : null}
       </div>
       <span className="font-medium text-neutral-900">{formatCurrency(payment.amount)}</span>
       <span className="text-xs text-neutral-500">{payment.paidAt}</span>
@@ -1325,6 +1339,9 @@ function ProductGroupCard({ group, selectedParticipant, onStartPurchase, onRegis
   const primaryAction = isWorkshopInterestMode && !parentHasInterest ? onRegisterInterest : onStartPurchase;
   const primaryDisabled = isWorkshopInterestMode && !parentHasInterest && !selectedParticipant;
   const interestPercent = Math.min(100, Math.round((group.interestCount / WORKSHOP_INTEREST_THRESHOLD) * 100));
+  const scheduleDays = group.type === 'Krouzek' ? parseScheduleDays(group.primaryMeta) : [];
+  const scheduleTime = parseScheduleTime(group.primaryMeta);
+  const multiDay = scheduleDays.length >= 2;
 
   useEffect(() => {
     if (parentHasInterest && !prevHasInterest.current) {
@@ -1353,8 +1370,13 @@ function ProductGroupCard({ group, selectedParticipant, onStartPurchase, onRegis
             </div>
             <p className="mt-3 text-sm leading-6 text-neutral-500">{group.description}</p>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <InfoPill label="Termín" value={group.primaryMeta} />
+              <InfoPill label="Termín" value={multiDay && scheduleTime ? `${scheduleDays.join(' a ')} · ${scheduleTime}` : group.primaryMeta} />
               <InfoPill label="Kapacita" value={`${group.capacityCurrent}/${group.capacityTotal} dětí`} />
+              {multiDay ? (
+                <p className="col-span-full rounded-lg bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-700">
+                  Při přihlášce si vybereš {scheduleDays.join(', ')}, nebo oba dny — cena je stejná.
+                </p>
+              ) : null}
               {group.type === 'Workshop' && !workshopGate.canPurchase ? (
                 <div className="col-span-2 mt-1 grid gap-1.5">
                   <div className="flex items-center justify-between text-xs">
@@ -1496,6 +1518,16 @@ function PurchaseWizard({ flow, usedRewardCodeIds, onChange, onClose, onCheckout
   const appliedDiscount = participant ? findRewardDiscountByCode(flow.discountCode, selectedProduct.type, participant, usedRewardCodeIds) : null;
   const discountPreview = applyRewardDiscount(selectedProduct.price, appliedDiscount);
   const [savedForLater, setSavedForLater] = useState(false);
+  const scheduleDays = !isDocumentOnly && flow.group.type === 'Krouzek' ? parseScheduleDays(flow.group.primaryMeta) : [];
+  const scheduleTime = parseScheduleTime(flow.group.primaryMeta);
+  const hasDayChoice = scheduleDays.length >= 2;
+
+  function toggleTrainingDay(day: string) {
+    const next = flow.trainingDays.includes(day)
+      ? flow.trainingDays.filter((item) => item !== day)
+      : scheduleDays.filter((item) => flow.trainingDays.includes(item) || item === day);
+    onChange({ ...flow, trainingDays: next, message: null });
+  }
 
   function saveDocumentsForLater() {
     persistDocumentDefaults(flow.documentValues);
@@ -1586,8 +1618,41 @@ function PurchaseWizard({ flow, usedRewardCodeIds, onChange, onClose, onCheckout
               </div>
             </WizardBlock>
 
+            {hasDayChoice ? (
+              <WizardBlock number="3" title="Tréninkové dny" completed={flow.trainingDays.length > 0}>
+                <div className="space-y-3">
+                  <p className="text-sm leading-6 text-neutral-500">
+                    Kroužek běží {scheduleDays.join(' i ')}{scheduleTime ? ` (${scheduleTime})` : ''}. Vyber, kdy bude dítě chodit — jeden den, nebo klidně oba. <span className="font-medium text-neutral-900">Cena je stejná</span> a jedna permanentka platí na všechny vybrané dny.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {scheduleDays.map((day) => {
+                      const selected = flow.trainingDays.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => toggleTrainingDay(day)}
+                          className={`rounded-xl border p-4 text-left transition ${selected ? 'border-violet-600 bg-violet-600 text-white' : 'border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50'}`}
+                        >
+                          <span className="block text-sm font-medium">{day}</span>
+                          <span className={`mt-1 block text-xs ${selected ? 'text-white/80' : 'text-neutral-500'}`}>{scheduleTime || 'trénink'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    {flow.trainingDays.length === 0
+                      ? 'Zaškrtni alespoň jeden den.'
+                      : flow.trainingDays.length === scheduleDays.length
+                        ? 'Super — dítě bude chodit oba dny za stejnou cenu.'
+                        : `Dítě bude chodit každý týden v den: ${flow.trainingDays.join(', ')}. Kdykoli později to můžeme změnit.`}
+                  </p>
+                </div>
+              </WizardBlock>
+            ) : null}
+
             {!isDocumentOnly && flow.group.orgId === VYS_ORG_ID ? (
-              <WizardBlock number="3" title="Slevový kód" completed={!!appliedDiscount}>
+              <WizardBlock number={hasDayChoice ? '4' : '3'} title="Slevový kód" completed={!!appliedDiscount}>
                 <RewardDiscountPicker
                   product={selectedProduct}
                   participant={participant}
@@ -1599,7 +1664,7 @@ function PurchaseWizard({ flow, usedRewardCodeIds, onChange, onClose, onCheckout
             ) : null}
 
             {requiredDocuments.length > 0 ? requiredDocuments.map((doc, idx) => {
-              const blockNum = String((isDocumentOnly ? 3 : (flow.group.orgId === VYS_ORG_ID ? 4 : 3)) + idx);
+              const blockNum = String((isDocumentOnly ? 3 : (flow.group.orgId === VYS_ORG_ID ? 4 : 3)) + (hasDayChoice ? 1 : 0) + idx);
               return (
                 <CollapsibleDocBlock key={doc.kind} number={blockNum} title={doc.title} physicalOnly={doc.physicalOnly} completed={docBlockCompleted(doc.kind)} defaultOpen={idx === 0}>
                   {doc.kind === 'gdpr' && (

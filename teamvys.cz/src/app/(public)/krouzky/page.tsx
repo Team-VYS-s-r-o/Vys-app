@@ -36,8 +36,7 @@ export default function CoursesPage() {
       </section>
 
       <section className="section-shell pb-16 md:pb-24">
-        <SectionIntro eyebrow="Nabídka" title="Vyber si město" />
-        <div className="mt-10 rounded-[28px] bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6 lg:p-8">
+        <div className="mx-[calc(50%-50vw)] bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:mx-0 md:rounded-[28px] md:p-6 lg:p-8">
           <PublicCourseCatalog />
         </div>
       </section>
