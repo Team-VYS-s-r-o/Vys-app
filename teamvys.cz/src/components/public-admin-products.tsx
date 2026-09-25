@@ -329,15 +329,12 @@ function CatalogInlineState({ label }: { label: string }) {
 
 export function AdminCreatedCourseCards({ startDelay = 0 }: { startDelay?: number }) {
   const { products } = useAdminCreatedProducts();
-  // Filtruj 15vstupové varianty — zobrazujeme jen 10vstupovou kartu, cena "od X Kč" zahrnuje obě
-  const courses = products
-    .filter((product) => product.type === 'Krouzek' && !product.id.endsWith('-15'))
-    .sort((a, b) => a.city.localeCompare(b.city, 'cs') || a.venue.localeCompare(b.venue, 'cs'));
+  const courseGroups = groupCoursesByVenue(publicProductsByType(products, 'Krouzek'));
 
   return (
     <>
-      {courses.map((course, index) => (
-        <CoursePublicCard key={course.id} product={course} delay={startDelay + index * 55} />
+      {courseGroups.map((group, index) => (
+        <CoursePublicCard key={group[0].id} products={group} delay={startDelay + index * 55} />
       ))}
     </>
   );
@@ -346,6 +343,7 @@ export function AdminCreatedCourseCards({ startDelay = 0 }: { startDelay?: numbe
 export function PublicCourseCatalog() {
   const { products, loading, error } = useAdminCreatedProducts();
   const courses = publicProductsByType(products, 'Krouzek');
+  const courseGroups = groupCoursesByVenue(courses);
   const carouselRef = useRef<HTMLDivElement>(null);
   const [cityFocus, setCityFocus] = useState<string | null>(null);
 
@@ -375,7 +373,7 @@ export function PublicCourseCatalog() {
 
       <CatalogState loading={loading} error={error} empty={!loading && courses.length === 0} emptyTitle="Žádné kroužky nejsou aktuálně vypsané" emptyText="Jakmile admin zveřejní lokalitu v databázi, objeví se tady s aktuální kapacitou." />
 
-      {courses.length > 1 ? (
+      {courseGroups.length > 1 ? (
         <div className="mt-6 flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">
           <motion.span animate={{ x: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
             <ChevronsLeft size={16} className="text-brand-purple" />
@@ -387,25 +385,25 @@ export function PublicCourseCatalog() {
         </div>
       ) : null}
 
-      {courses.length > 0 ? (
+      {courseGroups.length > 0 ? (
         <div ref={carouselRef} className="mt-4 flex snap-x snap-mandatory items-start gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 pt-2 touch-pan-x sm:gap-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {courses.map((course, index) => (
+          {courseGroups.map((group, index) => (
             <div
-              key={course.id}
-              data-city={normalizeCity(course.city)}
+              key={group[0].id}
+              data-city={normalizeCity(group[0].city)}
               className={`w-[91%] shrink-0 snap-center rounded-[30px] transition-shadow duration-500 [scroll-snap-stop:always] sm:w-[47%] xl:w-[31.5%] ${
-                cityFocus === normalizeCity(course.city) ? 'ring-2 ring-brand-purple shadow-[0_0_30px_rgba(139,29,255,0.35)]' : ''
+                cityFocus === normalizeCity(group[0].city) ? 'ring-2 ring-brand-purple shadow-[0_0_30px_rgba(139,29,255,0.35)]' : ''
               }`}
             >
-              <CoursePublicCard product={course} delay={index * 55} />
+              <CoursePublicCard products={group} delay={index * 55} />
             </div>
           ))}
         </div>
       ) : null}
 
-      {courses.length > 0 ? (
+      {courseGroups.length > 0 ? (
         <Reveal>
-          <CourseLocationsMap locations={courses.map((course) => ({ city: course.city, venue: course.venue }))} onCityPick={handleCityPick} />
+          <CourseLocationsMap locations={courseGroups.map((group) => ({ city: group[0].city, venue: group[0].venue }))} onCityPick={handleCityPick} />
         </Reveal>
       ) : null}
     </section>
@@ -457,6 +455,31 @@ function publicProductsByType(products: ParentProduct[], type: ParentProduct['ty
   return products
     .filter((product) => product.type === type && (type !== 'Krouzek' || !product.id.endsWith('-15')))
     .sort((a, b) => a.city.localeCompare(b.city, 'cs') || a.venue.localeCompare(b.venue, 'cs'));
+}
+
+function venueKey(value: string) {
+  return value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function startMinutes(primaryMeta: string) {
+  const match = primaryMeta.match(/(\d{1,2}):(\d{2})/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
+}
+
+/** Sloučí kroužky na stejné tělocvičně (stejné město + stejná tělocvična) do jedné karty. */
+function groupCoursesByVenue(courses: ParentProduct[]): ParentProduct[][] {
+  const groups = new Map<string, ParentProduct[]>();
+  for (const course of courses) {
+    const key = `${venueKey(course.city)}|${venueKey(course.venue)}`;
+    const list = groups.get(key);
+    if (list) list.push(course);
+    else groups.set(key, [course]);
+  }
+  return Array.from(groups.values()).map((list) => list.slice().sort((a, b) => startMinutes(a.primaryMeta) - startMinutes(b.primaryMeta)));
+}
+
+function skillLabel(product: ParentProduct) {
+  return product.skillCategory === 'zacatecnici' ? 'Začátečníci' : product.skillCategory === 'pokrocili' ? 'Pokročilí' : 'Všechny úrovně';
 }
 
 function CatalogState({ loading, error, empty, emptyTitle, emptyText }: { loading: boolean; error: string | null; empty: boolean; emptyTitle: string; emptyText: string }) {
@@ -807,13 +830,17 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
   );
 }
 
-function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: number }) {
+function CoursePublicCard({ products, delay }: { products: ParentProduct[]; delay: number }) {
   void delay;
+  const product = products[0];
+  const merged = products.length > 1;
   const firstLesson = firstOctoberLessonLabel(product.primaryMeta);
   const [open, setOpen] = useState(false);
   const scheduleDays = parseScheduleDays(product.primaryMeta);
   const scheduleTime = parseScheduleTime(product.primaryMeta);
-  const multiDay = scheduleDays.length >= 2;
+  const multiDay = !merged && scheduleDays.length >= 2;
+  const uniformLevel = products.every((item) => item.skillCategory === product.skillCategory);
+  const minPrice = Math.min(...products.map((item) => item.price));
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft">
@@ -834,27 +861,37 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
             <span className="truncate">{product.city}</span>
           </p>
           <span className="shrink-0 rounded-[12px] bg-brand-purple-light px-2.5 py-1 text-[11px] font-black uppercase text-brand-purple-deep">
-            {product.skillCategory === 'zacatecnici' ? 'Začátečníci' : product.skillCategory === 'pokrocili' ? 'Pokročilí' : 'Všechny úrovně'}
+            {uniformLevel ? skillLabel(product) : 'Více úrovní'}
           </span>
         </div>
 
         {/* Termín (datum a čas) — místo ceny a kapacity */}
         <div className="mt-4 grid gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
-          <span className="inline-flex items-center gap-2">
-            <CalendarDays size={16} className="text-brand-purple" />
-            {multiDay && scheduleTime ? `${scheduleDays.join(' a ')} · ${scheduleTime}` : product.primaryMeta}
-          </span>
+          {merged ? (
+            products.map((item) => {
+              const meta = splitCourseMeta(item.primaryMeta);
+              return (
+                <span key={item.id} className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-2">
+                    <CalendarDays size={16} className="text-brand-purple" />
+                    {meta.day} · {meta.time}
+                  </span>
+                  <span className="shrink-0 rounded-[10px] bg-brand-purple-light px-2 py-1 text-[10px] font-black uppercase text-brand-purple-deep">{skillLabel(item)}</span>
+                </span>
+              );
+            })
+          ) : (
+            <span className="inline-flex items-center gap-2">
+              <CalendarDays size={16} className="text-brand-purple" />
+              {multiDay && scheduleTime ? `${scheduleDays.join(' a ')} · ${scheduleTime}` : product.primaryMeta}
+            </span>
+          )}
           <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
             <Clock size={16} className="text-brand-cyan" />
             <span>
               {firstLesson ? <>1. lekce {firstLesson}</> : <>Startujeme v říjnu</>} · <span className="text-brand-cyan">zdarma</span>
             </span>
           </span>
-          {multiDay ? (
-            <span className="rounded-[14px] bg-brand-purple-light px-3 py-2 text-xs font-black leading-5 text-brand-purple-deep">
-              Při přihlášce si vybereš {scheduleDays.join(', ')}, nebo oba dny — cena je stejná.
-            </span>
-          ) : null}
         </div>
 
         {/* Rozbalení: cena + živá kapacita */}
@@ -883,20 +920,50 @@ function CoursePublicCard({ product, delay }: { product: ParentProduct; delay: n
                   <ScanLine size={16} className="text-brand-pink" />
                   Permanentka 10 nebo 15 vstupů
                 </span>
-                <span className="shrink-0 rounded-[14px] bg-brand-purple-light px-3 py-1.5 text-sm font-black text-brand-purple-deep">{coursePriceLabel(product)}</span>
+                <span className="shrink-0 rounded-[14px] bg-brand-purple-light px-3 py-1.5 text-sm font-black text-brand-purple-deep">od {minPrice.toLocaleString('cs-CZ')} Kč</span>
               </div>
 
-              <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
+              {merged ? (
+                products.map((item) => {
+                  const meta = splitCourseMeta(item.primaryMeta);
+                  return (
+                    <div key={item.id}>
+                      <p className="mt-4 text-xs font-black uppercase text-slate-400">
+                        {meta.day} · {meta.time} <span className="text-brand-purple-deep">({skillLabel(item)})</span>
+                      </p>
+                      <CourseCapacityMeter current={item.capacityCurrent} total={item.capacityTotal} />
+                    </div>
+                  );
+                })
+              ) : (
+                <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
+              )}
 
-              <Link
-                href={`/krouzky/${product.id}`}
-                className="group mt-3 flex items-center justify-between gap-3 rounded-[18px] border border-black/10 px-4 py-3 transition-colors hover:border-brand-purple/30"
-              >
-                <p className="text-xs font-black uppercase text-slate-400">Detail lokality a trenéři</p>
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
-                  <ArrowRight size={18} />
-                </span>
-              </Link>
+              {products.map((item) => {
+                const meta = splitCourseMeta(item.primaryMeta);
+                return (
+                  <Link
+                    key={item.id}
+                    href={`/krouzky/${item.id}`}
+                    className="group mt-3 flex items-center justify-between gap-3 rounded-[18px] border border-black/10 px-4 py-3 transition-colors hover:border-brand-purple/30"
+                  >
+                    <p className="text-xs font-black uppercase text-slate-400">{merged ? `Detail · ${meta.day} ${meta.time}` : 'Detail lokality a trenéři'}</p>
+                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
+                      <ArrowRight size={18} />
+                    </span>
+                  </Link>
+                );
+              })}
+
+              {multiDay ? (
+                <p className="mt-3 rounded-[14px] bg-brand-purple-light px-3 py-2 text-xs font-black leading-5 text-brand-purple-deep">
+                  Při přihlášce si vybereš {scheduleDays.join(', ')}, nebo oba dny — cena je stejná.
+                </p>
+              ) : merged ? (
+                <p className="mt-3 rounded-[14px] bg-brand-purple-light px-3 py-2 text-xs font-black leading-5 text-brand-purple-deep">
+                  Na tomhle místě běží kroužek ve více časech. Při přihlášce v aplikaci si vybereš čas, který vám sedí{uniformLevel ? '' : ' — každý čas má svoji úroveň'}.
+                </p>
+              ) : null}
             </motion.div>
           ) : null}
         </AnimatePresence>
@@ -1012,8 +1079,4 @@ function firstOctoberLessonLabel(primaryMeta: string): string | null {
     date.setDate(date.getDate() + 1);
   }
   return date.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric' });
-}
-
-function coursePriceLabel(product: ParentProduct) {
-  return `od ${product.price.toLocaleString('cs-CZ')} Kč`;
 }
