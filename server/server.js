@@ -3476,7 +3476,7 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId) {
   const placesList = Array.from(regionPlaces);
   let regionParticipants = [];
   if (placesList.length > 0) {
-    const participantCols = 'id,first_name,last_name,active_course,extra_courses,paid_status,level,school_year,parent_name,parent_phone,emergency_phone,departure_mode,allergies,health_limits';
+    const participantCols = 'id,first_name,last_name,active_course,extra_courses,paid_status,level,xp,attendance_done,bracelet,bracelet_color,school_year,parent_name,parent_phone,emergency_phone,departure_mode,allergies,health_limits';
     const [primaryRes, extraRes] = await Promise.all([
       supabase.from('participants').select(participantCols).in('active_course', placesList),
       supabase.from('participants').select(participantCols).overlaps('extra_courses', placesList),
