@@ -469,7 +469,7 @@ async function requireAuthenticatedProfile(request) {
 
   const { data: profile, error: profileError } = await supabase
     .from('app_profiles')
-    .select('id,role,email,name')
+    .select('id,role,email,name,phone')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -3540,14 +3540,14 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
   if (profile.role !== 'coordinator') throw httpError('Tahle sekce je pouze pro koordinátora.', 403);
   const { data: coordinatorProfile, error: coordinatorProfileError } = await supabase
     .from('coordinator_profiles')
-    .select('id,org_id,region,percent,permissions')
+    .select('id,org_id,region,percent,permissions,profile_photo_url')
     .eq('id', profile.id)
     .maybeSingle();
   if (coordinatorProfileError) throw coordinatorProfileError;
   if (!coordinatorProfile) {
     response.json({
       pending: true,
-      coordinator: { id: profile.id, name: profile.name, email: profile.email, region: null, percent: null },
+      coordinator: { id: profile.id, name: profile.name, email: profile.email, phone: profile.phone ?? null, profile_photo_url: null, region: null, percent: null },
       products: [], purchases: [], attendance: [], childAttendance: [], participants: [], invoices: [], payouts: [],
       finance: { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commission: 0, paidOut: 0, owed: 0 },
       coaches: [], tasks: [], requests: [],
@@ -3658,13 +3658,46 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
   }
 
   response.json({
-    coordinator: { id: coordinator.id, name: coordinator.name, email: coordinator.email, region: coordinator.region, percent: coordinator.percent },
+    coordinator: {
+      id: coordinator.id,
+      name: coordinator.name,
+      email: coordinator.email,
+      phone: coordinator.phone ?? null,
+      profile_photo_url: coordinatorProfile.profile_photo_url ?? null,
+      region: coordinator.region,
+      percent: coordinator.percent,
+    },
     permissions,
     ...financeData,
     coaches,
     tasks: tasks || [],
     requests: requests || [],
   });
+}));
+
+// Koordinátor si může upravit vlastní profil (jméno, telefon, profilovou fotku).
+app.patch('/api/coordinator/profile', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAuthenticatedProfile(request);
+  if (profile.role !== 'coordinator') throw httpError('Tahle sekce je pouze pro koordinátora.', 403);
+
+  const patch = {};
+  if (typeof request.body.name === 'string' && request.body.name.trim()) patch.name = request.body.name.trim();
+  if (typeof request.body.phone === 'string') patch.phone = request.body.phone.trim() || null;
+  if (Object.keys(patch).length > 0) {
+    const { error } = await supabase.from('app_profiles').update(patch).eq('id', profile.id);
+    if (error) throw error;
+  }
+
+  if (typeof request.body.profilePhotoUrl === 'string' && request.body.profilePhotoUrl) {
+    const { error } = await supabase
+      .from('coordinator_profiles')
+      .update({ profile_photo_url: request.body.profilePhotoUrl })
+      .eq('id', profile.id);
+    if (error) throw error;
+  }
+
+  response.json({ ok: true });
 }));
 
 app.post('/api/coordinator/tasks', asyncRoute(async (request, response) => {
@@ -3844,7 +3877,7 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
 
   const { data: coordinatorRows, error: coordinatorError } = await supabase
     .from('coordinator_profiles')
-    .select('id,org_id,region,percent,permissions,created_at');
+    .select('id,org_id,region,percent,permissions,profile_photo_url,created_at');
   if (coordinatorError) throw coordinatorError;
   const orgCoordinators = (coordinatorRows || []).filter((row) => (row.org_id || VYS_ORG_ID) === orgId);
 
@@ -3867,6 +3900,7 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
       name: person?.name || person?.email || row.id,
       email: person?.email || null,
       phone: person?.phone || null,
+      profile_photo_url: row.profile_photo_url || null,
       region: row.region,
       percent: row.percent ?? 30,
       permissions: normalizeCoordinatorPermissions(row.permissions),
