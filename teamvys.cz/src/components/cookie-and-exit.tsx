@@ -55,44 +55,22 @@ export function CookieConsent() {
   );
 }
 
-const EXIT_GUARD_KEY = '__vysExitGuard';
-
 export function ExitGuard() {
   const [open, setOpen] = useState(false);
-  const leavingRef = useRef(false);
+  const shownRef = useRef(false);
 
   // Mouse leaving through the top of the viewport means the visitor is heading
-  // for the back arrow / tab bar.
+  // for the back arrow / tab bar. Asking once per page load is enough.
   useEffect(() => {
     if (window.matchMedia('(pointer: coarse)').matches) return;
 
     const onMouseOut = (event: MouseEvent) => {
-      if (event.relatedTarget || event.clientY > 4) return;
+      if (event.relatedTarget || event.clientY > 4 || shownRef.current) return;
+      shownRef.current = true;
       setOpen(true);
     };
     document.addEventListener('mouseout', onMouseOut);
     return () => document.removeEventListener('mouseout', onMouseOut);
-  }, []);
-
-  useEffect(() => {
-    const arm = () => {
-      const state = (window.history.state ?? {}) as Record<string, unknown>;
-      if (state[EXIT_GUARD_KEY]) return;
-      // Duplicate the entry page in history: pressing back first lands on the
-      // sentinel copy (in-site back keeps working), and only popping past it
-      // means the visitor is actually leaving the site.
-      window.history.pushState({ ...state, [EXIT_GUARD_KEY]: true }, '', window.location.href);
-    };
-    arm();
-
-    const onPop = (event: PopStateEvent) => {
-      const state = (event.state ?? {}) as Record<string, unknown>;
-      if (state[EXIT_GUARD_KEY] || leavingRef.current) return;
-      arm();
-      setOpen(true);
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   function stay() {
@@ -100,14 +78,8 @@ export function ExitGuard() {
   }
 
   function leave() {
-    leavingRef.current = true;
     setOpen(false);
-    // We sit on the re-armed sentinel; -2 jumps past the original entry out of
-    // the site. If there is no earlier page the browser ignores it.
-    window.history.go(-2);
-    window.setTimeout(() => {
-      leavingRef.current = false;
-    }, 1500);
+    window.history.back();
   }
 
   if (!open) return null;
