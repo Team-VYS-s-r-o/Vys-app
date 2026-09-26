@@ -3336,13 +3336,14 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
     throw new Error('Invalid product: id is required.');
   }
 
-  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'map_query', 'latitude', 'longitude', 'skill_category'];
+  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'map_query', 'latitude', 'longitude', 'skill_category', 'region'];
   const row = Object.fromEntries(Object.entries(product).filter(([key]) => allowed.includes(key)));
 
   requiredString(row.type, 'type');
   requiredString(row.title, 'title');
   requiredString(row.city, 'city');
   requiredString(row.place, 'place');
+  if (!row.region) row.region = regionForCity(row.city);
 
   // Org separation: a product always belongs to the admin's organization.
   // If the product already exists, it must belong to the same org (no cross-org edits).
@@ -3380,6 +3381,484 @@ app.delete('/api/admin/products/:id', asyncRoute(async (request, response) => {
   const { error } = await supabase.from('products').delete().eq('id', id).eq('org_id', orgId);
   if (error) throw error;
   response.json({ ok: true });
+}));
+
+// ============================================================================
+// Krajští koordinátoři: region-scoped stats + coach assignment + product
+// proposals (prices approved by admin) + tasks + invoices + % commission.
+// ============================================================================
+
+const CITY_REGIONS = {
+  blansko: 'Jihomoravský kraj',
+  vyskov: 'Jihomoravský kraj',
+  brandys: 'Středočeský kraj',
+  jesenice: 'Středočeský kraj',
+  jesenik: 'Olomoucký kraj',
+  prostejov: 'Olomoucký kraj',
+  praha: 'Praha',
+  kobylisy: 'Praha',
+  vrsovice: 'Praha',
+  veliny: 'Pardubický kraj',
+};
+
+const CZECH_REGIONS = ['Praha', 'Středočeský kraj', 'Jihočeský kraj', 'Plzeňský kraj', 'Karlovarský kraj', 'Ústecký kraj', 'Liberecký kraj', 'Královéhradecký kraj', 'Pardubický kraj', 'Kraj Vysočina', 'Jihomoravský kraj', 'Olomoucký kraj', 'Zlínský kraj', 'Moravskoslezský kraj'];
+
+function normalizeCityKey(value) {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+}
+
+function regionForCity(city) {
+  return CITY_REGIONS[normalizeCityKey(city)] || null;
+}
+
+async function requireCoordinator(request) {
+  const profile = await requireAuthenticatedProfile(request);
+  if (profile.role !== 'coordinator') throw httpError('Tahle sekce je pouze pro koordinátora.', 403);
+  const { data, error } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id,region,percent')
+    .eq('id', profile.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw httpError('Koordinátor zatím nemá přiřazený kraj. Ozvi se adminovi.', 403);
+  return { ...profile, orgId: data.org_id || VYS_ORG_ID, region: data.region, percent: data.percent ?? 30 };
+}
+
+function parseInvoiceAmount(value) {
+  const numeric = Number(String(value ?? '').replace(/[^\d.,-]/g, '').replace(',', '.'));
+  return Number.isFinite(numeric) ? Math.round(numeric) : 0;
+}
+
+// Kraj finance: tržby ze zaplacených nákupů krajských produktů minus náklady
+// (docházka trenérů na krajských místech + zaplacené krajské faktury).
+// Provize koordinátora = percent % z kladného čistého zisku.
+async function computeRegionFinance(orgId, region, percent, coordinatorId) {
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id,type,title,city,place,venue,price,price_label,entries_total,capacity_total,capacity_current,coach_ids,is_published,region,event_date,hero_image')
+    .eq('org_id', orgId)
+    .eq('region', region)
+    .order('created_at', { ascending: false });
+  if (productsError) throw productsError;
+
+  const productIds = (products || []).map((product) => product.id);
+  const regionPlaces = new Set((products || []).map((product) => product.place).filter(Boolean));
+
+  let purchases = [];
+  if (productIds.length > 0) {
+    const { data, error } = await supabase
+      .from('parent_purchases')
+      .select('id,product_id,participant_id,participant_name,type,title,amount,place,status,paid_at,created_at')
+      .eq('org_id', orgId)
+      .in('product_id', productIds)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    purchases = data || [];
+  }
+
+  const revenue = purchases.filter((p) => p.status === 'Placeno').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  const { data: attendance, error: attendanceError } = await supabase
+    .from('coach_attendance_records')
+    .select('id,coach_id,date_text,place,duration_hours,amount,created_at')
+    .eq('org_id', orgId);
+  if (attendanceError) throw attendanceError;
+  const regionAttendance = (attendance || []).filter((record) => regionPlaces.has(record.place));
+  const coachCost = regionAttendance.reduce((sum, record) => sum + (Number(record.amount) || 0), 0);
+
+  const { data: invoices, error: invoicesError } = await supabase
+    .from('invoices')
+    .select('id,dodavatel,castka,mena,popis,kategorie,zaplaceno,datum_zaplaceni,file_url,zdroj,coordinator_id,region,odeslal,created_at')
+    .eq('org_id', orgId)
+    .eq('region', region)
+    .order('created_at', { ascending: false });
+  if (invoicesError) throw invoicesError;
+  const invoiceCost = (invoices || []).filter((invoice) => invoice.zaplaceno).reduce((sum, invoice) => sum + parseInvoiceAmount(invoice.castka), 0);
+
+  const { data: payouts, error: payoutsError } = await supabase
+    .from('coordinator_payouts')
+    .select('id,coordinator_id,coordinator_name,amount,note,period_label,created_at')
+    .eq('coordinator_id', coordinatorId)
+    .order('created_at', { ascending: false });
+  if (payoutsError) throw payoutsError;
+
+  const net = revenue - coachCost - invoiceCost;
+  const commission = net > 0 ? Math.round((net * percent) / 100) : 0;
+  const paidOut = (payouts || []).reduce((sum, payout) => sum + (Number(payout.amount) || 0), 0);
+  const owed = Math.max(commission - paidOut, 0);
+
+  return {
+    products: products || [],
+    purchases,
+    attendance: regionAttendance,
+    invoices: invoices || [],
+    payouts: payouts || [],
+    finance: { revenue, coachCost, invoiceCost, net, percent, commission, paidOut, owed },
+  };
+}
+
+app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+
+  const financeData = await computeRegionFinance(coordinator.orgId, coordinator.region, coordinator.percent, coordinator.id);
+
+  const { data: coachProfiles, error: coachError } = await supabase
+    .from('coach_profiles')
+    .select('id,org_id,approval_status')
+    .eq('approval_status', 'approved');
+  if (coachError) throw coachError;
+  const orgCoachIds = (coachProfiles || []).filter((coach) => (coach.org_id || VYS_ORG_ID) === coordinator.orgId).map((coach) => coach.id);
+
+  let coaches = [];
+  if (orgCoachIds.length > 0) {
+    const { data, error } = await supabase
+      .from('app_profiles')
+      .select('id,name,email,phone')
+      .in('id', orgCoachIds);
+    if (error) throw error;
+    coaches = data || [];
+  }
+
+  const { data: tasks, error: tasksError } = await supabase
+    .from('coordinator_tasks')
+    .select('id,title,done,due_date,created_at')
+    .eq('coordinator_id', coordinator.id)
+    .order('created_at', { ascending: false });
+  if (tasksError) throw tasksError;
+
+  const { data: requests, error: requestsError } = await supabase
+    .from('coordinator_product_requests')
+    .select('id,payload,status,admin_note,created_at,resolved_at')
+    .eq('coordinator_id', coordinator.id)
+    .order('created_at', { ascending: false });
+  if (requestsError) throw requestsError;
+
+  response.json({
+    coordinator: { id: coordinator.id, name: coordinator.name, email: coordinator.email, region: coordinator.region, percent: coordinator.percent },
+    ...financeData,
+    coaches,
+    tasks: tasks || [],
+    requests: requests || [],
+  });
+}));
+
+app.post('/api/coordinator/tasks', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const title = requiredString(request.body.title, 'úkol');
+  const { data, error } = await supabase
+    .from('coordinator_tasks')
+    .insert({ coordinator_id: coordinator.id, org_id: coordinator.orgId, title, due_date: optionalString(request.body.dueDate) })
+    .select('id,title,done,due_date,created_at')
+    .single();
+  if (error) throw error;
+  response.status(201).json({ task: data });
+}));
+
+app.patch('/api/coordinator/tasks/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const id = requiredString(request.params.id, 'task id');
+  const patch = {};
+  if (typeof request.body.done === 'boolean') patch.done = request.body.done;
+  if (typeof request.body.title === 'string' && request.body.title.trim()) patch.title = request.body.title.trim();
+  const { data, error } = await supabase
+    .from('coordinator_tasks')
+    .update(patch)
+    .eq('id', id)
+    .eq('coordinator_id', coordinator.id)
+    .select('id,title,done,due_date,created_at')
+    .single();
+  if (error) throw error;
+  response.json({ task: data });
+}));
+
+app.delete('/api/coordinator/tasks/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const id = requiredString(request.params.id, 'task id');
+  const { error } = await supabase.from('coordinator_tasks').delete().eq('id', id).eq('coordinator_id', coordinator.id);
+  if (error) throw error;
+  response.json({ ok: true });
+}));
+
+// Koordinátor smí u krajského produktu měnit jen přiřazení trenérů.
+app.post('/api/coordinator/products/:id/coaches', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const productId = requiredString(request.params.id, 'product id');
+  const coachIds = Array.isArray(request.body.coachIds) ? request.body.coachIds.filter((value) => typeof value === 'string') : null;
+  if (!coachIds) throw httpError('coachIds musí být pole.', 400);
+
+  const { data: product, error: productError } = await supabase
+    .from('products')
+    .select('id,org_id,region')
+    .eq('id', productId)
+    .maybeSingle();
+  if (productError) throw productError;
+  if (!product || (product.org_id || VYS_ORG_ID) !== coordinator.orgId || product.region !== coordinator.region) {
+    throw httpError('Tento produkt nepatří do tvého kraje.', 403);
+  }
+
+  const { error } = await supabase.from('products').update({ coach_ids: coachIds }).eq('id', productId);
+  if (error) throw error;
+  response.json({ ok: true, coachIds });
+}));
+
+// Návrh produktu / ceny — schvaluje admin. Ceny kroužků (10/15 vstupů) jsou
+// fixní a nastavuje je admin, koordinátor posílá jen návrh nákladů.
+app.post('/api/coordinator/product-requests', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const payload = request.body.payload;
+  if (!payload || typeof payload !== 'object') throw httpError('Chybí návrh produktu.', 400);
+  requiredString(payload.title, 'název');
+  requiredString(payload.city, 'město');
+
+  const { data, error } = await supabase
+    .from('coordinator_product_requests')
+    .insert({
+      coordinator_id: coordinator.id,
+      coordinator_name: coordinator.name,
+      org_id: coordinator.orgId,
+      region: coordinator.region,
+      payload,
+    })
+    .select('id,payload,status,admin_note,created_at,resolved_at')
+    .single();
+  if (error) throw error;
+  response.status(201).json({ request: data });
+}));
+
+app.post('/api/coordinator/invoices/upload-url', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireCoordinator(request);
+  const filename = optionalString(request.body.filename) || 'invoice.pdf';
+  const path = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  const { data, error } = await supabase.storage.from('invoices').createSignedUploadUrl(path);
+  if (error) throw error;
+  response.json({ signedUrl: data.signedUrl, path: data.path });
+}));
+
+app.post('/api/coordinator/invoices', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const invoice = request.body.invoice || {};
+  const amount = Math.round(Number(invoice.amount || 0));
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Částka faktury musí být větší než 0.');
+
+  const row = {
+    dodavatel: optionalString(invoice.supplier) || coordinator.name || 'Koordinátor',
+    castka: String(amount),
+    mena: 'CZK',
+    datum_vystaveni: optionalString(invoice.issuedAt) || todayIsoDate(),
+    datum_splatnosti: optionalString(invoice.dueAt),
+    cislo_faktury: optionalString(invoice.number),
+    popis: optionalString(invoice.description) || `Faktura koordinátora (${coordinator.region})`,
+    kategorie: optionalString(invoice.category) || 'Koordinátor',
+    file_url: optionalString(invoice.fileUrl),
+    zaplaceno: false,
+    odeslal: coordinator.name || coordinator.email,
+    zdroj: 'koordinator',
+    coordinator_id: coordinator.id,
+    region: coordinator.region,
+    org_id: coordinator.orgId,
+  };
+
+  const { data, error } = await supabase.from('invoices').insert(row).select('id').single();
+  if (error) throw error;
+  response.status(201).json({ id: data.id });
+}));
+
+// --- Admin správa koordinátorů -------------------------------------------
+
+app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const { data: coordinatorRows, error: coordinatorError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id,region,percent,created_at');
+  if (coordinatorError) throw coordinatorError;
+  const orgCoordinators = (coordinatorRows || []).filter((row) => (row.org_id || VYS_ORG_ID) === orgId);
+
+  let profiles = [];
+  if (orgCoordinators.length > 0) {
+    const { data, error } = await supabase
+      .from('app_profiles')
+      .select('id,name,email,phone')
+      .in('id', orgCoordinators.map((row) => row.id));
+    if (error) throw error;
+    profiles = data || [];
+  }
+
+  const coordinators = [];
+  for (const row of orgCoordinators) {
+    const person = profiles.find((p) => p.id === row.id);
+    const financeData = await computeRegionFinance(orgId, row.region, row.percent ?? 30, row.id);
+    coordinators.push({
+      id: row.id,
+      name: person?.name || person?.email || row.id,
+      email: person?.email || null,
+      phone: person?.phone || null,
+      region: row.region,
+      percent: row.percent ?? 30,
+      finance: financeData.finance,
+      payouts: financeData.payouts,
+      productCount: financeData.products.length,
+    });
+  }
+
+  const { data: requests, error: requestsError } = await supabase
+    .from('coordinator_product_requests')
+    .select('id,coordinator_id,coordinator_name,region,payload,status,admin_note,created_at,resolved_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (requestsError) throw requestsError;
+
+  response.json({ coordinators, requests: requests || [], regions: CZECH_REGIONS });
+}));
+
+app.post('/api/admin/coordinators', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const email = requiredString(request.body.email, 'e-mail').toLowerCase();
+  const region = requiredString(request.body.region, 'kraj');
+  const percent = Math.min(Math.max(Math.round(Number(request.body.percent ?? 30)), 0), 100);
+  if (!CZECH_REGIONS.includes(region)) throw httpError('Neznámý kraj.', 400);
+
+  const { data: person, error: personError } = await supabase
+    .from('app_profiles')
+    .select('id,role,name,email,org_id')
+    .ilike('email', email)
+    .maybeSingle();
+  if (personError) throw personError;
+  if (!person) throw httpError('Uživatel s tímto e-mailem v aplikaci neexistuje. Musí se nejdřív zaregistrovat.', 404);
+  if (person.role === 'admin') throw httpError('Admin nemůže být zároveň koordinátor.', 400);
+  if ((person.org_id || VYS_ORG_ID) !== orgId && person.org_id) throw httpError('Uživatel patří jiné organizaci.', 403);
+
+  const { error: roleError } = await supabase.from('app_profiles').update({ role: 'coordinator', org_id: orgId }).eq('id', person.id);
+  if (roleError) throw roleError;
+
+  const { data, error } = await supabase
+    .from('coordinator_profiles')
+    .upsert({ id: person.id, org_id: orgId, region, percent }, { onConflict: 'id' })
+    .select('id,region,percent')
+    .single();
+  if (error) throw error;
+
+  response.status(201).json({ coordinator: { id: data.id, name: person.name, email: person.email, region: data.region, percent: data.percent } });
+}));
+
+app.delete('/api/admin/coordinators/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'coordinator id');
+
+  const { data: row, error: rowError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (rowError) throw rowError;
+  if (!row || (row.org_id || VYS_ORG_ID) !== orgId) throw httpError('Koordinátor nenalezen.', 404);
+
+  const { error: deleteError } = await supabase.from('coordinator_profiles').delete().eq('id', id);
+  if (deleteError) throw deleteError;
+  const { error: roleError } = await supabase.from('app_profiles').update({ role: 'parent' }).eq('id', id).eq('role', 'coordinator');
+  if (roleError) throw roleError;
+  response.json({ ok: true });
+}));
+
+app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'request id');
+  const action = requiredString(request.body.action, 'action');
+  if (!['approve', 'reject'].includes(action)) throw httpError('Neplatná akce.', 400);
+
+  const { data: req, error: reqError } = await supabase
+    .from('coordinator_product_requests')
+    .select('id,org_id,region,coordinator_id,coordinator_name,payload,status')
+    .eq('id', id)
+    .maybeSingle();
+  if (reqError) throw reqError;
+  if (!req || (req.org_id || VYS_ORG_ID) !== orgId) throw httpError('Žádost nenalezena.', 404);
+  if (req.status !== 'pending') throw httpError('Žádost už je vyřízená.', 409);
+
+  let createdProductId = null;
+  if (action === 'approve') {
+    const payload = req.payload || {};
+    createdProductId = `koord-${Date.now()}`;
+    const productRow = {
+      id: createdProductId,
+      type: payload.type || 'Krouzek',
+      title: String(payload.title || 'Nový produkt'),
+      city: String(payload.city || ''),
+      place: String(payload.place || payload.city || ''),
+      venue: optionalString(payload.venue),
+      description: optionalString(payload.description),
+      capacity_total: Number(payload.capacityTotal) || 0,
+      capacity_current: 0,
+      event_date: optionalString(payload.eventDate),
+      is_published: false,
+      region: req.region,
+      org_id: orgId,
+      coach_ids: [],
+    };
+    const { error: productError } = await supabase.from('products').insert(productRow);
+    if (productError) throw productError;
+  }
+
+  const { data, error } = await supabase
+    .from('coordinator_product_requests')
+    .update({ status: action === 'approve' ? 'approved' : 'rejected', admin_note: optionalString(request.body.adminNote), resolved_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id,coordinator_id,coordinator_name,region,payload,status,admin_note,created_at,resolved_at')
+    .single();
+  if (error) throw error;
+  response.json({ request: data, createdProductId });
+}));
+
+app.post('/api/admin/coordinators/:id/payouts', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'coordinator id');
+  const amount = Math.round(Number(request.body.amount || 0));
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Částka výplaty musí být větší než 0.');
+
+  const { data: row, error: rowError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (rowError) throw rowError;
+  if (!row || (row.org_id || VYS_ORG_ID) !== orgId) throw httpError('Koordinátor nenalezen.', 404);
+
+  const { data: person } = await supabase.from('app_profiles').select('name,email').eq('id', id).maybeSingle();
+
+  const { data, error } = await supabase
+    .from('coordinator_payouts')
+    .insert({
+      coordinator_id: id,
+      coordinator_name: person?.name || person?.email || id,
+      org_id: orgId,
+      amount,
+      note: optionalString(request.body.note),
+      period_label: optionalString(request.body.periodLabel),
+    })
+    .select('id,coordinator_id,coordinator_name,amount,note,period_label,created_at')
+    .single();
+  if (error) throw error;
+  response.status(201).json({ payout: data });
 }));
 
 // ============================================================================
