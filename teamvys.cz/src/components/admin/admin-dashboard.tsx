@@ -910,7 +910,7 @@ export function AdminDashboard({ finance, financeError, showSignOut, devMode, su
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
-            {activeSection === 'overview' ? <OverviewSection totals={totals} coaches={coaches} coachAttendanceRecords={coachAttendanceRecords} dppDocuments={coachDppDocuments} keyRequests={keyRequests} approvalMessage={approvalMessage} approvingRequestId={approvingRequestId} onApproveKeyRequest={(request) => handleCoachRequestDecision(request, 'approve')} onRejectKeyRequest={(request) => handleCoachRequestDecision(request, 'reject')} onNavigate={setActiveSection} /> : null}
+            {activeSection === 'overview' ? <OverviewSection totals={totals} coaches={coaches} coachAttendanceRecords={coachAttendanceRecords} dppDocuments={coachDppDocuments} keyRequests={keyRequests} approvalMessage={approvalMessage} approvingRequestId={approvingRequestId} onApproveKeyRequest={(request) => handleCoachRequestDecision(request, 'approve')} onRejectKeyRequest={(request) => handleCoachRequestDecision(request, 'reject')} onNavigate={setActiveSection} products={allProducts} /> : null}
             {activeSection === 'attendance' ? <AttendanceSection query={attendanceQuery} onQueryChange={setAttendanceQuery} activityRows={activityRows} campTurnusy={campTurnusyState} workshopSlots={workshopSlots} workshopAttendanceRecords={workshopAttendanceRecords} coaches={coaches} coachAttendanceRecords={coachAttendanceRecords} childAttendanceRecords={childAttendanceRecords} onAddCoachAttendance={handleAddCoachAttendance} onOpenActivityDetail={setSelectedActivityDetail} onOpenParticipantDetail={openParticipantDetail} participants={liveParticipants} products={allProducts} /> : null}
             {activeSection === 'participants' ? <ParticipantsSection products={allProducts} participants={liveParticipants} campTurnusy={campTurnusyState} workshopSlots={workshopSlots} workshopAttendanceRecords={workshopAttendanceRecords} onOpenParticipantDetail={openParticipantDetail} /> : null}
             {activeSection === 'registry' ? <RegistrySection participants={liveParticipants} paymentRows={paymentRows} onOpenParticipantDetail={openParticipantDetail} /> : null}
@@ -1018,13 +1018,14 @@ function BackendNotice({ title, error }: { title: string; error: string }) {
   );
 }
 
-function OverviewSection({ totals, coaches, coachAttendanceRecords, dppDocuments, keyRequests, approvalMessage, approvingRequestId, onApproveKeyRequest, onRejectKeyRequest, onNavigate }: { totals: AdminTotals; coaches: AdminCoachSummary[]; coachAttendanceRecords: CoachAttendanceRecord[]; dppDocuments: AdminCoachDppDocument[]; keyRequests: AdminCoachAccessRequest[]; approvalMessage: string | null; approvingRequestId: string | null; onApproveKeyRequest: (request: AdminCoachAccessRequest) => void; onRejectKeyRequest: (request: AdminCoachAccessRequest) => void; onNavigate: (section: SectionKey) => void }) {
+function OverviewSection({ totals, coaches, coachAttendanceRecords, dppDocuments, keyRequests, approvalMessage, approvingRequestId, onApproveKeyRequest, onRejectKeyRequest, onNavigate, products }: { totals: AdminTotals; coaches: AdminCoachSummary[]; coachAttendanceRecords: CoachAttendanceRecord[]; dppDocuments: AdminCoachDppDocument[]; keyRequests: AdminCoachAccessRequest[]; approvalMessage: string | null; approvingRequestId: string | null; onApproveKeyRequest: (request: AdminCoachAccessRequest) => void; onRejectKeyRequest: (request: AdminCoachAccessRequest) => void; onNavigate: (section: SectionKey) => void; products: ParentProduct[] }) {
   const { flags } = useFeatureFlags();
   const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
   const unsignedDpp = coaches.filter((coach) => { const s = dppStatusForCoach(coach.id, dppDocuments); return s !== 'signed' && s !== 'physical'; });
   const adminAttendanceCount = coachAttendanceRecords.filter((record) => record.source === 'admin').length;
   const paidShare = totals.paidTotal + totals.pendingTotal > 0 ? Math.round((totals.paidTotal / (totals.paidTotal + totals.pendingTotal)) * 100) : 100;
   const readyForPayoutCount = coaches.filter((coach) => payoutAmountForCoach(coach, coachAttendanceRecords) > 0).length;
+  const gymContacts = products.filter((product) => (product.gymContact ?? '').trim().length > 0);
 
   return (
     <div className="space-y-5">
@@ -1100,6 +1101,23 @@ function OverviewSection({ totals, coaches, coachAttendanceRecords, dppDocuments
               <HealthRow label="Dokumenty" value={totals.missingDocuments > 0 ? `${totals.missingDocuments} chybí` : 'OK'} tone={totals.missingDocuments > 0 ? 'pink' : 'mint'} />
               <HealthRow label="DPP" value={unsignedDpp.length > 0 ? `${unsignedDpp.length} nepodepsáno` : 'OK'} tone={unsignedDpp.length > 0 ? 'orange' : 'mint'} />
               <HealthRow label="Výplaty" value={totals.payoutTotal > 0 ? currency(totals.payoutTotal) : 'OK'} tone={totals.payoutTotal > 0 ? 'purple' : 'mint'} />
+            </div>
+          </Panel>
+
+          <Panel className="p-5">
+            <SectionTitle icon={<Phone size={18} />} title="Kontakty na tělocvičny" subtitle="jen pro tebe · doplní je koordinátor v aplikaci nebo ty při tvorbě/úpravě produktu" />
+            <div className="mt-4 grid gap-2">
+              {gymContacts.length === 0 ? (
+                <p className="rounded-[12px] bg-brand-paper px-3 py-2 text-sm font-bold text-brand-ink-soft">Zatím žádný kontakt není vyplněný.</p>
+              ) : (
+                gymContacts.map((product) => (
+                  <div key={product.id} className="rounded-[14px] border border-brand-purple/10 bg-white px-4 py-3">
+                    <p className="text-sm font-black text-brand-ink">{product.title}</p>
+                    <p className="mt-0.5 text-xs font-bold text-brand-ink-soft">{[product.city, product.place, product.venue].filter(Boolean).join(' · ')}</p>
+                    <p className="mt-1.5 whitespace-pre-wrap text-sm font-bold text-brand-ink">{product.gymContact}</p>
+                  </div>
+                ))
+              )}
             </div>
           </Panel>
         </div>
