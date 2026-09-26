@@ -3547,21 +3547,63 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
 
   const financeData = await computeRegionFinance(coordinator.orgId, coordinator.region, coordinator.percent, coordinator.id);
 
+  // Trenéři jen z koordinátorova kraje: přiřazení ke krajskému produktu,
+  // s kurzem na místě kraje nebo se zapsanou docházkou v kraji.
   const { data: coachProfiles, error: coachError } = await supabase
     .from('coach_profiles')
-    .select('id,org_id,approval_status')
+    .select('id,org_id,approval_status,assigned_courses')
     .eq('approval_status', 'approved');
   if (coachError) throw coachError;
-  const orgCoachIds = (coachProfiles || []).filter((coach) => (coach.org_id || VYS_ORG_ID) === coordinator.orgId).map((coach) => coach.id);
+  const regionPlaceSet = new Set((financeData.products || []).map((product) => product.place).filter(Boolean));
+  const approvedOrgCoaches = (coachProfiles || []).filter((coach) => (coach.org_id || VYS_ORG_ID) === coordinator.orgId);
+  const coachProfileById = new Map(approvedOrgCoaches.map((coach) => [coach.id, coach]));
+  const regionCoachIdSet = new Set();
+  for (const product of financeData.products || []) {
+    for (const coachId of product.coach_ids || []) regionCoachIdSet.add(coachId);
+  }
+  for (const coach of approvedOrgCoaches) {
+    if ((coach.assigned_courses || []).some((course) => regionPlaceSet.has(course))) regionCoachIdSet.add(coach.id);
+  }
+  for (const record of financeData.attendance || []) {
+    if (record.coach_id) regionCoachIdSet.add(record.coach_id);
+  }
+  const orgCoachIds = Array.from(regionCoachIdSet).filter((coachId) => coachProfileById.has(coachId));
 
   let coaches = [];
   if (orgCoachIds.length > 0) {
-    const { data, error } = await supabase
-      .from('app_profiles')
-      .select('id,name,email,phone')
-      .in('id', orgCoachIds);
-    if (error) throw error;
-    coaches = data || [];
+    const [profilesRes, payoutsRes, documentsRes] = await Promise.all([
+      supabase.from('app_profiles').select('id,name,email,phone').in('id', orgCoachIds),
+      supabase.from('coach_payouts').select('coach_id,hourly_rate,status').in('coach_id', orgCoachIds),
+      supabase
+        .from('coach_documents')
+        .select('coach_id,created_at,document_templates(name,kind)')
+        .eq('org_id', coordinator.orgId)
+        .in('coach_id', orgCoachIds),
+    ]);
+    if (profilesRes.error) throw profilesRes.error;
+    const payoutByCoach = new Map((payoutsRes.error ? [] : payoutsRes.data || []).map((row) => [row.coach_id, row]));
+    const documentsByCoach = new Map();
+    for (const doc of documentsRes.error ? [] : documentsRes.data || []) {
+      const list = documentsByCoach.get(doc.coach_id) || [];
+      list.push({ name: doc.document_templates?.name ?? 'Dokument', kind: doc.document_templates?.kind ?? null, created_at: doc.created_at });
+      documentsByCoach.set(doc.coach_id, list);
+    }
+    coaches = (profilesRes.data || []).map((profileRow) => {
+      const places = new Set();
+      for (const product of financeData.products || []) {
+        if ((product.coach_ids || []).includes(profileRow.id) && product.place) places.add(product.place);
+      }
+      for (const course of coachProfileById.get(profileRow.id)?.assigned_courses || []) {
+        if (regionPlaceSet.has(course)) places.add(course);
+      }
+      return {
+        ...profileRow,
+        hourly_rate: payoutByCoach.get(profileRow.id)?.hourly_rate ?? null,
+        payout_status: payoutByCoach.get(profileRow.id)?.status ?? null,
+        documents: documentsByCoach.get(profileRow.id) || [],
+        places: Array.from(places),
+      };
+    });
   }
 
   const { data: tasks, error: tasksError } = await supabase
