@@ -44,6 +44,7 @@ type MapLocation = { city: string; venue: string };
 
 export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLocation[]; onCityPick?: (cityKey: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const homeRef = useRef<(() => void) | null>(null);
   const pickRef = useRef(onCityPick);
@@ -63,6 +64,7 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
   useEffect(() => {
     if (!containerRef.current || pins.length === 0) return;
     let cancelled = false;
+    let detachWheel: (() => void) | null = null;
 
     (async () => {
       const L = (await import('leaflet')).default;
@@ -119,10 +121,23 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
       map.setMaxBounds(bounds.pad(1.1));
       map.setMinZoom(Math.floor(map.getZoom()));
       map.options.maxBoundsViscosity = 1.0;
+
+      // Na krajní úrovni zoomu už kolečko nemá co dělat — pustíme ho na
+      // stránku. Capture na obalu, aby se událost k Leafletu vůbec nedostala.
+      const wrapper = wrapperRef.current;
+      const onWheel = (event: WheelEvent) => {
+        const zoom = map.getZoom();
+        const zoomingOutAtMin = event.deltaY > 0 && zoom <= map.getMinZoom() + 0.01;
+        const zoomingInAtMax = event.deltaY < 0 && zoom >= map.getMaxZoom() - 0.01;
+        if (zoomingOutAtMin || zoomingInAtMax) event.stopPropagation();
+      };
+      wrapper?.addEventListener('wheel', onWheel, true);
+      detachWheel = () => wrapper?.removeEventListener('wheel', onWheel, true);
     })();
 
     return () => {
       cancelled = true;
+      detachWheel?.();
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -146,7 +161,7 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
           </p>
         </div>
       </div>
-      <div className="relative mt-4">
+      <div ref={wrapperRef} className="relative mt-4">
         <div
           ref={containerRef}
           className="z-0 h-[380px] w-full overflow-hidden rounded-[24px] border border-brand-purple/15 shadow-brand-soft md:h-[460px]"
