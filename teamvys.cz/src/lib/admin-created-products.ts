@@ -45,6 +45,8 @@ export type AdminProductInput = {
   title: string;
   city: string;
   venue: string;
+  /** Nepovinné kontaktní údaje k tělocvičně (správce, telefon, e-mail…) */
+  gymContact?: string;
   primaryMeta: string;
   price: number;
   /** Cena 15vstupové varianty (jen pro Kroužek) */
@@ -117,6 +119,7 @@ function productToRow(product: ParentProduct): AdminProductRow {
     city: product.city,
     place: product.place,
     venue: product.venue,
+    gym_contact: product.gymContact ?? null,
     price: product.price,
     original_price: product.originalPrice,
     price_label: product.priceLabel,
@@ -153,6 +156,7 @@ function rowToProduct(row: AdminProductRow): ParentProduct {
     city: row.city,
     place: row.place,
     venue: row.venue,
+    gymContact: row.gym_contact ?? undefined,
     price: row.price,
     originalPrice: row.original_price,
     priceLabel: row.price_label,
@@ -373,6 +377,7 @@ function createAdminCreatedProduct(input: AdminProductInput): ParentProduct {
     city,
     place,
     venue,
+    gymContact: input.gymContact?.trim() || undefined,
     price,
     priceLabel: priceLabelFor(type, price),
     entriesTotal: type === 'Krouzek' ? 10 : undefined,

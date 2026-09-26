@@ -3318,7 +3318,7 @@ app.get('/api/admin/products', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category')
+    .select('id,type,title,city,place,venue,gym_contact,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -3336,7 +3336,7 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
     throw new Error('Invalid product: id is required.');
   }
 
-  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'map_query', 'latitude', 'longitude', 'skill_category', 'region'];
+  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'gym_contact', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'map_query', 'latitude', 'longitude', 'skill_category', 'region'];
   const row = Object.fromEntries(Object.entries(product).filter(([key]) => allowed.includes(key)));
 
   requiredString(row.type, 'type');
@@ -3446,7 +3446,7 @@ function parseInvoiceAmount(value) {
 async function computeRegionFinance(orgId, region, percent, coordinatorId) {
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,entries_total,capacity_total,capacity_current,coach_ids,is_published,region,event_date,hero_image,primary_meta')
+    .select('id,type,title,city,place,venue,gym_contact,price,price_label,entries_total,capacity_total,capacity_current,coach_ids,is_published,region,event_date,hero_image,primary_meta')
     .eq('org_id', orgId)
     .eq('region', region)
     .order('created_at', { ascending: false });
@@ -3814,6 +3814,30 @@ app.post('/api/coordinator/products/:id/coaches', asyncRoute(async (request, res
   const { error } = await supabase.from('products').update({ coach_ids: coachIds }).eq('id', productId);
   if (error) throw error;
   response.json({ ok: true, coachIds });
+}));
+
+// Nepovinné kontaktní údaje k tělocvičně — může doplnit i koordinátor.
+app.post('/api/coordinator/products/:id/gym-contact', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const productId = requiredString(request.params.id, 'product id');
+  const raw = request.body.gymContact;
+  if (raw != null && typeof raw !== 'string') throw httpError('gymContact musí být text.', 400);
+  const gymContact = raw && raw.trim().length > 0 ? raw.trim().slice(0, 1000) : null;
+
+  const { data: product, error: productError } = await supabase
+    .from('products')
+    .select('id,org_id,region')
+    .eq('id', productId)
+    .maybeSingle();
+  if (productError) throw productError;
+  if (!product || (product.org_id || VYS_ORG_ID) !== coordinator.orgId || product.region !== coordinator.region) {
+    throw httpError('Tento produkt nepatří do tvého kraje.', 403);
+  }
+
+  const { error } = await supabase.from('products').update({ gym_contact: gymContact }).eq('id', productId);
+  if (error) throw error;
+  response.json({ ok: true, gymContact });
 }));
 
 // Denní zástup/absence v kalendáři tréninků — nemění stálé týdenní obsazení.

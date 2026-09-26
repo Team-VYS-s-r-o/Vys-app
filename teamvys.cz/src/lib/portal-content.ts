@@ -45,6 +45,8 @@ export type ParentProduct = {
   city: string;
   place: string;
   venue: string;
+  /** Nepovinné kontaktní údaje k tělocvičně (správce, telefon, e-mail…) */
+  gymContact?: string;
   price: number;
   priceLabel: string;
   originalPrice?: number;

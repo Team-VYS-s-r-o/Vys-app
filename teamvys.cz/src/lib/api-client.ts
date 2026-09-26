@@ -636,6 +636,7 @@ export type AdminProductRow = {
   city: string;
   place: string;
   venue: string;
+  gym_contact?: string | null;
   price: number;
   original_price?: number;
   price_label: string;

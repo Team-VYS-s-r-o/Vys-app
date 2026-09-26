@@ -3643,7 +3643,7 @@ function DocumentsSection({ activityRows, products }: { activityRows: ReturnType
   );
 }
 
-type ProductEdits = Partial<Pick<ParentProduct, 'title' | 'place' | 'primaryMeta' | 'capacityTotal' | 'price' | 'priceLabel' | 'heroImage' | 'gallery' | 'mapQuery' | 'latitude' | 'longitude' | 'importantInfo'>>;
+type ProductEdits = Partial<Pick<ParentProduct, 'title' | 'place' | 'gymContact' | 'primaryMeta' | 'capacityTotal' | 'price' | 'priceLabel' | 'heroImage' | 'gallery' | 'mapQuery' | 'latitude' | 'longitude' | 'importantInfo'>>;
 
 function groupCourseProducts(courses: ParentProduct[]): Array<{ baseId: string; base: ParentProduct; variant15: ParentProduct | null }> {
   const baseProducts = courses.filter((product) => !product.id.endsWith('-15'));
@@ -3839,6 +3839,7 @@ function ProductCreateForm({ coaches, onAddProduct }: { coaches: AdminCoachSumma
   const [title, setTitle] = useState('');
   const [city, setCity] = useState('');
   const [venue, setVenue] = useState('');
+  const [gymContact, setGymContact] = useState('');
   const [primaryMeta, setPrimaryMeta] = useState('');
   // Workshop – datum a čas (separátní pole)
   const [wsDate, setWsDate] = useState('');
@@ -3903,6 +3904,7 @@ function ProductCreateForm({ coaches, onAddProduct }: { coaches: AdminCoachSumma
     setTitle('');
     setCity(defaults.city);
     setVenue(defaults.venue);
+    setGymContact('');
     setPrimaryMeta(defaults.primaryMeta);
     setWsDate('');
     setWsTimeFrom('10:00');
@@ -3963,6 +3965,7 @@ function ProductCreateForm({ coaches, onAddProduct }: { coaches: AdminCoachSumma
         title,
         city,
         venue,
+        gymContact: gymContact.trim() || undefined,
         primaryMeta: effectivePrimaryMeta,
         price: Number(price),
         price15: type === 'Krouzek' && price15.trim() ? Number(price15) : undefined,
@@ -4093,6 +4096,7 @@ function ProductCreateForm({ coaches, onAddProduct }: { coaches: AdminCoachSumma
         <div className="grid gap-3 md:grid-cols-2">
           <TextInput label="Město" value={city} onChange={setCity} />
           <TextInput label="Místo / sportoviště" value={venue} onChange={setVenue} />
+          <TextInput label="Kontakt na tělocvičnu (nepovinné)" value={gymContact} onChange={setGymContact} />
           {/* Workshop: separátní datum + čas místo volného textového pole */}
           {type === 'Workshop' ? (
             <>
@@ -4469,6 +4473,7 @@ function GroupedCourseCard({ group, coaches, isCreated, onRemove, onEdit, onEdit
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(base.title);
   const [place, setPlace] = useState(base.place);
+  const [gymContact, setGymContact] = useState(base.gymContact ?? '');
   const [primaryMeta, setPrimaryMeta] = useState(base.primaryMeta);
   const [capacityTotal, setCapacityTotal] = useState(String(base.capacityTotal));
   const [price, setPrice] = useState(String(base.price));
@@ -4497,7 +4502,7 @@ function GroupedCourseCard({ group, coaches, isCreated, onRemove, onEdit, onEdit
 
   function handleSave() {
     const priceValue = Number(price);
-    const edits: ProductEdits = { title, place, primaryMeta, capacityTotal: Number(capacityTotal), mapQuery: mapQuery.trim() || undefined, latitude, longitude };
+    const edits: ProductEdits = { title, place, gymContact: gymContact.trim() || undefined, primaryMeta, capacityTotal: Number(capacityTotal), mapQuery: mapQuery.trim() || undefined, latitude, longitude };
     if (Number.isFinite(priceValue) && priceValue > 0) {
       edits.price = priceValue;
       edits.priceLabel = `10 vstupů · ${priceValue.toLocaleString('cs-CZ')} Kč`;
@@ -4575,6 +4580,7 @@ function GroupedCourseCard({ group, coaches, isCreated, onRemove, onEdit, onEdit
                 <div className="grid gap-3">
                   <TextInput label="Název" value={title} onChange={setTitle} />
                   <TextInput label="Místo" value={place} onChange={setPlace} />
+                  <TextInput label="Kontakt na tělocvičnu (nepovinné)" value={gymContact} onChange={setGymContact} />
                   <TextInput label="Čas / rozvrh" value={primaryMeta} onChange={setPrimaryMeta} />
                   <TextInput label="Kapacita" value={capacityTotal} onChange={setCapacityTotal} inputMode="numeric" />
                   <div className="grid grid-cols-2 gap-3">
@@ -4665,6 +4671,7 @@ function AdminProductCard({ product, coaches, isCreated, onRemove, onEdit, onCoa
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(product.title);
   const [place, setPlace] = useState(product.place);
+  const [gymContact, setGymContact] = useState(product.gymContact ?? '');
   const [primaryMeta, setPrimaryMeta] = useState(product.primaryMeta);
   const [price, setPrice] = useState(String(product.price));
   const [capacityTotal, setCapacityTotal] = useState(String(product.capacityTotal));
@@ -4709,7 +4716,7 @@ function AdminProductCard({ product, coaches, isCreated, onRemove, onEdit, onCoa
 
   function handleSave() {
     const priceNum = Number(price);
-    const edits: ProductEdits = { title, place, primaryMeta, price: priceNum, priceLabel: `${priceNum.toLocaleString('cs-CZ')} Kč`, capacityTotal: Number(capacityTotal), mapQuery: mapQuery.trim() || undefined };
+    const edits: ProductEdits = { title, place, gymContact: gymContact.trim() || undefined, primaryMeta, price: priceNum, priceLabel: `${priceNum.toLocaleString('cs-CZ')} Kč`, capacityTotal: Number(capacityTotal), mapQuery: mapQuery.trim() || undefined };
     if (product.type === 'Workshop') {
       const baseInfo = product.importantInfo.filter((i) => i.label !== 'Video trik 1' && i.label !== 'Video trik 2');
       const videoInfo: typeof product.importantInfo = [];
@@ -4782,6 +4789,7 @@ function AdminProductCard({ product, coaches, isCreated, onRemove, onEdit, onCoa
                 <div className="grid gap-3">
                   <TextInput label="Název" value={title} onChange={setTitle} />
                   <TextInput label="Místo" value={place} onChange={setPlace} />
+                  <TextInput label="Kontakt na tělocvičnu (nepovinné)" value={gymContact} onChange={setGymContact} />
                   <TextInput label="Datum / čas" value={primaryMeta} onChange={setPrimaryMeta} />
                   <TextInput label="Cena (Kč)" value={price} onChange={setPrice} inputMode="numeric" />
                   <TextInput label="Kapacita" value={capacityTotal} onChange={setCapacityTotal} inputMode="numeric" />
