@@ -57,9 +57,35 @@ export function CookieConsent() {
 
 const EXIT_GUARD_KEY = '__vysExitGuard';
 
+const EXIT_INTENT_KEY = 'vys-exit-intent-shown';
+
 export function ExitGuard() {
   const [open, setOpen] = useState(false);
   const leavingRef = useRef(false);
+
+  // Mouse leaving through the top of the viewport means the visitor is heading
+  // for the back arrow / tab bar. Shown once per session so it never nags.
+  useEffect(() => {
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+    try {
+      if (window.sessionStorage.getItem(EXIT_INTENT_KEY)) return;
+    } catch {
+      // storage blocked — still allow the one-time prompt
+    }
+
+    const onMouseOut = (event: MouseEvent) => {
+      if (event.relatedTarget || event.clientY > 4) return;
+      try {
+        window.sessionStorage.setItem(EXIT_INTENT_KEY, '1');
+      } catch {
+        // ignore
+      }
+      document.removeEventListener('mouseout', onMouseOut);
+      setOpen(true);
+    };
+    document.addEventListener('mouseout', onMouseOut);
+    return () => document.removeEventListener('mouseout', onMouseOut);
+  }, []);
 
   useEffect(() => {
     const arm = () => {

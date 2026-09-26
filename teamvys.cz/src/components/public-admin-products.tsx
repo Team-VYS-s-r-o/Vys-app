@@ -386,7 +386,7 @@ export function PublicCourseCatalog() {
       ) : null}
 
       {courseGroups.length > 0 ? (
-        <div ref={carouselRef} className="mt-4 flex snap-x snap-mandatory items-start gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 pt-2 touch-pan-x sm:gap-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={carouselRef} className="mt-4 flex snap-x snap-mandatory items-stretch gap-4 overflow-x-auto overscroll-x-contain scroll-smooth pb-4 pt-2 touch-pan-x sm:gap-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {courseGroups.map((group, index) => (
             <div
               key={group[0].id}
@@ -889,7 +889,7 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
         <span className="absolute left-3 top-3 rounded-[16px] bg-white px-3 py-2 text-xs font-black uppercase text-brand-ink shadow-brand-soft">{product.city}</span>
       </div>
 
-      <div className="flex h-full flex-col p-5">
+      <div className="flex flex-1 flex-col p-5">
         {/* Název místa */}
         <h3 className="text-xl font-black leading-tight text-brand-ink">{product.venue}</h3>
 
@@ -922,15 +922,17 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
         </div>
 
         {/* Vše ostatní (cena, kapacita, trenéři) na detailu produktu */}
-        <Link
-          href={`/krouzky/${product.id}`}
-          className="group mt-3 flex items-center justify-between gap-2 rounded-[16px] bg-brand-paper px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-brand-purple-light"
-        >
-          Zobrazit více info
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
-            <ArrowRight size={16} />
-          </span>
-        </Link>
+        <div className="mt-auto pt-3">
+          <Link
+            href={`/krouzky/${product.id}`}
+            className="group flex items-center justify-between gap-2 rounded-[16px] bg-brand-paper px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-brand-purple-light"
+          >
+            Zobrazit více info
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
+              <ArrowRight size={16} />
+            </span>
+          </Link>
+        </div>
       </div>
     </div>
   );
