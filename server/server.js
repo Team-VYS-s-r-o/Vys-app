@@ -3446,7 +3446,7 @@ function parseInvoiceAmount(value) {
 async function computeRegionFinance(orgId, region, percent, coordinatorId) {
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,entries_total,capacity_total,capacity_current,coach_ids,is_published,region,event_date,hero_image')
+    .select('id,type,title,city,place,venue,price,price_label,entries_total,capacity_total,capacity_current,coach_ids,is_published,region,event_date,hero_image,primary_meta')
     .eq('org_id', orgId)
     .eq('region', region)
     .order('created_at', { ascending: false });
@@ -3632,6 +3632,18 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
     .order('created_at', { ascending: false });
   if (requestsError) throw requestsError;
 
+  // Denní zástupy/absence ve sdíleném kalendáři tréninků (stejná tabulka jako admin).
+  let trainingOverrides = [];
+  const regionProductIds = (financeData.products || []).map((product) => product.id);
+  if (regionProductIds.length > 0) {
+    const { data: overrideRows, error: overridesError } = await supabase
+      .from('shared_training_overrides')
+      .select('id,product_id,occurrence_date,coach_id,action')
+      .in('product_id', regionProductIds);
+    if (overridesError) throw overridesError;
+    trainingOverrides = overrideRows || [];
+  }
+
   // Ořez dat podle oprávnění — citlivé údaje nesmí opustit server.
   if (!permissions.finance) {
     financeData.finance = { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commission: 0, paidOut: 0, owed: 0 };
@@ -3672,6 +3684,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
     coaches,
     tasks: tasks || [],
     requests: requests || [],
+    trainingOverrides,
   });
 }));
 
@@ -3801,6 +3814,46 @@ app.post('/api/coordinator/products/:id/coaches', asyncRoute(async (request, res
   const { error } = await supabase.from('products').update({ coach_ids: coachIds }).eq('id', productId);
   if (error) throw error;
   response.json({ ok: true, coachIds });
+}));
+
+// Denní zástup/absence v kalendáři tréninků — nemění stálé týdenní obsazení.
+// action 'add'/'remove' zapíše override pro daný den, 'clear' ho zase smaže.
+app.post('/api/coordinator/products/:id/training-override', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const productId = requiredString(request.params.id, 'product id');
+  const occurrenceDate = requiredString(request.body.occurrenceDate, 'occurrenceDate');
+  const coachId = requiredString(request.body.coachId, 'coachId');
+  const action = request.body.action;
+  if (!['add', 'remove', 'clear'].includes(action)) throw httpError("action musí být 'add', 'remove' nebo 'clear'.", 400);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(occurrenceDate)) throw httpError('occurrenceDate musí být ve formátu YYYY-MM-DD.', 400);
+
+  const { data: product, error: productError } = await supabase
+    .from('products')
+    .select('id,org_id,region')
+    .eq('id', productId)
+    .maybeSingle();
+  if (productError) throw productError;
+  if (!product || (product.org_id || VYS_ORG_ID) !== coordinator.orgId || product.region !== coordinator.region) {
+    throw httpError('Tento produkt nepatří do tvého kraje.', 403);
+  }
+
+  if (action === 'clear') {
+    const { error } = await supabase
+      .from('shared_training_overrides')
+      .delete()
+      .eq('product_id', productId)
+      .eq('occurrence_date', occurrenceDate)
+      .eq('coach_id', coachId);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from('shared_training_overrides').upsert(
+      { org_id: coordinator.orgId, product_id: productId, occurrence_date: occurrenceDate, coach_id: coachId, action },
+      { onConflict: 'product_id,occurrence_date,coach_id' },
+    );
+    if (error) throw error;
+  }
+  response.json({ ok: true });
 }));
 
 // Návrh produktu / ceny — schvaluje admin. Ceny kroužků (10/15 vstupů) jsou
