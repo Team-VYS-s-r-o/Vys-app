@@ -81,7 +81,6 @@ export default function CampsPage() {
         eyebrow="Léto 2026"
         title="Rezervuj místo na táboře"
         highlight="včas."
-        body="Kapacita turnusů je omezená. Platba i dokumenty se řeší online, první den stačí přijít a nahlásit jméno."
         ctaHref="/aplikace"
         ctaLabel="Stáhnout aplikaci"
         secondaryHref="/kontakty"

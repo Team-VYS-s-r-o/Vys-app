@@ -73,7 +73,6 @@ export default async function AboutPage() {
         eyebrow="Pojď do toho"
         title="Začni s parkourem"
         highlight="bezpečně."
-        body="Vyber kroužek ve svém městě nebo se ozvi — rádi poradíme."
         ctaHref="/krouzky"
         ctaLabel="Najít kroužek"
         secondaryHref="/kontakty"

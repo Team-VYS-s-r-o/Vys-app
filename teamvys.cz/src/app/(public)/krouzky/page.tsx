@@ -44,7 +44,6 @@ export default function CoursesPage() {
         eyebrow="Přidej se"
         title="Místa v kroužcích mizí rychle."
         highlight="Rezervuj včas."
-        body="Vyber město, kup permanentku online a dítě může dorazit už na další trénink."
         ctaHref="/aplikace"
         ctaLabel="Stáhnout aplikaci"
         secondaryHref="/kontakty"

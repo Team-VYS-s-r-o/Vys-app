@@ -45,7 +45,6 @@ export default function WorkshopsPage() {
         eyebrow="Jednorázové akce"
         title="Jeden workshop, viditelný posun."
         highlight="Vyzkoušej to."
-        body="Platí se online, ticket máš hned v telefonu. Kapacita bývá omezená."
         ctaHref="/aplikace"
         ctaLabel="Stáhnout aplikaci"
         secondaryHref="/krouzky"
