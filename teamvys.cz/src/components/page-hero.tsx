@@ -9,7 +9,6 @@ const ease = [0.22, 1, 0.36, 1] as const;
 type Props = {
   eyebrow: string;
   title: string;
-  body?: string;
   ctaHref?: string;
   ctaLabel?: string;
   /** Optional oversized outlined word echoed faintly behind the heading. */
@@ -17,7 +16,7 @@ type Props = {
 };
 
 /** Premium dark page header shared across all public subpages. */
-export function PageHero({ title, body, ctaHref, ctaLabel, word }: Props) {
+export function PageHero({ title, ctaHref, ctaLabel, word }: Props) {
   return (
     <section className="relative overflow-hidden bg-[#0B0B10] pt-36 md:pt-44">
       <div
@@ -44,17 +43,6 @@ export function PageHero({ title, body, ctaHref, ctaLabel, word }: Props) {
         >
           {title}
         </motion.h1>
-
-        {body ? (
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.12, ease }}
-            className="mt-6 max-w-[560px] text-base leading-8 text-white/60 md:text-lg"
-          >
-            {body}
-          </motion.p>
-        ) : null}
 
         {ctaHref && ctaLabel ? (
           <motion.div

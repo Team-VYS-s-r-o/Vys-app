@@ -24,7 +24,6 @@ export default function CampsPage() {
       <PageHero
         eyebrow="Příměstské tábory"
         title="Týden pohybu, her a parkour výzev"
-        body="Bezpečný trénink, noví kamarádi a jasný režim dne. Platbu i dokumenty vyřešíte online předem."
         word="tábory"
       />
 

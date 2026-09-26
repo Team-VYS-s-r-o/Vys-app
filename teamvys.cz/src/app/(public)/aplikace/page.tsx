@@ -80,15 +80,6 @@ export default function AplikacePage() {
             >
               Celý Team VYS v telefonu
             </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.12, ease }}
-              className="mt-6 max-w-[520px] text-base leading-8 text-white/60 md:text-lg"
-            >
-              Účastníci sledují progres, rodiče řeší platby a správu dětí, trenéři odbavují docházku i QR triky.
-            </motion.p>
-
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <WebSignInButton />
               <IphoneButton />

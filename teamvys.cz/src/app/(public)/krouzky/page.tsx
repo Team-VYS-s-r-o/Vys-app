@@ -22,7 +22,6 @@ export default function CoursesPage() {
       <PageHero
         eyebrow="Pravidelné kroužky"
         title="Parkour kroužek u tebe ve městě"
-        body="Pro děti 6–14 let. Šest měst, certifikovaní trenéři a permanentka s NFC docházkou. Postup dítěte vidíš rovnou v aplikaci."
         word="kroužky"
       />
 

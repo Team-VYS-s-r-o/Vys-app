@@ -18,7 +18,7 @@ const quickLinks = [
 export default function ContactsPage() {
   return (
     <div className="bg-[#0B0B10] text-white">
-      <PageHero eyebrow="Kontakty" title="Ozvi se nám" body="Kroužek, tábor nebo platba? Odpovídáme co nejrychleji." word="kontakt" />
+      <PageHero eyebrow="Kontakty" title="Ozvi se nám" word="kontakt" />
 
       <section className="section-shell grid gap-6 py-16 md:py-24 lg:grid-cols-2">
         {/* Kontaktní údaje */}

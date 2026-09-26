@@ -4,7 +4,7 @@ import { PageHero } from '@/components/page-hero';
 import { SubpageCta } from '@/components/subpage-cta';
 import { FeatureCard, SectionIntro } from '@/components/subpage-feature-card';
 import { createAdminSupabaseClient, hasSupabaseAdminConfig } from '@/lib/supabase/admin';
-import { aboutPillars, aboutText, stats } from '@shared/content';
+import { aboutPillars, stats } from '@shared/content';
 
 export const metadata = {
   title: 'O nás',
@@ -40,7 +40,7 @@ export default async function AboutPage() {
 
   return (
     <div className="bg-[#0B0B10] text-white">
-      <PageHero eyebrow="O nás" title="Pohyb s hlavou" body={aboutText} word="komunita" />
+      <PageHero eyebrow="O nás" title="Pohyb s hlavou" word="komunita" />
 
       {/* Stats band */}
       <section className="section-shell py-16 md:py-20">
