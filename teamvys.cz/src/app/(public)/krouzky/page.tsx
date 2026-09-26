@@ -26,17 +26,17 @@ export default function CoursesPage() {
       />
 
       <section className="section-shell py-16 md:py-24">
+        <div className="mx-[calc(50%-50vw)] bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:mx-0 md:rounded-[28px] md:p-6 lg:p-8">
+          <PublicCourseCatalog />
+        </div>
+      </section>
+
+      <section className="section-shell pb-16 md:pb-24">
         <SectionIntro eyebrow="Proč kroužek" title="Trénink, který má hlavu a patu" />
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {benefits.map((b, i) => (
             <FeatureCard key={b.title} {...b} index={i} />
           ))}
-        </div>
-      </section>
-
-      <section className="section-shell pb-16 md:pb-24">
-        <div className="mx-[calc(50%-50vw)] bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:mx-0 md:rounded-[28px] md:p-6 lg:p-8">
-          <PublicCourseCatalog />
         </div>
       </section>
 
