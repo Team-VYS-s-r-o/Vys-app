@@ -3424,6 +3424,17 @@ async function requireCoordinator(request) {
   return { ...profile, orgId: data.org_id || VYS_ORG_ID, region: data.region, percent: data.percent ?? 30 };
 }
 
+// Per-koordinátorská oprávnění (nastavuje admin): jiné organizace nemusí chtít,
+// aby koordinátor viděl finance, osobní údaje dětí nebo údaje trenérů.
+const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data'];
+function normalizeCoordinatorPermissions(raw) {
+  const permissions = {};
+  for (const key of COORDINATOR_PERMISSION_KEYS) {
+    permissions[key] = raw && typeof raw === 'object' ? raw[key] !== false : true;
+  }
+  return permissions;
+}
+
 function parseInvoiceAmount(value) {
   const numeric = Number(String(value ?? '').replace(/[^\d.,-]/g, '').replace(',', '.'));
   return Number.isFinite(numeric) ? Math.round(numeric) : 0;
@@ -3529,7 +3540,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
   if (profile.role !== 'coordinator') throw httpError('Tahle sekce je pouze pro koordinátora.', 403);
   const { data: coordinatorProfile, error: coordinatorProfileError } = await supabase
     .from('coordinator_profiles')
-    .select('id,org_id,region,percent')
+    .select('id,org_id,region,percent,permissions')
     .eq('id', profile.id)
     .maybeSingle();
   if (coordinatorProfileError) throw coordinatorProfileError;
@@ -3544,6 +3555,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
     return;
   }
   const coordinator = { ...profile, orgId: coordinatorProfile.org_id || VYS_ORG_ID, region: coordinatorProfile.region, percent: coordinatorProfile.percent ?? 30 };
+  const permissions = normalizeCoordinatorPermissions(coordinatorProfile.permissions);
 
   const financeData = await computeRegionFinance(coordinator.orgId, coordinator.region, coordinator.percent, coordinator.id);
 
@@ -3620,8 +3632,34 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
     .order('created_at', { ascending: false });
   if (requestsError) throw requestsError;
 
+  // Ořez dat podle oprávnění — citlivé údaje nesmí opustit server.
+  if (!permissions.finance) {
+    financeData.finance = { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commission: 0, paidOut: 0, owed: 0 };
+    financeData.purchases = (financeData.purchases || []).map((purchase) => ({ ...purchase, amount: null }));
+    financeData.invoices = [];
+    financeData.payouts = [];
+    financeData.attendance = (financeData.attendance || []).map((record) => ({ ...record, amount: null }));
+    financeData.products = (financeData.products || []).map((product) => ({ ...product, price: null, price_label: null }));
+    financeData.participants = (financeData.participants || []).map((participant) => ({ ...participant, paid_status: null }));
+  }
+  if (!permissions.children_data) {
+    financeData.participants = (financeData.participants || []).map((participant) => ({
+      ...participant,
+      parent_name: null,
+      parent_phone: null,
+      emergency_phone: null,
+      departure_mode: null,
+      allergies: null,
+      health_limits: null,
+    }));
+  }
+  if (!permissions.coach_data) {
+    coaches = coaches.map((coach) => ({ ...coach, email: null, phone: null, hourly_rate: null, documents: [] }));
+  }
+
   response.json({
     coordinator: { id: coordinator.id, name: coordinator.name, email: coordinator.email, region: coordinator.region, percent: coordinator.percent },
+    permissions,
     ...financeData,
     coaches,
     tasks: tasks || [],
@@ -3806,7 +3844,7 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
 
   const { data: coordinatorRows, error: coordinatorError } = await supabase
     .from('coordinator_profiles')
-    .select('id,org_id,region,percent,created_at');
+    .select('id,org_id,region,percent,permissions,created_at');
   if (coordinatorError) throw coordinatorError;
   const orgCoordinators = (coordinatorRows || []).filter((row) => (row.org_id || VYS_ORG_ID) === orgId);
 
@@ -3831,6 +3869,7 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
       phone: person?.phone || null,
       region: row.region,
       percent: row.percent ?? 30,
+      permissions: normalizeCoordinatorPermissions(row.permissions),
       finance: financeData.finance,
       payouts: financeData.payouts,
       productCount: financeData.products.length,
@@ -3889,6 +3928,32 @@ app.post('/api/admin/coordinators', asyncRoute(async (request, response) => {
   if (error) throw error;
 
   response.status(201).json({ coordinator: { id: data.id, name: person.name, email: person.email, region: data.region, percent: data.percent } });
+}));
+
+app.patch('/api/admin/coordinators/:id/permissions', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'coordinator id');
+
+  const { data: row, error: rowError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id,permissions')
+    .eq('id', id)
+    .maybeSingle();
+  if (rowError) throw rowError;
+  if (!row || (row.org_id || VYS_ORG_ID) !== orgId) throw httpError('Koordinátor nenalezen.', 404);
+
+  const current = normalizeCoordinatorPermissions(row.permissions);
+  const incoming = request.body.permissions;
+  const permissions = {};
+  for (const key of COORDINATOR_PERMISSION_KEYS) {
+    permissions[key] = incoming && typeof incoming === 'object' && typeof incoming[key] === 'boolean' ? incoming[key] : current[key];
+  }
+
+  const { error: updateError } = await supabase.from('coordinator_profiles').update({ permissions }).eq('id', id);
+  if (updateError) throw updateError;
+  response.json({ ok: true, permissions });
 }));
 
 app.delete('/api/admin/coordinators/:id', asyncRoute(async (request, response) => {
