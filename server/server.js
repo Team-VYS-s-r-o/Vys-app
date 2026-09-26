@@ -3473,6 +3473,23 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId) {
   if (childAttendanceError) throw childAttendanceError;
   const regionChildAttendance = (childAttendance || []).filter((record) => regionPlaces.has(record.location));
 
+  const placesList = Array.from(regionPlaces);
+  let regionParticipants = [];
+  if (placesList.length > 0) {
+    const participantCols = 'id,first_name,last_name,active_course,extra_courses,paid_status,level,school_year,parent_name,parent_phone,emergency_phone,departure_mode,allergies,health_limits';
+    const [primaryRes, extraRes] = await Promise.all([
+      supabase.from('participants').select(participantCols).in('active_course', placesList),
+      supabase.from('participants').select(participantCols).overlaps('extra_courses', placesList),
+    ]);
+    if (primaryRes.error) throw primaryRes.error;
+    const seen = new Set();
+    regionParticipants = [...(primaryRes.data || []), ...(extraRes.error ? [] : extraRes.data || [])].filter((row) => {
+      if (seen.has(row.id) || row.id.startsWith('demo-')) return false;
+      seen.add(row.id);
+      return true;
+    });
+  }
+
   const { data: invoices, error: invoicesError } = await supabase
     .from('invoices')
     .select('id,dodavatel,castka,mena,popis,kategorie,zaplaceno,datum_zaplaceni,file_url,zdroj,coordinator_id,region,odeslal,created_at')
@@ -3499,6 +3516,7 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId) {
     purchases,
     attendance: regionAttendance,
     childAttendance: regionChildAttendance,
+    participants: regionParticipants,
     invoices: invoices || [],
     payouts: payouts || [],
     finance: { revenue, coachCost, invoiceCost, net, percent, commission, paidOut, owed },
@@ -3519,7 +3537,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
     response.json({
       pending: true,
       coordinator: { id: profile.id, name: profile.name, email: profile.email, region: null, percent: null },
-      products: [], purchases: [], attendance: [], childAttendance: [], invoices: [], payouts: [],
+      products: [], purchases: [], attendance: [], childAttendance: [], participants: [], invoices: [], payouts: [],
       finance: { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commission: 0, paidOut: 0, owed: 0 },
       coaches: [], tasks: [], requests: [],
     });
@@ -3607,6 +3625,46 @@ app.delete('/api/coordinator/tasks/:id', asyncRoute(async (request, response) =>
   const { error } = await supabase.from('coordinator_tasks').delete().eq('id', id).eq('coordinator_id', coordinator.id);
   if (error) throw error;
   response.json({ ok: true });
+}));
+
+// Koordinátor může zapsat trénink trenérovi na kroužku svého kraje (jako admin).
+app.post('/api/coordinator/attendance', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const coachId = requiredString(request.body.coachId, 'coachId');
+  const place = requiredString(request.body.place, 'place');
+  const dateText = optionalString(request.body.dateText) ?? new Date().toLocaleDateString('cs-CZ');
+  const durationHours = Number(request.body.durationHours);
+  if (!Number.isFinite(durationHours) || durationHours <= 0) throw httpError('Vyplň počet hodin.', 400);
+  const amount = Math.round(Number(request.body.amount));
+  if (!Number.isFinite(amount) || amount < 0) throw httpError('Vyplň odměnu v Kč.', 400);
+
+  const { data: regionProducts, error: regionProductsError } = await supabase
+    .from('products')
+    .select('place')
+    .eq('org_id', coordinator.orgId)
+    .eq('region', coordinator.region);
+  if (regionProductsError) throw regionProductsError;
+  if (!(regionProducts || []).some((product) => product.place === place)) {
+    throw httpError('Tohle místo nepatří do tvého kraje.', 403);
+  }
+
+  const row = {
+    id: `coord-att-${coordinator.id.slice(0, 8)}-${Date.now()}`,
+    coach_id: coachId,
+    session_id: null,
+    date_text: dateText,
+    place,
+    status: 'Zapsáno koordinátorem',
+    present: true,
+    duration_hours: durationHours,
+    hourly_rate: Math.round(amount / durationHours),
+    amount,
+    org_id: coordinator.orgId,
+  };
+  const { data, error } = await supabase.from('coach_attendance_records').insert(row).select().single();
+  if (error) throw error;
+  response.status(201).json({ attendance: data });
 }));
 
 // Koordinátor smí u krajského produktu měnit jen přiřazení trenérů.
