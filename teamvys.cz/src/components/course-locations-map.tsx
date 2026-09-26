@@ -65,6 +65,8 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
     if (!containerRef.current || pins.length === 0) return;
     let cancelled = false;
     let detachWheel: (() => void) | null = null;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
     (async () => {
       const L = (await import('leaflet')).default;
@@ -115,12 +117,30 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
         marker.on('click', () => pickRef.current?.(pin.key));
       }
 
-      map.fitBounds(bounds, { padding: [70, 70] });
-      homeRef.current = () => map.fitBounds(bounds, { padding: [70, 70] });
+      // Na úzkém displeji menší odsazení, jinak se celá ČR nevejde
+      const fitPadding: [number, number] = window.innerWidth < 640 ? [32, 32] : [70, 70];
+      const fitHome = () => map.fitBounds(bounds, { padding: fitPadding });
+      fitHome();
+      homeRef.current = fitHome;
       // Mapa jen pro ČR a blízké okolí — nejde odjet ani odzoomovat na celý svět
       map.setMaxBounds(bounds.pad(1.1));
-      map.setMinZoom(Math.floor(map.getZoom()));
       map.options.maxBoundsViscosity = 1.0;
+
+      // Kontejner se často doměří až po prvním renderu — Leaflet si velikost
+      // bere jen jednou při initu a fitBounds pak vyjde moc přiblížený
+      // (na mobilu nebyla vidět celá republika). Po usazení přepočítat.
+      requestAnimationFrame(() => {
+        map.invalidateSize();
+        fitHome();
+      });
+      settleTimer = setTimeout(() => {
+        map.invalidateSize();
+        fitHome();
+      }, 400);
+      if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+        resizeObserver = new ResizeObserver(() => map.invalidateSize());
+        resizeObserver.observe(containerRef.current);
+      }
 
       // Na krajní úrovni zoomu už kolečko nemá co dělat — pustíme ho na
       // stránku. Capture na obalu, aby se událost k Leafletu vůbec nedostala.
@@ -138,6 +158,8 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
     return () => {
       cancelled = true;
       detachWheel?.();
+      if (settleTimer) clearTimeout(settleTimer);
+      resizeObserver?.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
     };
