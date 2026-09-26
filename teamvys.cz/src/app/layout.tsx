@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 
+import { CookieConsent, ExitGuard } from '@/components/cookie-and-exit';
 import { SubscriptionBanner } from '@/components/subscription-banner';
 
 import './globals.css';
@@ -44,6 +45,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <SubscriptionBanner />
         {children}
+        <CookieConsent />
+        <ExitGuard />
       </body>
     </html>
   );
