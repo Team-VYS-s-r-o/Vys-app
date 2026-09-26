@@ -3466,6 +3466,13 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId) {
   const regionAttendance = (attendance || []).filter((record) => regionPlaces.has(record.place));
   const coachCost = regionAttendance.reduce((sum, record) => sum + (Number(record.amount) || 0), 0);
 
+  const { data: childAttendance, error: childAttendanceError } = await supabase
+    .from('child_attendance_records')
+    .select('id,session_id,date_text,location,attendees,created_at')
+    .order('created_at', { ascending: false });
+  if (childAttendanceError) throw childAttendanceError;
+  const regionChildAttendance = (childAttendance || []).filter((record) => regionPlaces.has(record.location));
+
   const { data: invoices, error: invoicesError } = await supabase
     .from('invoices')
     .select('id,dodavatel,castka,mena,popis,kategorie,zaplaceno,datum_zaplaceni,file_url,zdroj,coordinator_id,region,odeslal,created_at')
@@ -3491,6 +3498,7 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId) {
     products: products || [],
     purchases,
     attendance: regionAttendance,
+    childAttendance: regionChildAttendance,
     invoices: invoices || [],
     payouts: payouts || [],
     finance: { revenue, coachCost, invoiceCost, net, percent, commission, paidOut, owed },
@@ -3511,7 +3519,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
     response.json({
       pending: true,
       coordinator: { id: profile.id, name: profile.name, email: profile.email, region: null, percent: null },
-      products: [], purchases: [], attendance: [], invoices: [], payouts: [],
+      products: [], purchases: [], attendance: [], childAttendance: [], invoices: [], payouts: [],
       finance: { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commission: 0, paidOut: 0, owed: 0 },
       coaches: [], tasks: [], requests: [],
     });
