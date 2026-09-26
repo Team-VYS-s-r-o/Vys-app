@@ -3499,7 +3499,25 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId) {
 
 app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
   requireServices();
-  const coordinator = await requireCoordinator(request);
+  const profile = await requireAuthenticatedProfile(request);
+  if (profile.role !== 'coordinator') throw httpError('Tahle sekce je pouze pro koordinátora.', 403);
+  const { data: coordinatorProfile, error: coordinatorProfileError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id,region,percent')
+    .eq('id', profile.id)
+    .maybeSingle();
+  if (coordinatorProfileError) throw coordinatorProfileError;
+  if (!coordinatorProfile) {
+    response.json({
+      pending: true,
+      coordinator: { id: profile.id, name: profile.name, email: profile.email, region: null, percent: null },
+      products: [], purchases: [], attendance: [], invoices: [], payouts: [],
+      finance: { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commission: 0, paidOut: 0, owed: 0 },
+      coaches: [], tasks: [], requests: [],
+    });
+    return;
+  }
+  const coordinator = { ...profile, orgId: coordinatorProfile.org_id || VYS_ORG_ID, region: coordinatorProfile.region, percent: coordinatorProfile.percent ?? 30 };
 
   const financeData = await computeRegionFinance(coordinator.orgId, coordinator.region, coordinator.percent, coordinator.id);
 
@@ -3719,7 +3737,18 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
     .limit(50);
   if (requestsError) throw requestsError;
 
-  response.json({ coordinators, requests: requests || [], regions: CZECH_REGIONS });
+  // Registrované koordinátorské účty, kterým admin ještě nepřiřadil kraj.
+  const { data: candidateRows, error: candidateError } = await supabase
+    .from('app_profiles')
+    .select('id,name,email,phone,org_id,created_at')
+    .eq('role', 'coordinator');
+  if (candidateError) throw candidateError;
+  const assignedIds = new Set(orgCoordinators.map((row) => row.id));
+  const candidates = (candidateRows || [])
+    .filter((row) => !assignedIds.has(row.id) && (!row.org_id || row.org_id === orgId))
+    .map((row) => ({ id: row.id, name: row.name || row.email || row.id, email: row.email || null, phone: row.phone || null, created_at: row.created_at }));
+
+  response.json({ coordinators, candidates, requests: requests || [], regions: CZECH_REGIONS });
 }));
 
 app.post('/api/admin/coordinators', asyncRoute(async (request, response) => {
@@ -3727,16 +3756,15 @@ app.post('/api/admin/coordinators', asyncRoute(async (request, response) => {
   const profile = await requireAdmin(request);
   const orgId = await adminOrgId(profile);
 
-  const email = requiredString(request.body.email, 'e-mail').toLowerCase();
+  const candidateId = optionalString(request.body.id);
+  const email = candidateId ? null : requiredString(request.body.email, 'e-mail').toLowerCase();
   const region = requiredString(request.body.region, 'kraj');
   const percent = Math.min(Math.max(Math.round(Number(request.body.percent ?? 30)), 0), 100);
   if (!CZECH_REGIONS.includes(region)) throw httpError('Neznámý kraj.', 400);
 
-  const { data: person, error: personError } = await supabase
-    .from('app_profiles')
-    .select('id,role,name,email,org_id')
-    .ilike('email', email)
-    .maybeSingle();
+  let personQuery = supabase.from('app_profiles').select('id,role,name,email,org_id');
+  personQuery = candidateId ? personQuery.eq('id', candidateId) : personQuery.ilike('email', email);
+  const { data: person, error: personError } = await personQuery.maybeSingle();
   if (personError) throw personError;
   if (!person) throw httpError('Uživatel s tímto e-mailem v aplikaci neexistuje. Musí se nejdřív zaregistrovat.', 404);
   if (person.role === 'admin') throw httpError('Admin nemůže být zároveň koordinátor.', 400);
@@ -3808,6 +3836,9 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       capacity_total: Number(payload.capacityTotal) || 0,
       capacity_current: 0,
       event_date: optionalString(payload.eventDate),
+      price: Number(payload.price) || 0,
+      price_label: optionalString(payload.priceLabel),
+      entries_total: Number(payload.entriesTotal) || null,
       is_published: false,
       region: req.region,
       org_id: orgId,
