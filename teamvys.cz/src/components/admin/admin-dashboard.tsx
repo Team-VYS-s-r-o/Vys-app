@@ -56,7 +56,7 @@ import { TrickVotingCard } from '@/components/admin/trick-voting-card';
 import { SignOutButton } from '@/components/auth/sign-out-button';
 import { TeamVysLogo } from '@/components/brand/team-vys-logo';
 import { useAdminCreatedProducts, type AdminProductInput, type TurnusInput } from '@/lib/admin-created-products';
-import { createAdminInvoice, createAdminInvoiceUploadUrl, createCoachStripeOnboarding, createProductVideoUploadUrl, deleteAdminInvoice, getOrgDppTemplate, loadAdminInvoices, saveCoachAttendance, sendTrainerPayout, updateAdminInvoicePayment, type AdminInvoiceInput, type AdminInvoiceRow, type OrgDppTemplate, type TrainerPayoutTransfer } from '@/lib/api-client';
+import { createAdminInvoice, createAdminInvoiceUploadUrl, createCoachStripeOnboarding, createProductVideoUploadUrl, deleteAdminInvoice, getOrgDppTemplate, loadAdminInvoices, saveCoachAttendance, saveProductCoachIds, sendTrainerPayout, updateAdminInvoicePayment, type AdminInvoiceInput, type AdminInvoiceRow, type OrgDppTemplate, type TrainerPayoutTransfer } from '@/lib/api-client';
 import {
     CAMP_DAILY_RATE,
     CAMP_MAX_COACHES,
@@ -586,7 +586,17 @@ export function AdminDashboard({ finance, financeError, showSignOut, devMode, su
   async function handleProductCoachIdsChange(product: ParentProduct, coachIds: string[]) {
     const nextCoachIds = Array.from(new Set(coachIds));
     const nextProduct = { ...product, coachIds: nextCoachIds };
+    // Trenéři se ukládají dedikovaným endpointem — plný upsert produktu je na
+    // serveru u existujících řádků ignoruje, takže je editace nemůže smazat.
+    await saveProductCoachIds(product.id, nextCoachIds);
     await updateAdminProduct(nextProduct);
+
+    // 15vstupová varianta kroužku sdílí stejné trenéry.
+    const variant15 = allProducts.find((item) => item.id === `${product.id}-15`);
+    if (variant15) {
+      await saveProductCoachIds(variant15.id, nextCoachIds);
+      await updateAdminProduct({ ...variant15, coachIds: nextCoachIds });
+    }
 
     if (product.type === 'Krouzek') {
       await persistCourseCoachAssignments(product, product.coachIds ?? [], nextCoachIds);

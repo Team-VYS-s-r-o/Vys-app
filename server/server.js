@@ -3358,6 +3358,11 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
   }
   row.org_id = orgId;
 
+  // Přiřazení trenérů se mění výhradně přes /api/admin/products/:id/coaches.
+  // Plný upsert produktu ho nesmí přepsat (stará data ve stavu klienta dřív
+  // mazala coach_ids při každé editaci produktu).
+  if (existing) delete row.coach_ids;
+
   const { data, error } = await supabase
     .from('products')
     .upsert(row, { onConflict: 'id' })
@@ -3366,6 +3371,30 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
 
   if (error) throw error;
   response.status(201).json({ id: data.id });
+}));
+
+// Samostatná změna přiřazení trenérů k produktu (admin, org-scoped).
+app.post('/api/admin/products/:id/coaches', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const productId = requiredString(request.params.id, 'product id');
+  const coachIds = Array.isArray(request.body.coachIds) ? request.body.coachIds.filter((value) => typeof value === 'string') : null;
+  if (!coachIds) throw httpError('coachIds musí být pole.', 400);
+
+  const { data: product, error: productError } = await supabase
+    .from('products')
+    .select('id,org_id')
+    .eq('id', productId)
+    .maybeSingle();
+  if (productError) throw productError;
+  if (!product || (product.org_id || VYS_ORG_ID) !== orgId) {
+    throw httpError('Tento produkt nepatří do tvé organizace.', 403);
+  }
+
+  const { error } = await supabase.from('products').update({ coach_ids: coachIds }).eq('id', productId);
+  if (error) throw error;
+  response.json({ ok: true, coachIds });
 }));
 
 app.delete('/api/admin/products/:id', asyncRoute(async (request, response) => {

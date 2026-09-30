@@ -701,6 +701,15 @@ export async function deleteAdminProduct(productId: string): Promise<void> {
   await requestJson(`/api/admin/products/${encodeURIComponent(productId)}`, { method: 'DELETE' }, { auth: true });
 }
 
+// Přiřazení trenérů se ukládá samostatně — plný upsert produktu ho na serveru nemění.
+export async function saveProductCoachIds(productId: string, coachIds: string[]): Promise<void> {
+  await requestJson(`/api/admin/products/${encodeURIComponent(productId)}/coaches`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ coachIds }),
+  }, { auth: true });
+}
+
 // ─── Admin broadcasts (parent notification center) ────────────────────────
 
 export type AdminBroadcast = {
