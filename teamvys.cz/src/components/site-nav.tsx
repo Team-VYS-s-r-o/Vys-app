@@ -38,8 +38,7 @@ export function SiteNav() {
   }, []);
 
   const effectiveProgress = desktopHover ? 0 : scrollProgress;
-  const navWidth = 100 - effectiveProgress * 32;
-  const navScale = 1 - effectiveProgress * 0.1;
+  const navWidth = 100 - effectiveProgress * 14;
 
   useEffect(() => {
     if (!open) return;
@@ -54,10 +53,10 @@ export function SiteNav() {
     <header className="fixed inset-x-0 top-0 z-50 py-4 transition-all duration-500 ease-out">
       <div className="mx-auto max-w-6xl px-4">
         <div
-          className="group mx-auto flex w-full origin-center items-center gap-4 rounded-2xl border border-white/25 bg-[#16121f]/45 px-4 py-3 shadow-none backdrop-blur-xl transition-all duration-300 ease-out hover:border-black/5 hover:bg-[#f5f3ef]/95 hover:shadow-[0_24px_80px_rgba(12,10,28,0.18)] max-md:border-white/20 md:w-[var(--nav-width)] md:scale-x-[var(--nav-scale)]"
+          className="group mx-auto flex w-full origin-center items-center gap-4 rounded-2xl border border-white/20 bg-[#221238]/80 px-4 py-3 shadow-none backdrop-blur-xl transition-all duration-300 ease-out hover:border-black/5 hover:bg-[#f5f3ef]/95 hover:shadow-[0_24px_80px_rgba(12,10,28,0.18)] max-md:border-white/20 md:w-[var(--nav-width)]"
           onMouseEnter={() => setDesktopHover(true)}
           onMouseLeave={() => setDesktopHover(false)}
-          style={{ '--nav-width': `${navWidth}%`, '--nav-scale': `${navScale}` } as React.CSSProperties}
+          style={{ '--nav-width': `${navWidth}%` } as React.CSSProperties}
         >
           <div className="hidden h-9 md:flex md:flex-1 md:items-center md:overflow-hidden">
             <Link
@@ -69,7 +68,7 @@ export function SiteNav() {
             </Link>
           </div>
 
-          <div className="flex flex-1 items-center justify-center overflow-hidden md:flex-[2]">
+          <div className="flex flex-1 items-center justify-center overflow-hidden md:flex-none md:overflow-visible">
             <nav className="hidden items-center gap-2 md:flex">
               {navItems.map((item) => (
                 <Link
