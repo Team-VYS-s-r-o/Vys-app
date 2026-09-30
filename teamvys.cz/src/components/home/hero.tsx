@@ -25,7 +25,7 @@ type Chapter = {
 
 const MASCOT_SIZE = 'bottom-0 left-1/2 -translate-x-1/2 h-[38dvh] w-[80vw] max-w-[380px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[38dvh] sm:w-[26vw] sm:max-w-[340px] lg:h-[52dvh] lg:w-[38vw] lg:max-w-[540px] xl:h-[56dvh] xl:w-[36vw] xl:max-w-[580px]';
 const MASCOT_SIZE_COMPACT = 'bottom-0 left-1/2 -translate-x-1/2 h-[32dvh] w-[66vw] max-w-[300px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[30dvh] sm:w-[21vw] sm:max-w-[270px] lg:h-[41dvh] lg:w-[30vw] lg:max-w-[430px] xl:h-[44dvh] xl:w-[28vw] xl:max-w-[460px]';
-const MASCOT_SIZE_WIDE = 'bottom-0 left-1/2 -translate-x-1/2 h-[30dvh] w-[88vw] max-w-[400px] sm:left-auto sm:right-6 sm:translate-x-0 sm:h-[28dvh] sm:w-[24vw] sm:max-w-[300px] lg:right-14 lg:h-[40dvh] lg:w-[30vw] lg:max-w-[440px] xl:right-20 xl:h-[42dvh] xl:w-[28vw] xl:max-w-[480px]';
+const MASCOT_SIZE_WIDE = 'bottom-0 left-1/2 -translate-x-1/2 h-[30dvh] w-[88vw] max-w-[400px] sm:left-auto sm:right-6 sm:translate-x-0 sm:h-[32dvh] sm:w-[30vw] sm:max-w-[360px] lg:right-12 lg:h-[50dvh] lg:w-[34vw] lg:max-w-[540px] xl:right-16 xl:h-[52dvh] xl:w-[34vw] xl:max-w-[620px]';
 
 const chapters: Chapter[] = [
   {
