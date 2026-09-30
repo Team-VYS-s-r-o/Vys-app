@@ -25,12 +25,13 @@ type Chapter = {
 
 const MASCOT_SIZE = 'bottom-0 left-1/2 -translate-x-1/2 h-[38dvh] w-[80vw] max-w-[380px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[38dvh] sm:w-[26vw] sm:max-w-[340px] lg:h-[52dvh] lg:w-[38vw] lg:max-w-[540px] xl:h-[56dvh] xl:w-[36vw] xl:max-w-[580px]';
 const MASCOT_SIZE_COMPACT = 'bottom-0 left-1/2 -translate-x-1/2 h-[32dvh] w-[66vw] max-w-[300px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[30dvh] sm:w-[21vw] sm:max-w-[270px] lg:h-[41dvh] lg:w-[30vw] lg:max-w-[430px] xl:h-[44dvh] xl:w-[28vw] xl:max-w-[460px]';
+const MASCOT_SIZE_WIDE = 'bottom-0 left-1/2 -translate-x-1/2 h-[26dvh] w-[78vw] max-w-[340px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[28dvh] sm:w-[24vw] sm:max-w-[300px] lg:h-[40dvh] lg:w-[30vw] lg:max-w-[440px] xl:h-[42dvh] xl:w-[28vw] xl:max-w-[480px]';
 
 const chapters: Chapter[] = [
   {
     key: 'krouzky',
     label: 'Kroužky',
-    copy: 'Pravidelný trénink každý týden v šesti městech s certifikovanými trenéry. Permanentka na 10 nebo 15 vstupů se odečítá postupně přes NFC čip, takže žádný závazek na celý rok. Dítě sbírá XP, odemyká triky a vidí svůj postup rovnou v appce.',
+    copy: 'Trénink každý týden v šesti městech s certifikovanými trenéry. Permanentka na 10 nebo 15 vstupů — žádný závazek na celý rok.',
     cta: { label: 'Vybrat kroužek', href: '/krouzky' },
     color: 'rgba(235,225,205,0.24)',
     mascot: '/cats/parkour.png',
@@ -38,7 +39,7 @@ const chapters: Chapter[] = [
   {
     key: 'workshopy',
     label: 'Workshopy',
-    copy: 'Jednorázové parkour akce s jasným tématem — každý workshop má konkrétní triky, které se učíte krok za krokem. Po zaplacení dostaneš digitální QR ticket ke kontrole na místě a trenér ví přesně, které prvky může dítěti zapsat do profilu.',
+    copy: 'Jednorázové akce s jasným tématem — konkrétní triky krok za krokem. Vstup řeší digitální QR ticket v appce.',
     cta: { label: 'Vybrat workshop', href: '/workshopy' },
     color: 'rgba(244,114,182,0.30)',
     mascot: '/cats/workshop.png',
@@ -47,7 +48,7 @@ const chapters: Chapter[] = [
   {
     key: 'tabory',
     label: 'Tábory',
-    copy: 'Týden pohybu, her a parkour výzev s jasným režimem dne. Jídlo, pitný režim i táborové tričko jsou v ceně, dohled mají certifikovaní trenéři a animátoři. Dokumenty a přihlášku vyřešíš online předem, první den stačí jen nahlásit jméno.',
+    copy: 'Týden pohybu, her a parkour výzev. Jídlo, pití i tričko v ceně — přihlášku vyřešíš online předem.',
     cta: { label: 'Vybrat tábor', href: '/tabory' },
     color: 'rgba(234,179,8,0.26)',
     mascot: '/cats/tabor.png',
@@ -55,10 +56,11 @@ const chapters: Chapter[] = [
   {
     key: 'aplikace',
     label: 'Aplikace',
-    copy: 'Appka, ve které trénink pokračuje i doma. Dítě v ní sbírá XP a odemyká nové triky na skill tree, rodič má na jednom místě docházku, platby i permanentku, trenér zapisuje body přes NFC čip nebo QR kód místo papírového archu.',
+    copy: 'Trénink pokračuje i doma — dítě sbírá XP a odemyká triky, rodič má docházku i platby na jednom místě.',
     cta: { label: 'Zjistit víc o appce', href: '/aplikace' },
     color: 'rgba(139,29,255,0.32)',
-    mascot: '/cats/apka.png',
+    mascot: '/cats/apka-xp.webp',
+    mascotSizeClassName: MASCOT_SIZE_WIDE,
   },
 ];
 
@@ -171,7 +173,7 @@ export function HomeHero() {
 
             {/* Supporting copy + CTA per chapter, synced with the headline word above.
                 Positioned out of flow so it doesn't shift the headline's centering. */}
-            <div className="absolute inset-x-0 mx-auto top-full mt-8 grid w-[86vw] max-w-[600px] place-items-center text-center sm:inset-x-auto sm:left-0 sm:right-auto sm:mx-0 sm:mt-12 sm:place-items-start sm:text-left md:mt-14">
+            <div className="absolute inset-x-0 mx-auto top-full mt-6 grid w-[86vw] max-w-[600px] place-items-center text-center sm:inset-x-auto sm:left-0 sm:right-auto sm:mx-0 sm:mt-8 sm:place-items-start sm:text-left md:mt-10">
               {chapters.map((chapter, index) => (
                 <motion.div
                   key={chapter.key}
@@ -181,7 +183,7 @@ export function HomeHero() {
                   <p className="text-lg leading-8 text-white/85 sm:text-xl sm:leading-9 md:text-2xl md:leading-10">{chapter.copy}</p>
                   <Link
                     href={chapter.cta.href}
-                    className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-brand-purple px-7 text-base font-black text-white transition-transform hover:-translate-y-0.5"
+                    className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#86EFAC] px-7 text-base font-black text-[#0B2E1B] transition-transform hover:-translate-y-0.5 hover:bg-[#6EE79A]"
                   >
                     {chapter.cta.label}
                     <ArrowRight size={18} className="transition-transform duration-200 group-hover:translate-x-0.5" />
