@@ -54,7 +54,7 @@ export function SiteNav() {
     <header className="fixed inset-x-0 top-0 z-50 py-4 transition-all duration-500 ease-out">
       <div className="mx-auto max-w-6xl px-4">
         <div
-          className="group mx-auto flex w-full origin-center items-center gap-4 rounded-2xl border border-white/65 bg-transparent px-4 py-3 shadow-none backdrop-blur-xl transition-all duration-300 ease-out hover:border-black/5 hover:bg-[#f5f3ef]/95 hover:shadow-[0_24px_80px_rgba(12,10,28,0.18)] max-md:border-white/20 md:w-[var(--nav-width)] md:scale-x-[var(--nav-scale)]"
+          className="group mx-auto flex w-full origin-center items-center gap-4 rounded-2xl border border-white/25 bg-[#16121f]/45 px-4 py-3 shadow-none backdrop-blur-xl transition-all duration-300 ease-out hover:border-black/5 hover:bg-[#f5f3ef]/95 hover:shadow-[0_24px_80px_rgba(12,10,28,0.18)] max-md:border-white/20 md:w-[var(--nav-width)] md:scale-x-[var(--nav-scale)]"
           onMouseEnter={() => setDesktopHover(true)}
           onMouseLeave={() => setDesktopHover(false)}
           style={{ '--nav-width': `${navWidth}%`, '--nav-scale': `${navScale}` } as React.CSSProperties}
@@ -63,7 +63,7 @@ export function SiteNav() {
             <Link
               href="/"
               aria-label="Přejít na úvodní stránku"
-              className="inline-flex items-center opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100"
+              className="inline-flex items-center transition-opacity duration-300 ease-out hover:opacity-80"
             >
               <TeamVysLogo size={32} priority />
             </Link>
@@ -75,9 +75,7 @@ export function SiteNav() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`whitespace-nowrap rounded-full font-bold text-black opacity-0 transition-all duration-500 ease-out hover:bg-black/5 group-hover:opacity-100 ${
-                    'px-3 py-2 text-sm group-hover:px-3 group-hover:py-2 group-hover:text-sm'
-                  }`}
+                  className="whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold text-white transition-all duration-300 ease-out hover:bg-white/10 group-hover:text-black group-hover:hover:bg-black/5"
                 >
                   {item.label}
                 </Link>
