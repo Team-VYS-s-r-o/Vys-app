@@ -25,7 +25,7 @@ type Chapter = {
 
 const MASCOT_SIZE = 'bottom-0 left-1/2 -translate-x-1/2 h-[38dvh] w-[80vw] max-w-[380px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[38dvh] sm:w-[26vw] sm:max-w-[340px] lg:h-[52dvh] lg:w-[38vw] lg:max-w-[540px] xl:h-[56dvh] xl:w-[36vw] xl:max-w-[580px]';
 const MASCOT_SIZE_COMPACT = 'bottom-0 left-1/2 -translate-x-1/2 h-[32dvh] w-[66vw] max-w-[300px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[30dvh] sm:w-[21vw] sm:max-w-[270px] lg:h-[41dvh] lg:w-[30vw] lg:max-w-[430px] xl:h-[44dvh] xl:w-[28vw] xl:max-w-[460px]';
-const MASCOT_SIZE_WIDE = 'bottom-0 left-1/2 -translate-x-1/2 h-[26dvh] w-[78vw] max-w-[340px] sm:left-auto sm:right-0 sm:translate-x-0 sm:h-[28dvh] sm:w-[24vw] sm:max-w-[300px] lg:h-[40dvh] lg:w-[30vw] lg:max-w-[440px] xl:h-[42dvh] xl:w-[28vw] xl:max-w-[480px]';
+const MASCOT_SIZE_WIDE = 'bottom-0 left-1/2 -translate-x-1/2 h-[30dvh] w-[88vw] max-w-[400px] sm:left-auto sm:right-6 sm:translate-x-0 sm:h-[28dvh] sm:w-[24vw] sm:max-w-[300px] lg:right-14 lg:h-[40dvh] lg:w-[30vw] lg:max-w-[440px] xl:right-20 xl:h-[42dvh] xl:w-[28vw] xl:max-w-[480px]';
 
 const chapters: Chapter[] = [
   {
@@ -42,8 +42,8 @@ const chapters: Chapter[] = [
     copy: 'Jednorázové akce s jasným tématem — konkrétní triky krok za krokem. Vstup řeší digitální QR ticket v appce.',
     cta: { label: 'Vybrat workshop', href: '/workshopy' },
     color: 'rgba(244,114,182,0.30)',
-    mascot: '/cats/workshop.png',
-    mascotSizeClassName: MASCOT_SIZE_COMPACT,
+    mascot: '/cats/apka-xp.webp',
+    mascotSizeClassName: MASCOT_SIZE_WIDE,
   },
   {
     key: 'tabory',
@@ -59,8 +59,7 @@ const chapters: Chapter[] = [
     copy: 'Trénink pokračuje i doma — dítě sbírá XP a odemyká triky, rodič má docházku i platby na jednom místě.',
     cta: { label: 'Zjistit víc o appce', href: '/aplikace' },
     color: 'rgba(139,29,255,0.32)',
-    mascot: '/cats/apka-xp.webp',
-    mascotSizeClassName: MASCOT_SIZE_WIDE,
+    mascot: '/cats/apka.png',
   },
 ];
 
@@ -85,7 +84,7 @@ export function HomeHero() {
   // Each fades in, holds, then fades out — except the last, which stays once revealed.
   // The whole headline starts slightly above centre and eases further up as scrolling
   // begins, so there isn't dead space above PARKOUR before the word-swap kicks in.
-  const contentY = useTransform(scrollYProgress, [0, 0.09], ['0dvh', isMobile ? '-30dvh' : '-17dvh']);
+  const contentY = useTransform(scrollYProgress, [0, 0.09], ['0dvh', isMobile ? '-22dvh' : '-17dvh']);
   const s0Opacity = useTransform(scrollYProgress, [0, 0.05, 0.09], [1, 1, 0]);
   const s0Y = useTransform(scrollYProgress, [0, 0.09], [0, -16]);
   const s1Opacity = useTransform(scrollYProgress, [0.05, 0.11, 0.24, 0.3], [0, 1, 1, 0]);

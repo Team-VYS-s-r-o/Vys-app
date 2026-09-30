@@ -948,7 +948,7 @@ function CoachCompact({ name, photoUrl }: { name: string; photoUrl: string }) {
       <ProductImage src={photoUrl} alt={name} className="h-10 w-10 rounded-brand bg-white object-contain p-1.5" />
       <div className="min-w-0">
         <p className="truncate text-sm font-black text-brand-ink">{name}</p>
-        <p className="mt-0.5 text-xs font-bold text-brand-ink-soft">Trenér TeamVYS</p>
+        <p className="mt-0.5 text-xs font-bold text-brand-ink-soft">Trenér</p>
       </div>
     </div>
   );
