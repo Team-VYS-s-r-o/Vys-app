@@ -60,7 +60,7 @@ export function SiteFooter() {
 
         <div className="mt-8 border-t border-white/10 pt-5">
           <p className="text-xs leading-[18px] text-white/[0.55]">
-            © {new Date().getFullYear()} TeamVYS · Vyškov · Prostějov · Blansko · Brandýs · Jeseník · Veliny
+            © {new Date().getFullYear()} Team VYS s.r.o. · Vyškov · Prostějov · Blansko · Brandýs · Jeseník · Jesenice · Praha
           </p>
         </div>
       </div>
