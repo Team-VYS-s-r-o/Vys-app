@@ -876,7 +876,6 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
   void delay;
   const product = products[0];
   const merged = products.length > 1;
-  const firstLesson = firstOctoberLessonLabel(product.primaryMeta);
   const scheduleDays = parseScheduleDays(product.primaryMeta);
   const scheduleTime = parseScheduleTime(product.primaryMeta);
   const multiDay = !merged && scheduleDays.length >= 2;
@@ -916,7 +915,7 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
           <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
             <Clock size={16} className="text-brand-cyan" />
             <span>
-              {firstLesson ? <>1. lekce {firstLesson}</> : <>Startujeme v říjnu</>} · <span className="text-brand-cyan">zdarma</span>
+              Začínáme ve čtvrtek 1. 10. · <span className="text-brand-cyan">1. lekce zdarma</span>
             </span>
           </span>
         </div>
@@ -1017,32 +1016,3 @@ function splitCourseMeta(primaryMeta: string) {
   return match ? { day: match[1].trim(), time: match[2].trim() } : { day: primaryMeta, time: primaryMeta };
 }
 
-const CZ_WEEKDAY_INDEX: Record<string, number> = {
-  nedele: 0,
-  pondeli: 1,
-  utery: 2,
-  streda: 3,
-  ctvrtek: 4,
-  patek: 5,
-  sobota: 6,
-};
-
-/** Vrací první lekeční datum v říjnu podle dne v týdnu z primaryMeta (např. „úterý 6. 10.“). */
-function firstOctoberLessonLabel(primaryMeta: string): string | null {
-  const { day } = splitCourseMeta(primaryMeta);
-  const key = day
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .split(/\s+/)[0];
-  const weekday = CZ_WEEKDAY_INDEX[key];
-  if (weekday === undefined) return null;
-  const now = new Date();
-  const year = now.getMonth() > 9 ? now.getFullYear() + 1 : now.getFullYear();
-  const date = new Date(year, 9, 1);
-  for (let i = 0; i < 7 && date.getDay() !== weekday; i += 1) {
-    date.setDate(date.getDate() + 1);
-  }
-  return date.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric' });
-}
