@@ -339,7 +339,11 @@ export function ParentPortalDashboard({ displayName, displayEmail, parentProfile
       return;
     }
 
-    const scheduleDays = selectedProduct.type === 'Krouzek' ? parseScheduleDays(selectedProduct.primaryMeta) : [];
+    // Musí odpovídat podmínce, za které PurchaseWizard krok „Tréninkové dny" vykresluje —
+    // jinak validace chce dny, které rodič nemá kde vybrat (režim dokumentů je nezobrazuje).
+    const scheduleDays = purchaseFlow.mode !== 'documents' && purchaseFlow.group.type === 'Krouzek'
+      ? parseScheduleDays(purchaseFlow.group.primaryMeta)
+      : [];
     const hasDayChoice = scheduleDays.length >= 2;
     if (hasDayChoice && purchaseFlow.trainingDays.length === 0) {
       setPurchaseFlow({ ...purchaseFlow, message: `Vyber prosím tréninkové dny — ${scheduleDays.join(', ')} nebo oba. Cena je stejná.` });
