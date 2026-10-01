@@ -20,3 +20,26 @@ export function formatTrainingDays(days: string[] | null | undefined): string | 
   if (!days || days.length === 0) return null;
   return days.join(' + ');
 }
+
+// Accusative forms for "v pondělí / ve středu / v sobotu…" (index = Monday 0 … Sunday 6).
+const DAY_ACCUSATIVE = ['pondělí', 'úterý', 'středu', 'čtvrtek', 'pátek', 'sobotu', 'neděli'];
+
+// First training date in October of the current year for the given weekday
+// names, formatted as "v pátek 2. 10." — the season starts on the first
+// occurrence of each location's training day, not on Oct 1 for everyone.
+export function formatSeasonStart(days: string[] | null | undefined): string | null {
+  if (!days || days.length === 0) return null;
+  const wanted = days.map((day) => WEEK_DAY_NAMES.indexOf(day)).filter((index) => index >= 0);
+  if (wanted.length === 0) return null;
+
+  const year = new Date().getFullYear();
+  for (let dayOfMonth = 1; dayOfMonth <= 31; dayOfMonth += 1) {
+    const date = new Date(year, 9, dayOfMonth);
+    const weekIndex = (date.getDay() + 6) % 7; // Monday = 0, matches WEEK_DAY_NAMES
+    if (wanted.includes(weekIndex)) {
+      const preposition = weekIndex === 2 || weekIndex === 3 ? 've' : 'v';
+      return `${preposition} ${DAY_ACCUSATIVE[weekIndex]} ${dayOfMonth}. 10.`;
+    }
+  }
+  return null;
+}

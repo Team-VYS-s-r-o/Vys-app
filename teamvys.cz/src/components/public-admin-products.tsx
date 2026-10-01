@@ -9,7 +9,7 @@ import { Reveal } from '@/components/animated/reveal';
 import { CourseLocationsMap, normalizeCity } from '@/components/course-locations-map';
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
 import { type ParentProduct } from '@/lib/portal-content';
-import { parseScheduleDays, parseScheduleTime } from '@/lib/schedule-days';
+import { formatSeasonStart, parseScheduleDays, parseScheduleTime } from '@/lib/schedule-days';
 import { usePublicCoaches, type PublicCoachSummary } from '@/lib/use-public-coaches';
 
 const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
@@ -879,6 +879,8 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
   const scheduleDays = parseScheduleDays(product.primaryMeta);
   const scheduleTime = parseScheduleTime(product.primaryMeta);
   const multiDay = !merged && scheduleDays.length >= 2;
+  // Season start = first October date matching any of this card's training days.
+  const seasonStart = formatSeasonStart(products.flatMap((item) => parseScheduleDays(item.primaryMeta)));
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft">
@@ -915,7 +917,7 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
           <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
             <Clock size={16} className="text-brand-cyan" />
             <span>
-              Začínáme ve čtvrtek 1. 10. · <span className="text-brand-cyan">1. lekce zdarma</span>
+              {seasonStart ? `Začínáme ${seasonStart} · ` : null}<span className="text-brand-cyan">1. lekce zdarma</span>
             </span>
           </span>
         </div>
