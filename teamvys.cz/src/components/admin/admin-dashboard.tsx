@@ -3873,8 +3873,8 @@ function ProductCreateForm({ coaches, onAddProduct }: { coaches: AdminCoachSumma
   const [wsDate, setWsDate] = useState('');
   const [wsTimeFrom, setWsTimeFrom] = useState('10:00');
   const [wsTimeTo, setWsTimeTo] = useState('17:00');
-  const [price, setPrice] = useState('1790');
-  const [price15, setPrice15] = useState('2590');
+  const [price, setPrice] = useState('2190');
+  const [price15, setPrice15] = useState('3190');
   const [capacityTotal, setCapacityTotal] = useState('25');
   const [capacityCurrent, setCapacityCurrent] = useState('0');
   const [selectedCoachIds, setSelectedCoachIds] = useState<string[]>([]);
@@ -3938,7 +3938,7 @@ function ProductCreateForm({ coaches, onAddProduct }: { coaches: AdminCoachSumma
     setWsTimeFrom('10:00');
     setWsTimeTo('17:00');
     setPrice(defaults.price);
-    setPrice15('2590');
+    setPrice15('3190');
     setCapacityTotal(defaults.capacityTotal);
     setCapacityCurrent('0');
     setSelectedCoachIds([]);

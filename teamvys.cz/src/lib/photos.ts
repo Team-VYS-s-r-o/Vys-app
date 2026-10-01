@@ -3,6 +3,7 @@
 export const courseHero: Record<string, string> = {
   'course-blansko-erbenova': '/courses/blansko_ZS-Erbenova-Main.webp',
   'course-brandys-vysluni': '/courses/brandys_BR_main.webp',
+  'course-brandys-vysluni-ct': '/courses/brandys_BR_main.webp',
   'course-jesenik-komenskeho': '/courses/jesenik_JS_Main.webp',
   'course-prostejov-melantrichova': '/courses/prostejov_Prostejov_parkour_main.webp',
   'course-vyskov-nadrazni': '/courses/nadrazka_ZS-Nadrazka-Main.webp',
@@ -16,6 +17,15 @@ export const courseGallery: Record<string, string[]> = {
     '/courses/blansko_ZS-Erbenova-Foto2.webp',
   ],
   'course-brandys-vysluni': [
+    '/courses/brandys_BR_main.webp',
+    '/courses/brandys_BR1.webp',
+    '/courses/brandys_BR2.webp',
+    '/courses/brandys_BR3.webp',
+    '/courses/brandys_BR4.webp',
+    '/courses/brandys_BR5.webp',
+    '/courses/brandys_BR6.webp',
+  ],
+  'course-brandys-vysluni-ct': [
     '/courses/brandys_BR_main.webp',
     '/courses/brandys_BR1.webp',
     '/courses/brandys_BR2.webp',

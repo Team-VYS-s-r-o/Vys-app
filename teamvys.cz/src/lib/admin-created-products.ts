@@ -443,7 +443,7 @@ function badgeFor(type: ActivityType) {
 }
 
 function defaultPrice(type: ActivityType) {
-  if (type === 'Krouzek') return 1790;
+  if (type === 'Krouzek') return 2190;
   if (type === 'Tabor') return 3890;
   return 890;
 }

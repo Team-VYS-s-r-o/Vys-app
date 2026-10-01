@@ -90,8 +90,8 @@ function findStaticWebProduct(productId: string): WebProduct | null {
       type: 'Kroužek',
       title: `Kroužek ${course.city}`,
       place: course.venue,
-      priceLabel: isFifteenEntries ? '15 vstupů · 2590 Kč' : course.price,
-      priceAmount: isFifteenEntries ? 2590 : course.priceAmount,
+      priceLabel: isFifteenEntries ? '15 vstupů · 3190 Kč' : course.price,
+      priceAmount: isFifteenEntries ? 3190 : course.priceAmount,
       meta: `${course.day} ${course.from}-${course.to}`,
       description: isFifteenEntries
         ? 'Výhodnější permanentka s 15 vstupy, NFC docházkou, skill tree a průběžným přehledem pro rodiče.'

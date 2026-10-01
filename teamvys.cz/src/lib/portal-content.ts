@@ -431,8 +431,8 @@ export const parentProducts: ParentProduct[] = [
       city: course.city,
       place: `${course.city} · ${course.venue}`,
       venue: course.venue,
-      price: 2590,
-      priceLabel: '15 vstupů · 2590 Kč',
+      price: 3190,
+      priceLabel: '15 vstupů · 3190 Kč',
       originalPrice: course.priceAmount ? course.priceAmount + Math.round(course.priceAmount / 2) : undefined,
       entriesTotal: 15,
       capacityTotal: course.capacityTotal,
@@ -506,9 +506,9 @@ export const parentProducts: ParentProduct[] = [
 ];
 
 export const parentPayments: ParentPayment[] = [
-  { id: 'pay-course-1', title: 'Permanentka 10 vstupů · Vyškov', participantName: 'Eliška Nováková', amount: 1790, dueDate: '24. 4. 2026', paidAt: '24. 4. 2026', method: 'Stripe karta', status: 'paid' },
+  { id: 'pay-course-1', title: 'Permanentka 10 vstupů · Vyškov', participantName: 'Eliška Nováková', amount: 2190, dueDate: '24. 4. 2026', paidAt: '24. 4. 2026', method: 'Stripe karta', status: 'paid' },
   { id: 'pay-camp-1', title: 'Letní tábor Vyškov', participantName: 'Eliška Nováková', amount: 3890, dueDate: '25. 4. 2026', paidAt: '25. 4. 2026', method: 'Stripe karta', status: 'paid' },
-  { id: 'pay-course-2', title: 'Permanentka 10 vstupů · Prostějov', participantName: 'Alex Svoboda', amount: 1790, dueDate: '27. 4. 2026', paidAt: '27. 4. 2026', method: 'Stripe karta', status: 'paid' },
+  { id: 'pay-course-2', title: 'Permanentka 10 vstupů · Prostějov', participantName: 'Alex Svoboda', amount: 2190, dueDate: '27. 4. 2026', paidAt: '27. 4. 2026', method: 'Stripe karta', status: 'paid' },
 ];
 
 export const parentNotifications = [
@@ -553,7 +553,8 @@ export const adminCoachSummaries: AdminCoachSummary[] = [
 export const sharedTrainingCalendar: SharedTrainingSlot[] = [
   { id: 'slot-vyskov-purkynova', activityType: 'Krouzek', day: 'Pondělí', time: '15:30 - 16:30', place: 'Vyškov · ZŠ Purkyňova', group: 'Mladší skupina', regularCoachId: 'coach-demo', regularCoachName: 'Filip Trenér', assignedCoachId: 'coach-demo', assignedCoachName: 'Filip Trenér', secondCoachId: 'coach-anna', secondCoachName: 'Anna Králová', updatedAt: 'pravidelně' },
   { id: 'slot-blansko-erbenova', activityType: 'Krouzek', day: 'Úterý', time: '17:30 - 18:30', place: 'Blansko · ZŠ Erbenova', group: 'Začátečníci', regularCoachId: 'coach-marek', regularCoachName: 'Marek Hlaváč', assignedCoachId: 'coach-marek', assignedCoachName: 'Marek Hlaváč', updatedAt: 'pravidelně' },
-  { id: 'slot-brandys-vysluni', activityType: 'Krouzek', day: 'Úterý / Čtvrtek', time: '17:00 - 18:00', place: 'Brandýs · ZŠ Na Výsluní', group: 'Mix level', regularCoachId: 'coach-anna', regularCoachName: 'Anna Králová', assignedCoachId: 'coach-anna', assignedCoachName: 'Anna Králová', secondCoachId: 'coach-tereza', secondCoachName: 'Tereza Novotná', updatedAt: 'pravidelně' },
+  { id: 'slot-brandys-vysluni', activityType: 'Krouzek', day: 'Úterý', time: '17:00 - 18:00', place: 'Brandýs · ZŠ Na Výsluní', group: 'Mix level', regularCoachId: 'coach-anna', regularCoachName: 'Anna Králová', assignedCoachId: 'coach-anna', assignedCoachName: 'Anna Králová', secondCoachId: 'coach-tereza', secondCoachName: 'Tereza Novotná', updatedAt: 'pravidelně' },
+  { id: 'slot-brandys-vysluni-ct', activityType: 'Krouzek', day: 'Čtvrtek', time: '17:00 - 18:00', place: 'Brandýs · ZŠ Na Výsluní', group: 'Mix level', regularCoachId: 'coach-anna', regularCoachName: 'Anna Králová', assignedCoachId: 'coach-anna', assignedCoachName: 'Anna Králová', secondCoachId: 'coach-tereza', secondCoachName: 'Tereza Novotná', updatedAt: 'pravidelně' },
   { id: 'slot-vyskov-nadrazni', activityType: 'Krouzek', day: 'Středa', time: '16:30 - 17:30', place: 'Vyškov · ZŠ Nádražní', group: 'Začátečníci 8-12', regularCoachId: 'coach-demo', regularCoachName: 'Filip Trenér', assignedCoachId: 'coach-demo', assignedCoachName: 'Filip Trenér', secondCoachId: 'coach-marek', secondCoachName: 'Marek Hlaváč', updatedAt: 'pravidelně' },
   { id: 'slot-jesenik-komenskeho', activityType: 'Krouzek', day: 'Pátek', time: '18:00 - 19:00', place: 'Jeseník · Gymnázium Komenského', group: 'Pokročilí', regularCoachId: 'coach-marek', regularCoachName: 'Marek Hlaváč', releasedBy: 'Marek Hlaváč', releaseReason: 'Marek nahlásil, že v pátek nemůže dorazit.', updatedAt: 'dnes 09:20' },
   { id: 'slot-prostejov-melantrichova', activityType: 'Krouzek', day: 'Sobota', time: '10:00 - 11:00', place: 'Prostějov · ZŠ Melantrichova', group: 'Mix level', regularCoachId: 'coach-demo', regularCoachName: 'Filip Trenér', assignedCoachId: 'coach-demo', assignedCoachName: 'Filip Trenér', updatedAt: 'pravidelně' },

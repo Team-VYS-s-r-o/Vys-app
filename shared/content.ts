@@ -4,12 +4,13 @@
 import type { AboutPillar, Camp, Contacts, Course, Stat, Testimonial, Workshop } from './types';
 
 export const courses: Course[] = [
-  { id: 'course-blansko-erbenova', city: 'Blansko', venue: 'ZŠ Erbenova', day: 'Úterý', from: '17:30', to: '18:30', price: 'od 1790 Kč', priceAmount: 1790, capacityTotal: 25, capacityCurrent: 12 },
-  { id: 'course-brandys-vysluni', city: 'Brandýs', venue: 'ZŠ Na Výsluní', day: 'Úterý / Čtvrtek', from: '17:00', to: '18:00', price: 'od 1790 Kč', priceAmount: 1790, capacityTotal: 25, capacityCurrent: 18 },
-  { id: 'course-jesenik-komenskeho', city: 'Jeseník', venue: 'Gymnázium Komenského', day: 'Pátek', from: '18:00', to: '19:00', price: 'od 1790 Kč', priceAmount: 1790, capacityTotal: 25, capacityCurrent: 9 },
-  { id: 'course-prostejov-melantrichova', city: 'Prostějov', venue: 'ZŠ Melantrichova', day: 'Sobota', from: '10:00', to: '11:00', price: 'od 1790 Kč', priceAmount: 1790, capacityTotal: 25, capacityCurrent: 14 },
-  { id: 'course-vyskov-nadrazni', city: 'Vyškov', venue: 'ZŠ Nádražní', day: 'Středa', from: '16:30', to: '17:30', price: 'od 1790 Kč', priceAmount: 1790, capacityTotal: 25, capacityCurrent: 17 },
-  { id: 'course-vyskov-purkynova', city: 'Vyškov', venue: 'ZŠ Purkyňova', day: 'Pondělí', from: '15:30', to: '16:30', price: 'od 1790 Kč', priceAmount: 1790, capacityTotal: 25, capacityCurrent: 11 },
+  { id: 'course-blansko-erbenova', city: 'Blansko', venue: 'ZŠ Erbenova', day: 'Úterý', from: '17:30', to: '18:30', price: 'od 2190 Kč', priceAmount: 2190, capacityTotal: 25, capacityCurrent: 12 },
+  { id: 'course-brandys-vysluni', city: 'Brandýs', venue: 'ZŠ Na Výsluní', day: 'Úterý', from: '17:00', to: '18:00', price: 'od 2190 Kč', priceAmount: 2190, capacityTotal: 25, capacityCurrent: 18 },
+  { id: 'course-brandys-vysluni-ct', city: 'Brandýs', venue: 'ZŠ Na Výsluní', day: 'Čtvrtek', from: '17:00', to: '18:00', price: 'od 2190 Kč', priceAmount: 2190, capacityTotal: 20, capacityCurrent: 18 },
+  { id: 'course-jesenik-komenskeho', city: 'Jeseník', venue: 'Gymnázium Komenského', day: 'Pátek', from: '18:00', to: '19:00', price: 'od 2190 Kč', priceAmount: 2190, capacityTotal: 25, capacityCurrent: 9 },
+  { id: 'course-prostejov-melantrichova', city: 'Prostějov', venue: 'ZŠ Melantrichova', day: 'Sobota', from: '10:00', to: '11:00', price: 'od 2190 Kč', priceAmount: 2190, capacityTotal: 25, capacityCurrent: 14 },
+  { id: 'course-vyskov-nadrazni', city: 'Vyškov', venue: 'ZŠ Nádražní', day: 'Středa', from: '16:30', to: '17:30', price: 'od 2190 Kč', priceAmount: 2190, capacityTotal: 25, capacityCurrent: 17 },
+  { id: 'course-vyskov-purkynova', city: 'Vyškov', venue: 'ZŠ Purkyňova', day: 'Pondělí', from: '15:30', to: '16:30', price: 'od 2190 Kč', priceAmount: 2190, capacityTotal: 25, capacityCurrent: 11 },
 ];
 
 export const camps: Camp[] = [
