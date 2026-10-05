@@ -7,8 +7,19 @@ import { FeatureCard, SectionIntro } from '@/components/subpage-feature-card';
 import { campSchedule } from '@shared/content';
 
 export const metadata = {
-  title: 'Tábory',
-  description: 'Příměstské parkour tábory TeamVYS s trenéry, programem, jídlem a digitálními dokumenty pro rodiče.',
+  title: 'Příměstské parkour tábory pro děti',
+  description:
+    'Příměstské parkour tábory pro děti s certifikovanými trenéry, programem, jídlem a digitálními dokumenty pro rodiče. Léto plné pohybu s TeamVYS.',
+  alternates: { canonical: '/tabory' },
+  openGraph: {
+    title: 'Příměstské parkour tábory pro děti · TeamVYS',
+    description:
+      'Příměstské parkour tábory s certifikovanými trenéry, programem, jídlem a digitálními dokumenty pro rodiče.',
+    url: '/tabory',
+    type: 'website',
+    locale: 'cs_CZ',
+    images: [{ url: '/cats/tabor.png', alt: 'Příměstské parkour tábory — TeamVYS' }],
+  },
 };
 
 const includes = [

@@ -13,24 +13,119 @@ const inter = Inter({
   display: 'swap',
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https')
+  ? process.env.NEXT_PUBLIC_SITE_URL
+  : 'https://teamvys.cz';
+
 export const metadata: Metadata = {
   title: {
-    default: 'TeamVYS — platforma pro dětské sportovní organizace',
-    template: '%s · Team VYS',
+    default: 'TeamVYS — parkour kroužky, tábory a workshopy pro děti',
+    template: '%s · TeamVYS',
   },
   description:
-    'Digitální platforma pro dětské sportovní kluby: docházka, skupiny, trenéři, platby, NFC čipy a gamifikace. Mobilní aplikace i webový portál. Powered by Team VYS.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+    'Parkour kroužky pro děti, příměstské tábory a workshopy pod vedením certifikovaných trenérů. Vyškov, Prostějov, Blansko, Brandýs nad Labem, Jeseník a Praha. Přihlaste své dítě online.',
+  metadataBase: new URL(SITE_URL),
+  applicationName: 'TeamVYS',
+  keywords: [
+    'parkour kroužek',
+    'parkour pro děti',
+    'parkour kroužek pro děti',
+    'parkour tábor',
+    'příměstský tábor parkour',
+    'parkour workshop',
+    'sportovní kroužek pro děti',
+    'parkour Vyškov',
+    'parkour Prostějov',
+    'parkour Blansko',
+    'parkour Brandýs nad Labem',
+    'parkour Jeseník',
+    'parkour Praha',
+    'TeamVYS',
+  ],
+  alternates: {
+    canonical: '/',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   openGraph: {
-    title: 'TeamVYS — platforma pro dětské sportovní organizace',
-    description: 'Docházka, skupiny, trenéři, platby, NFC čipy a gamifikace pro dětské sportovní organizace. 790 Kč měsíčně, prvních 30 dní zdarma.',
+    siteName: 'TeamVYS',
+    title: 'TeamVYS — parkour kroužky, tábory a workshopy pro děti',
+    description:
+      'Parkour kroužky, příměstské tábory a workshopy pro děti v 6 městech. Certifikovaní trenéři, bezpečný progres a appka, kde dítě vidí svůj pokrok.',
     type: 'website',
+    url: '/',
     locale: 'cs_CZ',
+    images: [
+      {
+        url: '/cats/parkour.png',
+        width: 1307,
+        height: 1203,
+        alt: 'TeamVYS — parkour kroužky pro děti',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'TeamVYS — parkour kroužky, tábory a workshopy pro děti',
+    description:
+      'Parkour kroužky, příměstské tábory a workshopy pro děti v 6 městech. Certifikovaní trenéři a bezpečný progres.',
+    images: ['/cats/parkour.png'],
   },
   icons: {
     icon: '/vys-logo-mark.png',
     apple: '/vys-logo-mark.png',
   },
+};
+
+/** Strukturovaná data pro Google — sportovní organizace (parkour pro děti). */
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': ['SportsOrganization', 'LocalBusiness'],
+  '@id': `${SITE_URL}/#organization`,
+  name: 'TeamVYS',
+  legalName: 'Team VYS s.r.o.',
+  url: SITE_URL,
+  logo: `${SITE_URL}/vys-logo-mark.png`,
+  image: `${SITE_URL}/cats/parkour.png`,
+  description:
+    'Parkour kroužky pro děti, příměstské tábory a jednorázové workshopy pod vedením certifikovaných trenérů.',
+  email: 'ahoj@teamvys.cz',
+  telephone: '+420734167417',
+  sport: 'Parkour',
+  priceRange: 'Kč',
+  address: {
+    '@type': 'PostalAddress',
+    addressCountry: 'CZ',
+  },
+  areaServed: ['Vyškov', 'Prostějov', 'Blansko', 'Brandýs nad Labem', 'Jeseník', 'Jesenice', 'Praha'],
+  makesOffer: [
+    {
+      '@type': 'Offer',
+      name: 'Parkour kroužky pro děti',
+      url: `${SITE_URL}/krouzky`,
+      category: 'Sportovní kroužek',
+    },
+    {
+      '@type': 'Offer',
+      name: 'Příměstské parkour tábory',
+      url: `${SITE_URL}/tabory`,
+      category: 'Příměstský tábor',
+    },
+    {
+      '@type': 'Offer',
+      name: 'Parkour workshopy',
+      url: `${SITE_URL}/workshopy`,
+      category: 'Workshop',
+    },
+  ],
 };
 
 export const viewport: Viewport = {
@@ -43,6 +138,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="cs" className={inter.variable}>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         <SubscriptionBanner />
         {children}
         <CookieConsent />

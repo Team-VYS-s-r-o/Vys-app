@@ -7,8 +7,19 @@ import { createAdminSupabaseClient, hasSupabaseAdminConfig } from '@/lib/supabas
 import { aboutPillars, stats } from '@shared/content';
 
 export const metadata = {
-  title: 'O nás',
-  description: 'TeamVYS je parkourová komunita pro děti, teenagery a rodiče se skill tree, NFC docházkou a zkušenými trenéry.',
+  title: 'O nás — parkourová komunita pro děti',
+  description:
+    'TeamVYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři, skill tree, NFC docházka a kroužky v šesti městech.',
+  alternates: { canonical: '/o-nas' },
+  openGraph: {
+    title: 'O nás · TeamVYS',
+    description:
+      'TeamVYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři a kroužky v šesti městech.',
+    url: '/o-nas',
+    type: 'website',
+    locale: 'cs_CZ',
+    images: [{ url: '/cats/parkour.png', alt: 'TeamVYS — o nás' }],
+  },
 };
 
 const icons = [<ShieldCheck key="s" size={20} />, <Trophy key="t" size={20} />, <Users key="u" size={20} />, <Smartphone key="m" size={20} />];
