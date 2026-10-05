@@ -1839,20 +1839,50 @@ app.post('/api/coach/attendance', asyncRoute(async (request, response) => {
       }
     }
   }
-  const today = new Date().toLocaleDateString('cs-CZ');
+  // Datum záznamu: admin může zpětně doplnit (dateText "D. M. YYYY" nebo ISO), jinak dnes.
+  let recordDate = new Date();
+  if (actor.role === 'admin' && typeof request.body.dateText === 'string' && request.body.dateText.trim()) {
+    const rawDate = request.body.dateText.trim();
+    const czMatch = rawDate.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+    const parsedDate = czMatch
+      ? new Date(Number(czMatch[3]), Number(czMatch[2]) - 1, Number(czMatch[1]))
+      : new Date(rawDate);
+    if (!isNaN(parsedDate.getTime())) recordDate = parsedDate;
+  }
+  const recordIsoDay = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}-${String(recordDate.getDate()).padStart(2, '0')}`;
+
+  // org_id: ze session, jinak z profilu trenéra, jinak z profilu aktéra, jinak výchozí org.
+  let attendanceOrgId = session?.org_id ?? null;
+  if (!attendanceOrgId) {
+    const { data: coachProfile } = await supabase
+      .from('coach_profiles')
+      .select('org_id')
+      .eq('id', coachId)
+      .maybeSingle();
+    attendanceOrgId = coachProfile?.org_id ?? null;
+  }
+  if (!attendanceOrgId) {
+    const { data: actorProfile } = await supabase
+      .from('app_profiles')
+      .select('org_id')
+      .eq('id', actor.id)
+      .maybeSingle();
+    attendanceOrgId = actorProfile?.org_id ?? null;
+  }
+
   const row = {
-    id: `coach-att-${sessionId}-${new Date().toISOString().slice(0, 10)}`,
+    id: `coach-att-${sessionId}-${recordIsoDay}`,
     coach_id: coachId,
     session_id: session?.id ?? null,
-    date_text: today,
+    date_text: `${recordDate.getDate()}. ${recordDate.getMonth() + 1}. ${recordDate.getFullYear()}`,
     place,
     status: 'Zapsáno',
     present,
     duration_hours: durationHours,
     hourly_rate: hourlyRate,
     amount: Math.round(durationHours * hourlyRate),
+    org_id: attendanceOrgId || VYS_ORG_ID,
   };
-  if (session?.org_id) row.org_id = session.org_id;
 
   const { data, error } = await supabase
     .from('coach_attendance_records')
