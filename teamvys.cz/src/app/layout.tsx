@@ -19,13 +19,13 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https')
 
 export const metadata: Metadata = {
   title: {
-    default: 'TeamVYS — parkour kroužky, tábory a workshopy pro děti',
-    template: '%s · TeamVYS',
+    default: 'Team VYS — parkour kroužky, tábory a workshopy pro děti',
+    template: '%s · Team VYS',
   },
   description:
     'Parkour kroužky pro děti, příměstské tábory a workshopy pod vedením certifikovaných trenérů. Vyškov, Prostějov, Blansko, Brandýs nad Labem, Jeseník a Praha. Přihlaste své dítě online.',
   metadataBase: new URL(SITE_URL),
-  applicationName: 'TeamVYS',
+  applicationName: 'Team VYS',
   keywords: [
     'parkour kroužek',
     'parkour pro děti',
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     'parkour Brandýs nad Labem',
     'parkour Jeseník',
     'parkour Praha',
-    'TeamVYS',
+    'Team VYS',
   ],
   alternates: {
     canonical: '/',
@@ -56,8 +56,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    siteName: 'TeamVYS',
-    title: 'TeamVYS — parkour kroužky, tábory a workshopy pro děti',
+    siteName: 'Team VYS',
+    title: 'Team VYS — parkour kroužky, tábory a workshopy pro děti',
     description:
       'Parkour kroužky, příměstské tábory a workshopy pro děti v 6 městech. Certifikovaní trenéři, bezpečný progres a appka, kde dítě vidí svůj pokrok.',
     type: 'website',
@@ -68,13 +68,13 @@ export const metadata: Metadata = {
         url: '/cats/parkour.png',
         width: 1307,
         height: 1203,
-        alt: 'TeamVYS — parkour kroužky pro děti',
+        alt: 'Team VYS — parkour kroužky pro děti',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TeamVYS — parkour kroužky, tábory a workshopy pro děti',
+    title: 'Team VYS — parkour kroužky, tábory a workshopy pro děti',
     description:
       'Parkour kroužky, příměstské tábory a workshopy pro děti v 6 městech. Certifikovaní trenéři a bezpečný progres.',
     images: ['/cats/parkour.png'],
@@ -90,7 +90,7 @@ const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': ['SportsOrganization', 'LocalBusiness'],
   '@id': `${SITE_URL}/#organization`,
-  name: 'TeamVYS',
+  name: 'Team VYS',
   legalName: 'Team VYS s.r.o.',
   url: SITE_URL,
   logo: `${SITE_URL}/vys-logo-mark.png`,

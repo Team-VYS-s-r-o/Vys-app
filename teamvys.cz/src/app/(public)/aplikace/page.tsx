@@ -14,7 +14,7 @@ const WAITLIST_MAILTO =
   encodeURIComponent('Chci vědět, až bude aplikace na Google Play') +
   '&body=' +
   encodeURIComponent(
-    'Dobrý den,\n\ndejte mi prosím vědět e-mailem, jakmile bude aplikace TeamVYS ke stažení na Google Play.\n\nDěkuji.'
+    'Dobrý den,\n\ndejte mi prosím vědět e-mailem, jakmile bude aplikace Team VYS ke stažení na Google Play.\n\nDěkuji.'
   );
 
 const audiences = [

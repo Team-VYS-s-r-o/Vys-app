@@ -380,7 +380,7 @@ async function getAppSession(): Promise<AppSession> {
       activePurchases: parseActivePurchases(participant?.active_purchases),
       digitalPass: {
         title: pass?.title ?? 'Permanentka 10 vstupů',
-        location: pass?.location ?? participant?.active_course ?? 'TeamVYS',
+        location: pass?.location ?? participant?.active_course ?? 'Team VYS',
         nfcChipId: pass?.nfc_chip_id ?? 'NFC zatím nepřiřazen',
         totalEntries: pass?.total_entries ?? fallbackTotal,
         usedEntries: pass?.used_entries ?? fallbackUsed,

@@ -21,7 +21,7 @@ export function StatsSection() {
     <section ref={sectionRef} className="section-shell py-24 md:py-32">
       <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
         <Reveal>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-cyan">TeamVYS v číslech</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-cyan">Team VYS v číslech</p>
           <h2 className="mt-4 text-[clamp(2.4rem,5vw,4.5rem)] font-black leading-[0.94] tracking-[-0.03em] text-brand-ink">
             Děti rostou, rodiče mají přehled.
           </h2>

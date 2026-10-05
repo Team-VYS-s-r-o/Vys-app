@@ -15,7 +15,7 @@ const features = [
   {
     icon: Nfc,
     title: 'NFC čipy dodáme my',
-    body: 'Náramky s čipy posíláme přímo od TeamVYS. Spárování s dítětem zabere minutu.',
+    body: 'Náramky s čipy posíláme přímo od Team VYS. Spárování s dítětem zabere minutu.',
     size: 'sm' as const,
   },
   {

@@ -4,10 +4,10 @@ import { PwaRegister } from '@/components/pwa-register';
 
 export const metadata: Metadata = {
   title: {
-    default: 'TeamVYS aplikace',
-    template: '%s · TeamVYS aplikace',
+    default: 'Team VYS aplikace',
+    template: '%s · Team VYS aplikace',
   },
-  description: 'Instalovatelná TeamVYS aplikace pro účastníky a trenéry.',
+  description: 'Instalovatelná Team VYS aplikace pro účastníky a trenéry.',
   manifest: '/app/manifest.webmanifest',
   icons: {
     icon: '/vys-logo-mark.png',

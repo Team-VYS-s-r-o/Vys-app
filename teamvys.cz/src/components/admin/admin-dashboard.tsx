@@ -6473,11 +6473,11 @@ function documentPreviewContent(document: ParentDocument) {
   if (kind === 'gdpr') return {
     heading: 'Souhlas se zpracováním osobních údajů',
     paragraphs: [
-      `Zákonný zástupce ${signer} uděluje TeamVYS souhlas se zpracováním osobních údajů účastníka ${document.participantName} pro aktivitu ${activity}.`,
+      `Zákonný zástupce ${signer} uděluje Team VYS souhlas se zpracováním osobních údajů účastníka ${document.participantName} pro aktivitu ${activity}.`,
       'Údaje slouží pouze k provozu přihlášky, komunikaci s rodičem, bezpečné organizaci aktivity, platební evidenci a interní administraci.'
     ],
     clauses: [
-      'TeamVYS může evidovat jméno dítěte, kontakt na rodiče, stav dokumentů, platby a při kroužcích také docházku evidovanou přes NFC.',
+      'Team VYS může evidovat jméno dítěte, kontakt na rodiče, stav dokumentů, platby a při kroužcích také docházku evidovanou přes NFC.',
       'Nezbytné údaje mohou vidět pouze administrátoři a trenéři, kteří danou aktivitu reálně zajišťují.',
       'Zákonný zástupce může požádat o opravu údajů, omezení zpracování nebo výmaz v rozsahu povoleném zákonnými povinnostmi.',
       'Souhlas se nevztahuje na marketingové zveřejnění fotografií ani videí, pokud není udělen samostatně.'
@@ -6493,7 +6493,7 @@ function documentPreviewContent(document: ParentDocument) {
     clauses: [
       'Účastník se řídí pokyny trenérů, dodržuje bezpečnostní pravidla a nepouští se do prvků, které mu trenér nepovolil.',
       'Rodič potvrzuje, že dítě je schopné běžné sportovní zátěže odpovídající věku a charakteru aktivity.',
-      'TeamVYS může v nezbytné situaci kontaktovat rodiče, přerušit účast dítěte nebo zajistit první pomoc.',
+      'Team VYS může v nezbytné situaci kontaktovat rodiče, přerušit účast dítěte nebo zajistit první pomoc.',
       'Rodič bere na vědomí, že pozdní vyzvednutí, zdravotní změny nebo jiné provozní změny musí nahlásit administraci předem.'
     ],
     confirmation,
@@ -6507,7 +6507,7 @@ function documentPreviewContent(document: ParentDocument) {
     clauses: [
       'Rodič uvádí alergie, pravidelně užívané léky, zdravotní omezení, pojišťovnu a kontakt pro mimořádnou situaci.',
       'Pokud dítě potřebuje léky během dne, rodič předá přesné dávkování a informaci, kdo smí lék podat.',
-      'TeamVYS použije zdravotní údaje jen pro bezpečnost dítěte, první pomoc a komunikaci se zákonným zástupcem.',
+      'Team VYS použije zdravotní údaje jen pro bezpečnost dítěte, první pomoc a komunikaci se zákonným zástupcem.',
       'Rodič se zavazuje neprodleně aktualizovat údaje, pokud se zdravotní stav dítěte změní před aktivitou nebo během ní.'
     ],
     confirmation,
@@ -6535,8 +6535,8 @@ function documentPreviewContent(document: ParentDocument) {
     clauses: [
       'Dítě nejeví příznaky akutního infekčního onemocnění a nebylo mu nařízeno karanténní opatření.',
       'Rodič nezatajil okolnosti, které by mohly ohrozit ostatní účastníky nebo trenéry.',
-      'Při změně zdravotního stavu před nástupem rodič informuje TeamVYS a dítě na aktivitu nepřivede.',
-      'TeamVYS může při podezření na infekční onemocnění kontaktovat rodiče a účast dítěte přerušit.'
+      'Při změně zdravotního stavu před nástupem rodič informuje Team VYS a dítě na aktivitu nepřivede.',
+      'Team VYS může při podezření na infekční onemocnění kontaktovat rodiče a účast dítěte přerušit.'
     ],
     confirmation,
   };
@@ -6557,7 +6557,7 @@ function documentPreviewContent(document: ParentDocument) {
   return {
     heading: 'Administrativní potvrzení účasti',
     paragraphs: [`Dokument se vztahuje k účastníkovi ${document.participantName} a aktivitě ${activity}.`],
-    clauses: ['Dokument je uložený v administraci TeamVYS a slouží ke kontrole kompletnosti přihlášky.'],
+    clauses: ['Dokument je uložený v administraci Team VYS a slouží ke kontrole kompletnosti přihlášky.'],
     confirmation,
   };
 }

@@ -55,11 +55,11 @@ function rowToWebProduct(row: PublicProductRow): WebProduct {
     id: row.id,
     type,
     title: text(row.title, productTypeFallbackTitle(type)),
-    place: text(row.place, text(row.venue, text(row.city, 'TeamVYS'))),
+    place: text(row.place, text(row.venue, text(row.city, 'Team VYS'))),
     priceLabel: text(row.price_label, `${amount.toLocaleString('cs-CZ')} Kč`),
     priceAmount: amount,
     meta: text(row.primary_meta, text(row.event_date, text(row.expires_at, 'Termín doplníme'))),
-    description: text(row.description, text(row.secondary_meta, 'Rezervace a platba TeamVYS.')),
+    description: text(row.description, text(row.secondary_meta, 'Rezervace a platba Team VYS.')),
   };
 }
 

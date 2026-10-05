@@ -8,16 +8,16 @@ import { FeatureCard, SectionIntro } from '@/components/subpage-feature-card';
 export const metadata = {
   title: 'Parkour workshopy pro děti',
   description:
-    'Jednorázové parkour workshopy pro děti — konkrétní triky, flow a bezpečný progres pod vedením trenérů TeamVYS. Vstupenka s QR ticketem online.',
+    'Jednorázové parkour workshopy pro děti — konkrétní triky, flow a bezpečný progres pod vedením trenérů Team VYS. Vstupenka s QR ticketem online.',
   alternates: { canonical: '/workshopy' },
   openGraph: {
-    title: 'Parkour workshopy pro děti · TeamVYS',
+    title: 'Parkour workshopy pro děti · Team VYS',
     description:
-      'Jednorázové parkour workshopy pro děti — konkrétní triky, flow a bezpečný progres pod vedením trenérů TeamVYS.',
+      'Jednorázové parkour workshopy pro děti — konkrétní triky, flow a bezpečný progres pod vedením trenérů Team VYS.',
     url: '/workshopy',
     type: 'website',
     locale: 'cs_CZ',
-    images: [{ url: '/cats/workshop.png', alt: 'Parkour workshopy — TeamVYS' }],
+    images: [{ url: '/cats/workshop.png', alt: 'Parkour workshopy — Team VYS' }],
   },
 };
 

@@ -11,13 +11,13 @@ export const metadata = {
     'Pravidelné parkour kroužky pro děti ve Vyškově, Prostějově, Blansku, Brandýse nad Labem, Jeseníku a Praze. Permanentky 10 nebo 15 vstupů, certifikovaní trenéři.',
   alternates: { canonical: '/krouzky' },
   openGraph: {
-    title: 'Parkour kroužky pro děti · TeamVYS',
+    title: 'Parkour kroužky pro děti · Team VYS',
     description:
       'Pravidelné parkour kroužky pro děti v 6 městech. Permanentky 10 nebo 15 vstupů, certifikovaní trenéři a bezpečný progres od základů.',
     url: '/krouzky',
     type: 'website',
     locale: 'cs_CZ',
-    images: [{ url: '/cats/parkour.png', width: 1307, height: 1203, alt: 'Parkour kroužky pro děti — TeamVYS' }],
+    images: [{ url: '/cats/parkour.png', width: 1307, height: 1203, alt: 'Parkour kroužky pro děti — Team VYS' }],
   },
 };
 

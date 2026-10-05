@@ -232,7 +232,7 @@ export function AppSignInForm() {
       {
         id: userId,
         role: resolvedRole,
-        name: form.name.trim() || email || (resolvedRole === 'coach' ? 'Trenér TeamVYS' : 'Účastník TeamVYS'),
+        name: form.name.trim() || email || (resolvedRole === 'coach' ? 'Trenér Team VYS' : 'Účastník Team VYS'),
         email,
         phone: form.phone.trim() || null,
         bio: resolvedRole === 'coach' ? form.coachMessage.trim() || null : null,
@@ -268,7 +268,7 @@ export function AppSignInForm() {
       {
         id: userId,
         first_name: firstName || 'Účastník',
-        last_name: restName.join(' ') || 'TeamVYS',
+        last_name: restName.join(' ') || 'Team VYS',
         date_of_birth: form.birthDate.trim() || null,
         parent_name: form.parentName.trim() || null,
         parent_phone: form.phone.trim() || null,
@@ -407,7 +407,7 @@ export function AppSignInForm() {
           resolvedRole = profile.role;
         } else {
           await supabase.auth.signOut();
-          setMessage('Tenhle účet patří na webový profil. Rodič a admin pokračují přes běžný web TeamVYS.');
+          setMessage('Tenhle účet patří na webový profil. Rodič a admin pokračují přes běžný web Team VYS.');
           return;
         }
 
@@ -436,7 +436,7 @@ export function AppSignInForm() {
         const approvalStatus = await loadCoachApprovalStatus(user.id);
         if (approvalStatus !== 'approved') {
           await supabase.auth.signOut();
-          setMessage(approvalStatus === 'rejected' ? 'Trenérský přístup zatím není schválený. Ozvi se adminovi TeamVYS.' : 'Trenérský přístup čeká na schválení adminem.');
+          setMessage(approvalStatus === 'rejected' ? 'Trenérský přístup zatím není schválený. Ozvi se adminovi Team VYS.' : 'Trenérský přístup čeká na schválení adminem.');
           return;
         }
       }

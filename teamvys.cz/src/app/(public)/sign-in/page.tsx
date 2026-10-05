@@ -6,7 +6,7 @@ import { SignInForm } from '@/components/auth/sign-in-form';
 
 export const metadata = {
   title: 'Přihlášení',
-  description: 'Přihlášení správců organizací a přihlášení přes mobilní aplikaci TeamVYS.',
+  description: 'Přihlášení správců organizací a přihlášení přes mobilní aplikaci Team VYS.',
 };
 
 export default function SignInPage() {
@@ -31,7 +31,7 @@ export default function SignInPage() {
             <div>
               <p className="font-black text-brand-ink">Jste rodič?</p>
               <p className="mt-1 text-sm leading-6 text-brand-ink-soft">
-                Rodičovský portál (platby, docházka, dokumenty) je nyní v mobilní aplikaci TeamVYS.{' '}
+                Rodičovský portál (platby, docházka, dokumenty) je nyní v mobilní aplikaci Team VYS.{' '}
                 <Link href="/aplikace" className="font-black text-brand-purple hover:text-brand-pink">
                   Stáhněte si aplikaci
                 </Link>

@@ -95,7 +95,7 @@ export default async function AppCoachPage() {
             </div>
             <div className="rounded-[24px] border border-white/15 bg-white/10 p-4 backdrop-blur">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-white/65">Aktuální místo</p>
-              <p className="mt-2 text-xl font-black leading-tight">{coach.currentLocation ?? 'TeamVYS'}</p>
+              <p className="mt-2 text-xl font-black leading-tight">{coach.currentLocation ?? 'Team VYS'}</p>
             </div>
           </div>
 

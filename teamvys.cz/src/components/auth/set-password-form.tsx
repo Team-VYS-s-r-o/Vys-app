@@ -39,7 +39,7 @@ export function SetPasswordForm() {
   useEffect(() => {
     if (!hasSupabaseBrowserConfig()) {
       setPhase('error');
-      setMessage('Chybí konfigurace přihlášení. Kontaktujte podporu TeamVYS.');
+      setMessage('Chybí konfigurace přihlášení. Kontaktujte podporu Team VYS.');
       return;
     }
 
@@ -171,7 +171,7 @@ export function SetPasswordForm() {
       <div className="rounded-[18px] border border-brand-purple/12 bg-brand-paper p-4">
         <p className="text-sm font-black text-brand-ink">Nastavení hesla</p>
         <p className="mt-1 text-xs font-bold leading-5 text-brand-ink-soft">
-          {email ? `Účet: ${email}` : 'Zvolte si heslo pro přihlášení do TeamVYS.'}
+          {email ? `Účet: ${email}` : 'Zvolte si heslo pro přihlášení do Team VYS.'}
         </p>
       </div>
 

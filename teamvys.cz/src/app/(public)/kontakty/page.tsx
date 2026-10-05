@@ -7,15 +7,15 @@ import { contacts } from '@shared/content';
 export const metadata = {
   title: 'Kontakty',
   description:
-    'Kontakt na parkour klub TeamVYS — e-mail, telefon, města, fakturační údaje a rychlá cesta pro rodiče do přihlášení.',
+    'Kontakt na parkour klub Team VYS — e-mail, telefon, města, fakturační údaje a rychlá cesta pro rodiče do přihlášení.',
   alternates: { canonical: '/kontakty' },
   openGraph: {
-    title: 'Kontakty · TeamVYS',
-    description: 'Kontakt na parkour klub TeamVYS — e-mail, telefon a města, kde trénujeme.',
+    title: 'Kontakty · Team VYS',
+    description: 'Kontakt na parkour klub Team VYS — e-mail, telefon a města, kde trénujeme.',
     url: '/kontakty',
     type: 'website',
     locale: 'cs_CZ',
-    images: [{ url: '/cats/parkour.png', alt: 'TeamVYS — kontakty' }],
+    images: [{ url: '/cats/parkour.png', alt: 'Team VYS — kontakty' }],
   },
 };
 

@@ -28,7 +28,7 @@ export function OrgStripeConnectCard() {
       setStatus(s);
     } catch (error) {
       const text = error instanceof Error ? error.message : '';
-      if (text.includes('TeamVYS')) { setHidden(true); return; }
+      if (text.includes('Team VYS') || text.includes('TeamVYS')) { setHidden(true); return; }
       setMessage(text || 'Stav Stripe účtu se nepodařilo načíst.');
     }
   }, []);
@@ -207,7 +207,7 @@ export function OrgStripeConnectCard() {
           </div>
 
           <p className="text-xs text-[#5C5474] mt-4 leading-relaxed">
-            <b>Poplatky:</b> TeamVYS si z plateb nebere nic navíc — peníze jdou celé vám. Stripe si účtuje jen svůj
+            <b>Poplatky:</b> Team VYS si z plateb nebere nic navíc — peníze jdou celé vám. Stripe si účtuje jen svůj
             transakční poplatek za zpracování karty (u evropských karet cca 1,5 % + malý fixní poplatek). Ten platí
             u sportovních služeb stejně jako u čehokoli jiného — není to poplatek „za zboží“, ale za platbu kartou.
           </p>
@@ -221,7 +221,7 @@ export function OrgStripeConnectCard() {
             <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="font-bold text-brand-ink underline underline-offset-2">
               Stripe Dashboard → Developers → API keys
             </a>.
-            Použij klíče svého Stripe účtu (ne TeamVYS). Platby rodičů poté chodí přímo na tvůj Stripe.
+            Použij klíče svého Stripe účtu (ne Team VYS). Platby rodičů poté chodí přímo na tvůj Stripe.
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2">

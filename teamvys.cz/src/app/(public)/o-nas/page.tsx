@@ -9,16 +9,16 @@ import { aboutPillars, stats } from '@shared/content';
 export const metadata = {
   title: 'O nás — parkourová komunita pro děti',
   description:
-    'TeamVYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři, skill tree, NFC docházka a kroužky v šesti městech.',
+    'Team VYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři, skill tree, NFC docházka a kroužky v šesti městech.',
   alternates: { canonical: '/o-nas' },
   openGraph: {
-    title: 'O nás · TeamVYS',
+    title: 'O nás · Team VYS',
     description:
-      'TeamVYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři a kroužky v šesti městech.',
+      'Team VYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři a kroužky v šesti městech.',
     url: '/o-nas',
     type: 'website',
     locale: 'cs_CZ',
-    images: [{ url: '/cats/parkour.png', alt: 'TeamVYS — o nás' }],
+    images: [{ url: '/cats/parkour.png', alt: 'Team VYS — o nás' }],
   },
 };
 

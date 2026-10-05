@@ -5,7 +5,7 @@ import { SetPasswordForm } from '@/components/auth/set-password-form';
 
 export const metadata = {
   title: 'Nastavení hesla',
-  description: 'Nastavte si heslo k účtu TeamVYS.',
+  description: 'Nastavte si heslo k účtu Team VYS.',
 };
 
 export default function SetPasswordPage() {
@@ -17,7 +17,7 @@ export default function SetPasswordPage() {
         </span>
         <h1 className="mt-5 text-3xl font-black leading-tight md:text-5xl">Nastavení hesla</h1>
         <p className="mt-4 max-w-[620px] text-base leading-7 text-brand-ink-soft md:text-lg">
-          Zvolte si heslo a dokončete aktivaci svého účtu TeamVYS.
+          Zvolte si heslo a dokončete aktivaci svého účtu Team VYS.
         </p>
         <div className="mt-7 grid gap-3 sm:grid-cols-3">
           <Info icon={<KeyRound size={19} />} title="Bezpečné" body="Heslo si volíte jen vy, nikam se neposílá." />

@@ -88,7 +88,7 @@ export function PricingSection() {
               href="/kontakty"
               className="group mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-ember text-sm font-black text-white shadow-[0_14px_34px_rgba(139,29,255,0.4)] transition-all duration-200 hover:-translate-y-0.5"
             >
-              Kontaktovat TeamVYS
+              Kontaktovat Team VYS
               <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </motion.div>

@@ -18,7 +18,7 @@ export function PillarsSection() {
   return (
     <section className="section-shell py-24 md:py-32">
       <Reveal>
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-cyan">Proč TeamVYS</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-brand-cyan">Proč Team VYS</p>
         <h2 className="mt-4 max-w-[20ch] text-[clamp(2.4rem,5vw,4.5rem)] font-black leading-[0.94] tracking-[-0.03em] text-brand-ink">
           Bezpečný sport, který má energii hry i jasný systém.
         </h2>

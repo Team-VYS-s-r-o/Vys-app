@@ -19,7 +19,7 @@ export function VysMaskotImage({
   imageClassName,
   priority = false,
   sizes = '(max-width: 768px) 180px, 320px',
-  alt = 'TeamVYS maskot',
+  alt = 'Team VYS maskot',
 }: VysMaskotImageProps) {
   return (
     <div className={cn('relative aspect-[2/3] w-full', className)}>

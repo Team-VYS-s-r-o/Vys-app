@@ -48,7 +48,7 @@ export function PoweredByVys() {
                 transition={{ duration: 0.7, delay: 0.16, ease }}
                 className="mt-5 max-w-[52ch] text-base font-bold leading-7 text-white/65"
               >
-                TeamVYS je parkourový klub, který tuhle platformu vytvořil pro vlastní kroužky, tábory
+                Team VYS je parkourový klub, který tuhle platformu vytvořil pro vlastní kroužky, tábory
                 a workshopy — a dodnes na ní denně jede. Každá funkce vznikla z reálné potřeby trenérů,
                 rodičů a dětí, ne z prezentace.
               </motion.p>
@@ -63,14 +63,14 @@ export function PoweredByVys() {
                   href="/o-nas"
                   className="group inline-flex h-11 items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-6 text-sm font-black text-white backdrop-blur-md transition-all duration-200 hover:bg-white/[0.12]"
                 >
-                  Poznat klub TeamVYS
+                  Poznat klub Team VYS
                   <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
                 <Link
                   href="/krouzky"
                   className="inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-black text-white/65 transition-colors hover:text-white"
                 >
-                  Kroužky a tábory TeamVYS
+                  Kroužky a tábory Team VYS
                 </Link>
               </motion.div>
             </div>

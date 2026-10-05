@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const coachId = stringValue(body.coachId);
     const action = stringValue(body.action) as ApprovalAction | null;
-    const rejectionReason = stringValue(body.reason) ?? 'Zamítnuto v administraci TeamVYS.';
+    const rejectionReason = stringValue(body.reason) ?? 'Zamítnuto v administraci Team VYS.';
 
     if (!coachId) return NextResponse.json({ error: 'Chybí coachId.' }, { status: 400 });
     if (action !== 'approve' && action !== 'reject') return NextResponse.json({ error: 'Neplatná akce.' }, { status: 400 });

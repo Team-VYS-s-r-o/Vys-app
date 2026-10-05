@@ -59,7 +59,7 @@ export const workshops: Workshop[] = [
 
 export const campIncludes: string[] = [
   'Obědy a svačiny po celý den, zdravá strava i pitný režim.',
-  'Designové tričko z nové letní kolekce TeamVYS.',
+  'Designové tričko z nové letní kolekce Team VYS.',
   'Certifikovaní trenéři a animátoři, kteří děti opravdu baví.',
   'Bohatý program: trénink, hry, překážková dráha i kreativní výzvy.',
 ];

@@ -201,7 +201,7 @@ async function loadAdminCoachData(supabase: SupabaseClient, orgId: string): Prom
 
     return {
       id,
-      name: profile?.name || profile?.email || 'Trenér TeamVYS',
+      name: profile?.name || profile?.email || 'Trenér Team VYS',
       email: profile?.email || '',
       phone: profile?.phone || '',
       bankAccount: row?.bank_account || 'není vyplněn',
@@ -235,7 +235,7 @@ async function loadAdminCoachData(supabase: SupabaseClient, orgId: string): Prom
       return {
         id: `coach-approval-${id}`,
         coachId: id,
-        name: profile?.name || profile?.email || 'Trenér TeamVYS',
+        name: profile?.name || profile?.email || 'Trenér Team VYS',
         email: profile?.email || '',
         phone: profile?.phone || '',
         requestedLocation: locations[0] || 'Čeká na přiřazení',

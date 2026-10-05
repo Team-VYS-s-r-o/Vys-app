@@ -530,7 +530,7 @@ export function SignInForm({ variant = 'parent' }: { variant?: WebRole }) {
 }
 
 async function upsertParentProfile(supabase: ReturnType<typeof createBrowserSupabaseClient>, user: AuthUser, fallbackName: string) {
-  const resolvedName = cleanDisplayName(fallbackName) || metadataName(user) || nameFromEmail(user.email) || 'TeamVYS rodič';
+  const resolvedName = cleanDisplayName(fallbackName) || metadataName(user) || nameFromEmail(user.email) || 'Team VYS rodič';
   const { error } = await supabase.from('app_profiles').upsert(
     {
       id: user.id,

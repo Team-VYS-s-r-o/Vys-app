@@ -5,7 +5,7 @@ import { SignInForm } from '@/components/auth/sign-in-form';
 
 export const metadata = {
   title: 'Přihlášení pro správce',
-  description: 'Přihlášení správců organizací na platformě TeamVYS.',
+  description: 'Přihlášení správců organizací na platformě Team VYS.',
 };
 
 export default function AdminSignInPage() {

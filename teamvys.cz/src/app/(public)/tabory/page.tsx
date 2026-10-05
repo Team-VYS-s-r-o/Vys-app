@@ -9,22 +9,22 @@ import { campSchedule } from '@shared/content';
 export const metadata = {
   title: 'Příměstské parkour tábory pro děti',
   description:
-    'Příměstské parkour tábory pro děti s certifikovanými trenéry, programem, jídlem a digitálními dokumenty pro rodiče. Léto plné pohybu s TeamVYS.',
+    'Příměstské parkour tábory pro děti s certifikovanými trenéry, programem, jídlem a digitálními dokumenty pro rodiče. Léto plné pohybu s Team VYS.',
   alternates: { canonical: '/tabory' },
   openGraph: {
-    title: 'Příměstské parkour tábory pro děti · TeamVYS',
+    title: 'Příměstské parkour tábory pro děti · Team VYS',
     description:
       'Příměstské parkour tábory s certifikovanými trenéry, programem, jídlem a digitálními dokumenty pro rodiče.',
     url: '/tabory',
     type: 'website',
     locale: 'cs_CZ',
-    images: [{ url: '/cats/tabor.png', alt: 'Příměstské parkour tábory — TeamVYS' }],
+    images: [{ url: '/cats/tabor.png', alt: 'Příměstské parkour tábory — Team VYS' }],
   },
 };
 
 const includes = [
   { icon: <Utensils size={20} />, title: 'Jídlo a pitný režim', body: 'Obědy a svačiny po celý den, zdravá strava i pitný režim.' },
-  { icon: <Shirt size={20} />, title: 'Táborové tričko', body: 'Designové tričko z nové letní kolekce TeamVYS.' },
+  { icon: <Shirt size={20} />, title: 'Táborové tričko', body: 'Designové tričko z nové letní kolekce Team VYS.' },
   { icon: <Users size={20} />, title: 'Trenéři a animátoři', body: 'Certifikovaní trenéři a animátoři, kteří děti opravdu baví.' },
   { icon: <Trophy size={20} />, title: 'Trénink, hry a výzvy', body: 'Bohatý program: trénink, hry, překážková dráha i kreativní výzvy.' },
 ];

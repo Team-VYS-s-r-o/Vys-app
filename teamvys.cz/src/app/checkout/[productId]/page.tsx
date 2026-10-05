@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
 export const metadata = {
-  title: 'Stáhněte aplikaci TeamVYS',
+  title: 'Stáhněte aplikaci Team VYS',
 };
 
 export default function CheckoutPage() {

@@ -22,9 +22,9 @@ export default function AppSignInPage() {
       <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[0.72fr_1.28fr] lg:items-start">
         <section className="order-2 rounded-brand border border-brand-purple/12 bg-white/90 p-5 shadow-brand-soft backdrop-blur lg:order-1 lg:sticky lg:top-6">
           <div className="flex items-center gap-3">
-            <Image src="/vys-logo-mark.png" alt="TeamVYS" width={42} height={42} className="rounded-brand bg-white p-1 shadow-brand-soft" />
+            <Image src="/vys-logo-mark.png" alt="Team VYS" width={42} height={42} className="rounded-brand bg-white p-1 shadow-brand-soft" />
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-brand-purple">TeamVYS appka</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-brand-purple">Team VYS appka</p>
               <p className="text-lg font-black tracking-wide text-brand-ink">Účastník + trenér</p>
             </div>
           </div>

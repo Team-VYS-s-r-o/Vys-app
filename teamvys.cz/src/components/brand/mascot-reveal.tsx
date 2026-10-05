@@ -250,7 +250,7 @@ export function MascotReveal({
     >
       <Image
         src={frontSrc}
-        alt="TeamVYS maskot"
+        alt="Team VYS maskot"
         fill
         priority={priority}
         sizes={sizes}

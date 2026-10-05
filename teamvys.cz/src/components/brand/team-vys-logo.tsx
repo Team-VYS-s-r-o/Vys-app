@@ -12,7 +12,7 @@ export function TeamVysLogo({ size = 48, className, priority = false }: Props) {
   return (
     <Image
       src="/vys-logo-mark.png"
-      alt="TeamVYS logo"
+      alt="Team VYS logo"
       width={size}
       height={size}
       priority={priority}

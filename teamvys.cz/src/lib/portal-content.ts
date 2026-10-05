@@ -564,9 +564,9 @@ export const sharedTrainingCalendar: SharedTrainingSlot[] = [
 export const coachDppTemplateClauses = [
   'Trenér zajišťuje vedení parkourových lekcí, přípravu prostoru, evidenci docházky a bezpečné předání informací administrátorovi.',
   'Rozsah práce se řídí domluveným rozpisem lekcí a nepřekročí zákonný limit pro DPP v daném kalendářním roce.',
-  'Odměna se počítá podle schválené hodinové sazby a potvrzené docházky v administraci TeamVYS.',
+  'Odměna se počítá podle schválené hodinové sazby a potvrzené docházky v administraci Team VYS.',
   'Trenér potvrzuje mlčenlivost o osobních údajích dětí, rodičů a interních provozních informacích.',
-  'Digitální podpis trenéra a zástupce TeamVYS je považovaný za potvrzení vyplněných údajů a uložení dokumentu do evidence.',
+  'Digitální podpis trenéra a zástupce Team VYS je považovaný za potvrzení vyplněných údajů a uložení dokumentu do evidence.',
 ];
 
 export const adminCoachDppDocuments: AdminCoachDppDocument[] = [
