@@ -912,6 +912,10 @@ async function finalizePaymentIntent(paymentIntent) {
   if (paymentIntent.status !== 'succeeded') throw new Error('Stripe payment is not paid yet.');
 
   const metadata = paymentIntent.metadata || {};
+  // NFC card fee has a synthetic product — it must never hit the generic
+  // side-effects path (getProduct would throw on 'nfc-card-fee').
+  if (metadata.nfc_fee === '1') return finalizeNfcFeePayment(paymentIntent);
+
   const row = purchaseRowFromPaymentIntent(paymentIntent, metadata, 'Zaplaceno');
   const { data: existingPurchase, error: existingPurchaseError } = await supabase
     .from('parent_purchases')
@@ -944,6 +948,194 @@ async function markPaymentIntentFailed(paymentIntent) {
     .eq('stripe_payment_intent_id', paymentIntent.id);
 
   if (error) throw error;
+}
+
+// --- NFC card deposit ---------------------------------------------------------
+// Coach issues an NFC card with the pass; when the pass runs out (10/10 used or
+// expired) and no new one is bought, a return countdown starts. After the org's
+// deadline the parent can (and must) pay the deposit fee via Stripe. A lost card
+// is payable immediately. All state lives on participants.nfc_card_*.
+
+const NFC_FEE_PRODUCT_ID = 'nfc-card-fee';
+const NFC_FEE_TITLE = 'Poplatek za nevrácenou NFC kartičku';
+
+// Pass dates are stored as text in multiple formats (ISO, 'd.m.yyyy'); parse
+// defensively and treat unparseable values as "no expiry".
+function parseFlexibleDate(value) {
+  const text = optionalString(value);
+  if (!text) return null;
+  const czech = text.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+  if (czech) return new Date(Number(czech[3]), Number(czech[2]) - 1, Number(czech[1]), 23, 59, 59);
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+async function nfcOrgSettings(orgId) {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id,name,nfc_deposit_enabled,nfc_return_deadline_days,nfc_deposit_fee')
+    .eq('id', orgId || VYS_ORG_ID)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function participantHasActiveCoursePass(participantId) {
+  const { data, error } = await supabase
+    .from('digital_passes')
+    .select('total_entries,used_entries,expires_at,pass_kind,nfc_chip_id')
+    .eq('participant_id', participantId);
+  if (error) throw error;
+
+  return (data || []).some((pass) => {
+    const isCoursePass = pass.pass_kind
+      ? pass.pass_kind === 'course'
+      : String(pass.nfc_chip_id || '').startsWith('NFC');
+    if (!isCoursePass) return false;
+    const entriesLeft = Number(pass.total_entries || 0) - Number(pass.used_entries || 0) > 0;
+    const expiry = parseFlexibleDate(pass.expires_at);
+    const expired = expiry ? expiry.getTime() < Date.now() : false;
+    return entriesLeft && !expired;
+  });
+}
+
+// Computes (and lazily persists) the card + countdown state for a participant.
+// The countdown anchor is written the first time the server sees "card issued
+// and no active pass" and cleared again when a new active pass shows up, so a
+// new purchase automatically resets the countdown.
+async function nfcCardStateForParticipant(participantId) {
+  const { data: participant, error } = await supabase
+    .from('participants')
+    .select('id,org_id,first_name,last_name,parent_profile_id,nfc_card_status,nfc_card_issued_at,nfc_card_returned_at,nfc_fee_paid_at,nfc_return_countdown_started_at')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!participant) throw httpError('Účastník nenalezen.', 404);
+
+  const org = await nfcOrgSettings(participant.org_id);
+  const enabled = Boolean(org?.nfc_deposit_enabled);
+  const deadlineDays = Math.max(1, Number(org?.nfc_return_deadline_days || 14));
+  const fee = Math.max(0, Math.round(Number(org?.nfc_deposit_fee ?? 100)));
+
+  let countdownStartedAt = participant.nfc_return_countdown_started_at;
+  let countdown = null;
+
+  if (enabled && participant.nfc_card_status === 'issued') {
+    const hasActivePass = await participantHasActiveCoursePass(participantId);
+
+    if (hasActivePass && countdownStartedAt) {
+      const { error: clearError } = await supabase
+        .from('participants')
+        .update({ nfc_return_countdown_started_at: null })
+        .eq('id', participantId);
+      if (clearError) throw clearError;
+      countdownStartedAt = null;
+    } else if (!hasActivePass && !countdownStartedAt) {
+      countdownStartedAt = new Date().toISOString();
+      const { error: startError } = await supabase
+        .from('participants')
+        .update({ nfc_return_countdown_started_at: countdownStartedAt })
+        .eq('id', participantId);
+      if (startError) throw startError;
+    }
+
+    if (countdownStartedAt) {
+      const startedMs = new Date(countdownStartedAt).getTime();
+      const dueMs = startedMs + deadlineDays * 24 * 60 * 60 * 1000;
+      const msLeft = dueMs - Date.now();
+      countdown = {
+        startedAt: new Date(startedMs).toISOString(),
+        dueAt: new Date(dueMs).toISOString(),
+        daysLeft: Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000))),
+        overdue: msLeft <= 0,
+      };
+
+      const dueDateText = new Date(dueMs).toLocaleDateString('cs-CZ');
+      await upsertNfcNotification(
+        participant, org, 'countdown', countdownStartedAt,
+        `Permanentka skončila. Vraťte NFC kartičku trenérovi na tréninku do ${dueDateText}, nebo kupte novou permanentku. Jinak se platí poplatek ${fee} Kč.`,
+      );
+      if (countdown.overdue) {
+        await upsertNfcNotification(
+          participant, org, 'overdue', countdownStartedAt,
+          `Lhůta na vrácení NFC kartičky vypršela. V aplikaci v sekci Děti prosím zaplaťte poplatek ${fee} Kč kartou.`,
+        );
+      }
+    }
+  }
+
+  const canPayFee = enabled && fee > 0 && (
+    participant.nfc_card_status === 'lost'
+    || (participant.nfc_card_status === 'issued' && Boolean(countdown?.overdue))
+  );
+
+  return { participant, org, enabled, deadlineDays, fee, countdown, canPayFee, status: participant.nfc_card_status };
+}
+
+// In-app notification for the parent about the card return countdown / fee.
+// Deterministic id per countdown cycle → idempotent (ignoreDuplicates).
+async function upsertNfcNotification(participant, org, kind, countdownStartedAt, text) {
+  const participantName = `${participant.first_name || ''} ${participant.last_name || ''}`.trim() || 'Dítě';
+  const now = new Date();
+  const createdAtText = `${now.toLocaleDateString('cs-CZ')} ${now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`;
+  const cycleKey = String(countdownStartedAt || '').slice(0, 10) || 'cycle';
+
+  const { error } = await supabase
+    .from('parent_notifications')
+    .upsert({
+      id: `nfc-${kind}-${participant.id}-${cycleKey}`,
+      participant_name: participantName,
+      participant_id: participant.id,
+      parent_profile_id: participant.parent_profile_id || null,
+      org_id: participant.org_id || VYS_ORG_ID,
+      location: org?.name || 'Team VYS',
+      method: 'NFC kartička',
+      text,
+      created_at_text: createdAtText,
+      created_at: now.toISOString(),
+    }, { onConflict: 'id', ignoreDuplicates: true });
+
+  if (error) console.error('NFC notification upsert failed:', error);
+}
+
+// Webhook path for the NFC deposit fee. Skips the generic purchase side effects
+// (synthetic product), records the purchase + payment history row, and flips
+// the participant's card state to fee_paid.
+async function finalizeNfcFeePayment(paymentIntent) {
+  const metadata = paymentIntent.metadata || {};
+  const row = purchaseRowFromPaymentIntent(paymentIntent, metadata, 'Zaplaceno');
+
+  const { data: existingPurchase, error: existingPurchaseError } = await supabase
+    .from('parent_purchases')
+    .select('status')
+    .eq('id', row.id)
+    .maybeSingle();
+  if (existingPurchaseError) throw existingPurchaseError;
+
+  const { data, error } = await supabase
+    .from('parent_purchases')
+    .upsert(row, { onConflict: 'id' })
+    .select()
+    .single();
+  if (error) throw error;
+
+  const { error: participantError } = await supabase
+    .from('participants')
+    .update({
+      nfc_card_status: 'fee_paid',
+      nfc_fee_paid_at: new Date().toISOString(),
+      nfc_fee_payment_intent_id: paymentIntent.id,
+      nfc_return_countdown_started_at: null,
+    })
+    .eq('id', row.participant_id);
+  if (participantError) throw participantError;
+
+  await syncParentPaymentForPurchase(data);
+
+  if (existingPurchase?.status !== 'Zaplaceno') {
+    await safelySendPaymentConfirmationEmail(data, metadata.receipt_email || paymentIntent.receipt_email);
+  }
+  return data;
 }
 
 async function createDigitalPassForPurchase(purchase, productOverride) {
@@ -1215,6 +1407,17 @@ async function syncPaidPurchaseSideEffects(purchase) {
     syncParentPaymentForPurchase(purchase),
     createDigitalPassForPurchase(purchase, product),
   ]);
+
+  // New course pass resets the NFC-card return countdown immediately (don't
+  // wait for the next lazy recompute on status fetch).
+  if (purchase.type === 'Kroužek' && purchase.participant_id) {
+    const { error: nfcResetError } = await supabase
+      .from('participants')
+      .update({ nfc_return_countdown_started_at: null })
+      .eq('id', purchase.participant_id)
+      .eq('nfc_card_status', 'issued');
+    if (nfcResetError) console.error('NFC countdown reset failed:', nfcResetError);
+  }
 }
 
 async function calculateTrainerPayoutAmount(coachId, periodStart, periodEnd) {
@@ -1961,6 +2164,101 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
       org_id: product.org_id || VYS_ORG_ID,
       event_date: product.event_date || '',
       expires_at: product.expires_at || '',
+    },
+  });
+
+  response.json({ id: session.id, url: session.url });
+}));
+
+// NFC card status + return countdown for the parent app. Recomputes (and
+// lazily persists) the countdown anchor on every call.
+app.get('/api/parent/nfc-card/:participantId', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const participantId = requiredString(request.params.participantId, 'participantId');
+  await assertParticipantAccessible(actor, participantId);
+
+  const state = await nfcCardStateForParticipant(participantId);
+  response.json({
+    enabled: state.enabled,
+    status: state.status,
+    issuedAt: state.participant.nfc_card_issued_at,
+    returnedAt: state.participant.nfc_card_returned_at,
+    feePaidAt: state.participant.nfc_fee_paid_at,
+    fee: state.fee,
+    deadlineDays: state.deadlineDays,
+    countdown: state.countdown,
+    canPayFee: state.canPayFee,
+  });
+}));
+
+// Stripe Checkout for the NFC deposit fee. Only allowed once the card is lost
+// or the return deadline has passed — the server re-validates, the client UI
+// gating is just convenience.
+app.post('/api/payments/nfc-fee/checkout', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+
+  const participantId = requiredString(request.body.participantId, 'participantId');
+  const successUrl = requiredString(request.body.successUrl, 'successUrl');
+  const cancelUrl = requiredString(request.body.cancelUrl, 'cancelUrl');
+  await assertParticipantAccessible(actor, participantId);
+
+  const state = await nfcCardStateForParticipant(participantId);
+  if (!state.enabled) throw httpError('Organizace nemá zapnutou zálohu NFC kartiček.', 409);
+  if (state.status === 'fee_paid') throw httpError('Poplatek za kartičku už je zaplacený.', 409);
+  if (state.status === 'none' || state.status === 'returned') throw httpError('Za tuto kartičku se žádný poplatek neplatí.', 409);
+  if (!state.canPayFee) throw httpError('Poplatek jde zaplatit až po uplynutí lhůty na vrácení kartičky.', 409);
+
+  const orgId = state.org?.id || VYS_ORG_ID;
+  let orgStripe;
+  if (orgId === VYS_ORG_ID) {
+    requireStripe();
+    orgStripe = stripe;
+  } else {
+    orgStripe = await requireOrgStripe(orgId, state.org?.name);
+  }
+
+  const parentProfileId = parentProfileIdForActor(actor, request.body.parentProfileId);
+  const receiptEmail = await profileReceiptEmail(parentProfileId, request.body.receiptEmail || actor.email);
+  const participantName = `${state.participant.first_name || ''} ${state.participant.last_name || ''}`.trim() || participantId;
+  const amount = state.fee;
+  const place = state.org?.name || 'Team VYS';
+
+  const session = await orgStripe.checkout.sessions.create({
+    mode: 'payment',
+    locale: 'cs',
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    customer_email: receiptEmail || undefined,
+    payment_intent_data: receiptEmail ? { receipt_email: receiptEmail } : undefined,
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: 'czk',
+          unit_amount: amount * 100,
+          product_data: {
+            name: NFC_FEE_TITLE,
+            description: `${place} · ${participantName}`,
+          },
+        },
+      },
+    ],
+    metadata: {
+      nfc_fee: '1',
+      parent_profile_id: parentProfileId,
+      product_id: NFC_FEE_PRODUCT_ID,
+      participant_id: participantId,
+      participant_name: participantName,
+      type: 'Poplatek',
+      title: NFC_FEE_TITLE,
+      amount: String(amount),
+      original_amount: String(amount),
+      receipt_email: receiptEmail || '',
+      price_label: `${amount} Kč`,
+      place,
+      org_id: orgId,
     },
   });
 
