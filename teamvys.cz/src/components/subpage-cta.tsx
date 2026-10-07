@@ -1,10 +1,9 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-
-const ease = [0.22, 1, 0.36, 1] as const;
+import { useRef } from 'react';
 
 type Props = {
   eyebrow: string;
@@ -16,15 +15,22 @@ type Props = {
   secondaryLabel?: string;
 };
 
-/** Closing CTA — a phone rising out of the footer's gradient line. */
+/** Closing CTA — a phone that smoothly rises out of the footer line as you scroll. */
 export function SubpageCta({ eyebrow, title, highlight, ctaHref, ctaLabel, secondaryHref, secondaryLabel }: Props) {
+  const prefersReducedMotion = useReducedMotion();
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Scrubbed by scroll: progress 0 = section entering the viewport bottom,
+  // progress 1 = section fully revealed. Scrolling back down tucks the phone away again.
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start end', 'end end'] });
+  const rawY = useTransform(scrollYProgress, [0, 1], [220, 0]);
+  const y = useSpring(rawY, { stiffness: 110, damping: 22, mass: 0.6 });
+  const opacity = useTransform(scrollYProgress, [0, 0.4], [0.2, 1]);
+
   return (
-    <section className="section-shell pt-16 md:pt-24">
+    <section ref={sectionRef} className="section-shell overflow-hidden pt-16 md:pt-24">
       <motion.div
-        initial={{ opacity: 0, y: 90 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-60px' }}
-        transition={{ duration: 0.7, ease }}
+        style={prefersReducedMotion ? undefined : { y, opacity }}
         className="relative mx-auto w-full max-w-[460px]"
       >
         {/* Glow spilling from behind the phone onto the page */}
