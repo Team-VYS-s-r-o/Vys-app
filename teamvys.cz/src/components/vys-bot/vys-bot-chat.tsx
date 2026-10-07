@@ -241,6 +241,8 @@ const FALLBACK: Pick<KnowledgeEntry, 'answer' | 'links' | 'followUps'> = {
 
 const DEFAULT_CHIPS = ['add-child', 'buy-pass', 'ucastnik', 'missed-training', 'cities', 'app-download'];
 
+const BOT_API_URL = `${process.env.NEXT_PUBLIC_API_URL || 'https://server-psi-ochre-40.vercel.app'}/api/bot/chat`;
+
 function normalize(value: string) {
   return value
     .toLowerCase()
@@ -289,6 +291,8 @@ export function VysBotChat() {
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+  /** Zvýší se při resetu — zahodí odpovědi AI, které dorazí po restartu chatu. */
+  const sessionRef = useRef(0);
 
   // Úvodní pozdrav s prodlevou — působí živě.
   useEffect(() => {
@@ -321,17 +325,59 @@ export function VysBotChat() {
     });
   }
 
-  function ask(question: string) {
-    const trimmed = question.trim();
-    if (!trimmed || typing) return;
-    setMessages((current) => [...current, { id: nextId(), from: 'user', text: trimmed }]);
-    setInput('');
-    const entry = findEntry(trimmed);
+  /** Lokální odpověď ze znalostní báze (zdarma, okamžitě, s odkazy). */
+  function answerLocally(question: string) {
+    const entry = findEntry(question);
     if (entry) queueBotMessages(entry.answer, entry.links, entry.followUps ?? DEFAULT_CHIPS);
     else queueBotMessages(FALLBACK.answer, FALLBACK.links, FALLBACK.followUps);
   }
 
+  /** AI odpověď přes server (Claude). Při chybě tiše spadne na znalostní bázi. */
+  async function answerWithAi(question: string, history: ChatMessage[]) {
+    const session = sessionRef.current;
+    setTyping(true);
+    setChips([]);
+    try {
+      const apiMessages = [...history, { id: 0, from: 'user' as const, text: question }]
+        .slice(-10)
+        .map((message) => ({ role: message.from === 'user' ? 'user' : 'assistant', content: message.text }));
+
+      const response = await fetch(BOT_API_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages }),
+      });
+      if (!response.ok) throw new Error(`Bot API ${response.status}`);
+      const payload = (await response.json()) as { reply?: string };
+      const reply = (payload.reply || '').trim();
+      if (!reply) throw new Error('Empty reply');
+      if (session !== sessionRef.current) return;
+
+      const parts = reply
+        .split(/\n{2,}/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .slice(0, 3);
+      queueBotMessages(parts.length ? parts : [reply], undefined, DEFAULT_CHIPS, 150);
+    } catch {
+      if (session !== sessionRef.current) return;
+      answerLocally(question);
+    }
+  }
+
+  function ask(question: string, options?: { viaChip?: boolean }) {
+    const trimmed = question.trim();
+    if (!trimmed || typing) return;
+    const history = messages;
+    setMessages((current) => [...current, { id: nextId(), from: 'user', text: trimmed }]);
+    setInput('');
+    // Chipy mají připravené odpovědi s odkazy — AI voláme jen pro volně psané dotazy.
+    if (options?.viaChip) answerLocally(trimmed);
+    else void answerWithAi(trimmed, history);
+  }
+
   function reset() {
+    sessionRef.current += 1;
     timeouts.current.forEach(clearTimeout);
     timeouts.current = [];
     setMessages([]);
@@ -359,7 +405,7 @@ export function VysBotChat() {
           <p className="flex items-center gap-2 text-base font-black text-white md:text-lg">
             VYS kočka
             <span className="inline-flex items-center gap-1 rounded-full bg-brand-purple/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-brand-purple-light ring-1 ring-inset ring-brand-purple/30">
-              <Sparkles size={10} /> pomocník
+              <Sparkles size={10} /> AI pomocník
             </span>
           </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs font-bold text-white/50">
@@ -469,7 +515,7 @@ export function VysBotChat() {
               <button
                 key={entry.id}
                 type="button"
-                onClick={() => ask(entry.chip)}
+                onClick={() => ask(entry.chip, { viaChip: true })}
                 className="rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-2 text-xs font-black text-white/75 transition-colors hover:border-brand-purple/60 hover:bg-brand-purple/15 hover:text-white"
               >
                 {entry.chip}
