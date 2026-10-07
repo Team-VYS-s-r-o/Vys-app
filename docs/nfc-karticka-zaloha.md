@@ -32,3 +32,11 @@ Zavedeno 2026-10-06. Funkce pokrývá vydávání NFC kartiček dětem, jejich v
 - **Rodič** (`vys-aplikace/app/(parent)/deti.tsx`): karta „NFC kartička" — stav, odpočet (dny + datum), tlačítko `Zaplatit poplatek X Kč kartou` (jen při canPayFee) → `apiClient.nfcFeeCheckout` → Stripe Checkout URL. API metody `nfcCardStatus` / `nfcFeeCheckout` v `lib/api-client.ts`.
 - **Admin** (`aplikacevys.cz/src/components/admin/admin-dashboard.tsx`, FinanceOverviewSection): panel „NFC kartičky – záloha" — toggle, lhůta, poplatek → RPC `teamvys_update_nfc_settings`.
 - **Podmínky**: klauzule v `aplikacevys.cz/src/app/obchodni-podminky/page.tsx` (sekce 5); LEGAL_VERSION `2026-10-06` v obou repech.
+
+## Dodatečné odsouhlasení podmínek (2026-10-07)
+Rodiče registrovaní před verzí `2026-10-06` mají v `app_profiles.terms_version` starou hodnotu (`2026-07-11` nebo NULL) → klauzuli o kartičce nikdy neodsouhlasili.
+- Hook `vys-aplikace/hooks/use-legal-consent.ts` (`useLegalConsent`) porovná `terms_version` s `LEGAL_VERSION`; `accept()` zapíše novou verzi + `terms_accepted_at` (RLS „app_profiles own update").
+- Komponenta `vys-aplikace/components/legal-consent-required-card.tsx` — žlutá karta s checkboxem; vykreslená v `app/(parent)/rodic.tsx` a `app/(parent)/platby.tsx`, po potvrzení zmizí.
+- `startPurchase()` v `platby.tsx` nákup zablokuje, dokud souhlas chybí.
+- Jednorázové upozornění rozesláno přes `parent_broadcasts` + `parent_broadcast_recipients` (audience `selected`, 113 rodičů Team VYS).
+- Admin sekce NFC kartičky ukazuje panel „Souhlas s podmínkami o NFC kartičce" (Potvrzeno / Čeká).
