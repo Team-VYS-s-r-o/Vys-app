@@ -84,7 +84,7 @@ export function HomeHero() {
   // Each fades in, holds, then fades out — except the last, which stays once revealed.
   // The whole headline starts slightly above centre and eases further up as scrolling
   // begins, so there isn't dead space above PARKOUR before the word-swap kicks in.
-  const contentY = useTransform(scrollYProgress, [0, 0.09], ['0dvh', isMobile ? '-22dvh' : '-17dvh']);
+  const contentY = useTransform(scrollYProgress, [0, 0.09], ['0dvh', isMobile ? '-27dvh' : '-17dvh']);
   const s0Opacity = useTransform(scrollYProgress, [0, 0.05, 0.09], [1, 1, 0]);
   const s0Y = useTransform(scrollYProgress, [0, 0.09], [0, -16]);
   const s1Opacity = useTransform(scrollYProgress, [0.05, 0.11, 0.24, 0.3], [0, 1, 1, 0]);
@@ -151,7 +151,7 @@ export function HomeHero() {
               The paragraph/CTA area below is absolutely positioned so it never affects that. */}
           <motion.div className="relative flex w-full flex-col items-center text-center sm:items-start sm:text-left" style={prefersReducedMotion ? undefined : { y: contentY }}>
             <h1
-              className={`${displayFont.className} block text-[clamp(2.3rem,11vw,9.5rem)] font-extrabold uppercase leading-[0.94] tracking-[-0.03em] text-white`}
+              className={`${displayFont.className} block text-[clamp(3rem,14vw,9.5rem)] font-extrabold uppercase leading-[0.94] tracking-[-0.03em] text-white sm:text-[clamp(2.3rem,11vw,9.5rem)]`}
             >
               parkour
             </h1>
@@ -163,7 +163,7 @@ export function HomeHero() {
                 <motion.span
                   key={word}
                   style={prefersReducedMotion ? { opacity: index === 1 ? 1 : 0 } : slideMotion[index]}
-                  className={`${displayFont.className} hero-outline-text col-start-1 row-start-1 block text-[clamp(2.3rem,11vw,9.5rem)] font-extrabold uppercase leading-[0.94] tracking-[-0.03em]`}
+                  className={`${displayFont.className} hero-outline-text col-start-1 row-start-1 block text-[clamp(3rem,14vw,9.5rem)] font-extrabold uppercase leading-[0.94] tracking-[-0.03em] sm:text-[clamp(2.3rem,11vw,9.5rem)]`}
                 >
                   {word}
                 </motion.span>
@@ -179,7 +179,7 @@ export function HomeHero() {
                   style={prefersReducedMotion ? { opacity: index === 0 ? 1 : 0 } : slideMotion[index + 1]}
                   className="col-start-1 row-start-1 flex w-full max-w-[56ch] flex-col items-center gap-5 text-center sm:items-start sm:gap-7 sm:text-left"
                 >
-                  <p className="text-lg leading-8 text-white/85 sm:text-xl sm:leading-9 md:text-2xl md:leading-10">{chapter.copy}</p>
+                  <p className="text-xl leading-8 text-white/85 sm:text-xl sm:leading-9 md:text-2xl md:leading-10">{chapter.copy}</p>
                   <Link
                     href={chapter.cta.href}
                     className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#86EFAC] px-7 text-base font-black text-[#0B2E1B] transition-transform hover:-translate-y-0.5 hover:bg-[#6EE79A]"
