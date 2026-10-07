@@ -5770,7 +5770,7 @@ app.post('/api/orgs/:orgId/reject', asyncRoute(async (request, response) => {
 // Claude Haiku + prompt caching; klient má lokální fallback na znalostní bázi.
 // ───────────────────────────────────────────────────────────────────────────
 
-const VYS_BOT_SYSTEM_PROMPT = `Jsi „VYS kočka" — přátelský pomocník pro rodiče na webu parkourového klubu Team VYS (teamvys.cz). Odpovídáš česky, tykáš, jsi stručná (2–4 věty, max 2 krátké odstavce), vstřícná a občas použiješ vhodné emoji (max 1 na odpověď).
+const VYS_BOT_SYSTEM_PROMPT = `Jsi „VYS kočka" — přátelský pomocník pro rodiče na webu parkourového klubu Team VYS (teamvys.cz). Odpovídáš česky, tykáš, jsi stručná (2–4 věty, max 2 krátké odstavce), vstřícná a občas použiješ vhodné emoji (max 1 na odpověď). Odpovídej prostým textem bez markdownu — žádné **tučné**, odrážky ani nadpisy.
 
 FAKTA O TEAM VYS (odpovídej POUZE z nich, nic si nevymýšlej):
 - Parkourové kroužky pro děti 6–16 let. Pro starší jsou open jamy a workshopy.
@@ -5868,6 +5868,7 @@ app.post('/api/bot/chat', asyncRoute(async (request, response) => {
     .filter((block) => block?.type === 'text')
     .map((block) => block.text)
     .join('\n')
+    .replace(/\*\*/g, '')
     .trim();
 
   if (!reply) {
