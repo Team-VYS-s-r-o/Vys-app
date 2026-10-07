@@ -2441,6 +2441,232 @@ app.post('/api/parent/purchases/:id/cancel', asyncRoute(async (request, response
   response.json({ ok: true, refunded: Number(purchase.amount || 0), refundId: refund?.id || null });
 }));
 
+// ---------------------------------------------------------------------------
+// Potvrzení o platbě (PDF) — rodič si ho stáhne přímo v aplikaci a doloží
+// zdravotní pojišťovně / zaměstnavateli. Stažení běží přes krátkodobě podepsaný
+// odkaz (HMAC), protože Linking.openURL neumí poslat Authorization hlavičku.
+// ---------------------------------------------------------------------------
+
+// Fakturační identita Team VYS pro PDF potvrzení (externí orgy jedou z DB).
+const VYS_CONFIRMATION_ISSUER = {
+  name: 'Team VYS s.r.o.',
+  ico: '30059496',
+  address: 'č.p. 198, 683 04 Ruprechtov',
+  registry: 'zapsaná v obchodním rejstříku vedeném Krajským soudem v Brně, oddíl C, vložka 154077',
+  email: 'info@teamvys.cz',
+  phone: '+420 734 167 417',
+};
+
+const CONFIRMATION_ACTIVITY_LABELS = {
+  'Kroužek': 'sportovní kroužek — pravidelná pohybová aktivita dětí',
+  'Tábor': 'sportovní (příměstský) tábor',
+  'Workshop': 'sportovní workshop',
+};
+
+function confirmationSignature(purchaseId, expires) {
+  return crypto
+    .createHmac('sha256', supabaseServiceKey || 'vys-payment-confirmation')
+    .update(`payment-confirmation:${purchaseId}:${expires}`)
+    .digest('hex');
+}
+
+// Historie v aplikaci míchá řádky z parent_purchases a parent_payments
+// (parent_payments id = `payment-<purchase.id>`), ber proto obojí.
+function normalizeConfirmationPurchaseId(value) {
+  const id = requiredString(value, 'purchase id');
+  return id.startsWith('payment-') ? id.slice('payment-'.length) : id;
+}
+
+async function loadConfirmationPurchase(purchaseId) {
+  const { data: purchase, error } = await supabase
+    .from('parent_purchases')
+    .select('*')
+    .eq('id', purchaseId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!purchase) throw httpError('Platba nebyla nalezena.', 404);
+  if (purchase.status === 'Stornováno') throw httpError('Ke stornované platbě potvrzení nevystavujeme.', 409);
+  return purchase;
+}
+
+function formatConfirmationDate(value) {
+  const parsed = parseFlexibleDate(value);
+  if (parsed) return parsed.toLocaleDateString('cs-CZ');
+  const czech = String(value || '').match(/\d{1,2}\.\s*\d{1,2}\.\s*\d{4}/);
+  return czech ? czech[0] : null;
+}
+
+// Krok 1: aplikace si (s přihlášením) vyžádá podepsaný odkaz na PDF.
+app.get('/api/parent/purchases/:id/confirmation-link', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const purchaseId = normalizeConfirmationPurchaseId(request.params.id);
+  const purchase = await loadConfirmationPurchase(purchaseId);
+  if (actor.role !== 'admin' && purchase.parent_profile_id !== actor.id) {
+    throw httpError('Tato platba nepatří k tvému účtu.', 403);
+  }
+
+  const expires = Date.now() + 10 * 60 * 1000;
+  const token = confirmationSignature(purchase.id, expires);
+  const proto = String(request.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+  const host = request.headers['x-forwarded-host'] || request.headers.host;
+  const url = `${proto}://${host}/api/parent/purchases/${encodeURIComponent(purchase.id)}/confirmation.pdf?e=${expires}&t=${token}`;
+  response.json({ url, expiresAt: new Date(expires).toISOString() });
+}));
+
+// Krok 2: prohlížeč stáhne PDF přes podepsaný odkaz (bez Authorization).
+app.get('/api/parent/purchases/:id/confirmation.pdf', asyncRoute(async (request, response) => {
+  requireServices();
+  const purchaseId = normalizeConfirmationPurchaseId(request.params.id);
+  const expires = Number(request.query.e || 0);
+  const token = optionalString(request.query.t) || '';
+  if (!expires || !token) throw httpError('Odkaz na potvrzení není platný.', 401);
+  if (Date.now() > expires) throw httpError('Platnost odkazu vypršela — otevři potvrzení z aplikace znovu.', 401);
+  const expected = confirmationSignature(purchaseId, expires);
+  const tokenBuffer = Buffer.from(token);
+  const expectedBuffer = Buffer.from(expected);
+  if (tokenBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(tokenBuffer, expectedBuffer)) {
+    throw httpError('Odkaz na potvrzení není platný.', 401);
+  }
+
+  const purchase = await loadConfirmationPurchase(purchaseId);
+
+  // Vystavitel: Team VYS má plnou identitu natvrdo, externí org z DB.
+  let issuer = VYS_CONFIRMATION_ISSUER;
+  const orgId = purchase.org_id || VYS_ORG_ID;
+  if (orgId !== VYS_ORG_ID) {
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .select('name,ares_name,ico,city,contact_email')
+      .eq('id', orgId)
+      .maybeSingle();
+    if (orgError) throw orgError;
+    if (org) {
+      issuer = {
+        name: org.ares_name || org.name || 'Organizace',
+        ico: optionalString(org.ico),
+        address: optionalString(org.city),
+        registry: null,
+        email: optionalString(org.contact_email),
+        phone: null,
+      };
+    }
+  }
+
+  let payer = null;
+  if (purchase.parent_profile_id) {
+    const { data } = await supabase
+      .from('app_profiles')
+      .select('name,email')
+      .eq('id', purchase.parent_profile_id)
+      .maybeSingle();
+    payer = data || null;
+  }
+
+  const PDFDocument = require('pdfkit');
+  const path = require('path');
+  const fontRegular = path.join(__dirname, 'assets/fonts/Inter-Regular.ttf');
+  const fontBold = path.join(__dirname, 'assets/fonts/Inter-Bold.ttf');
+
+  const doc = new PDFDocument({
+    size: 'A4',
+    margin: 56,
+    font: fontRegular,
+    info: { Title: 'Potvrzení o platbě', Author: issuer.name },
+  });
+  doc.registerFont('regular', fontRegular);
+  doc.registerFont('bold', fontBold);
+
+  const chunks = [];
+  doc.on('data', (chunk) => chunks.push(chunk));
+  const finished = new Promise((resolve, reject) => {
+    doc.on('end', resolve);
+    doc.on('error', reject);
+  });
+
+  const amountLabel = `${Number(purchase.amount || 0).toLocaleString('cs-CZ')} Kč`;
+  const paidAtLabel = formatConfirmationDate(purchase.paid_at) || formatConfirmationDate(purchase.created_at);
+  const activityLabel = CONFIRMATION_ACTIVITY_LABELS[purchase.type] || optionalString(purchase.type);
+  const issuedLabel = new Date().toLocaleDateString('cs-CZ');
+
+  const labelX = doc.page.margins.left;
+  const valueX = labelX + 150;
+  const valueWidth = doc.page.width - doc.page.margins.right - valueX;
+  const row = (label, value) => {
+    if (!value) return;
+    const y = doc.y;
+    doc.font('bold').fontSize(10).fillColor('#334155').text(label, labelX, y, { width: 145 });
+    doc.font('regular').fontSize(10).fillColor('#0f172a').text(String(value), valueX, y, { width: valueWidth });
+    doc.moveDown(0.45);
+  };
+  const sectionTitle = (title) => {
+    doc.moveDown(0.9);
+    doc.font('bold').fontSize(11).fillColor('#0f172a').text(title.toUpperCase(), labelX, doc.y, { characterSpacing: 0.6 });
+    doc.moveDown(0.15);
+    doc.moveTo(labelX, doc.y).lineTo(doc.page.width - doc.page.margins.right, doc.y).lineWidth(0.7).strokeColor('#cbd5e1').stroke();
+    doc.moveDown(0.5);
+  };
+
+  doc.font('bold').fontSize(20).fillColor('#0f172a').text('Potvrzení o platbě', labelX, doc.y);
+  doc.moveDown(0.2);
+  doc.font('regular').fontSize(10).fillColor('#475569').text(`Číslo potvrzení: ${purchase.id}`, labelX, doc.y);
+  doc.text(`Datum vystavení: ${issuedLabel}`, labelX, doc.y);
+
+  sectionTitle('Poskytovatel aktivity');
+  row('Název', issuer.name);
+  row('IČO', issuer.ico);
+  row('Sídlo', issuer.address);
+  if (issuer.registry) row('Rejstřík', issuer.registry);
+  row('E-mail', issuer.email);
+  row('Telefon', issuer.phone);
+
+  if (payer?.name || payer?.email) {
+    sectionTitle('Plátce');
+    row('Jméno', optionalString(payer?.name));
+    row('E-mail', optionalString(payer?.email));
+  }
+
+  sectionTitle('Údaje o platbě');
+  row('Účastník', purchase.participant_name);
+  row('Název aktivity', purchase.title);
+  row('Druh aktivity', activityLabel);
+  row('Místo konání', purchase.place);
+  row('Termín', purchase.event_date);
+  row('Uhrazená částka', amountLabel);
+  row('Datum úhrady', paidAtLabel);
+  row('Způsob úhrady', 'online platební kartou (Stripe)');
+  row('Identifikátor platby', purchase.stripe_payment_intent_id || purchase.id);
+
+  doc.moveDown(1);
+  doc.font('regular').fontSize(10.5).fillColor('#0f172a').text(
+    `Potvrzujeme, že výše uvedená platba za účastníka ${purchase.participant_name || ''} byla uhrazena v plné výši ${amountLabel}. `
+    + 'Toto potvrzení se vystavuje na žádost plátce, zejména pro účely čerpání příspěvku z fondu prevence zdravotní pojišťovny nebo příspěvku zaměstnavatele na pohybové aktivity dětí.',
+    labelX,
+    doc.y,
+    { width: doc.page.width - doc.page.margins.left - doc.page.margins.right, lineGap: 2.5 },
+  );
+
+  doc.moveDown(1.6);
+  doc.font('regular').fontSize(9).fillColor('#64748b').text(
+    `Vystaveno elektronicky systémem TeamVYS dne ${issuedLabel}. Potvrzení je platné bez podpisu a razítka.`,
+    labelX,
+    doc.y,
+  );
+
+  doc.end();
+  await finished;
+
+  const safeName = String(purchase.participant_name || 'ucastnik')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'ucastnik';
+  response.setHeader('Content-Type', 'application/pdf');
+  response.setHeader('Content-Disposition', `attachment; filename="potvrzeni-o-platbe-${safeName}.pdf"`);
+  response.send(Buffer.concat(chunks));
+}));
+
 app.post('/api/participants/manual', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireParentOrAdmin(request);
@@ -5897,7 +6123,7 @@ FAKTA O TEAM VYS (odpovídej POUZE z nich, nic si nevymýšlej):
 - Příměstské tábory o prázdninách v turnusech; rezervace, platba i nahrání dokumentů (posudek, bezinfekčnost) v aplikaci. Termíny: teamvys.cz/tabory.
 - Workshopy: jednorázové akce s QR ticketem, koupí se v aplikaci, vhodné i pro starší 16 let. teamvys.cz/workshopy.
 - Zapomenuté heslo: na přihlašovací obrazovce aplikace „Zapomenuté heslo" → e-mail s obnovou.
-- Doklad o platbě je v aplikaci u dané platby. Potvrzení pro pojišťovnu/zaměstnavatele připraví tým na vyžádání e-mailem.
+- Potvrzení o platbě pro pojišťovnu/zaměstnavatele si rodič stáhne v PDF přímo v aplikaci: záložka Platby → Historie plateb → tlačítko „Potvrzení (PDF)" u dané platby.
 - Kontakt: telefon 734 167 417, e-mail info@teamvys.cz, stránka teamvys.cz/kontakty.
 
 PRAVIDLA:
