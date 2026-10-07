@@ -121,7 +121,7 @@ export const heroBullets = [
 
 export const contacts: Contacts = {
   phone: '734 167 417',
-  email: 'ahoj@teamvys.cz',
+  email: 'info@teamvys.cz',
   ico: '30059496',
   bank: '3730284010/3030',
   social: ['Instagram', 'YouTube', 'Facebook', 'WhatsApp'],

@@ -97,7 +97,7 @@ const organizationJsonLd = {
   image: `${SITE_URL}/cats/parkour.png`,
   description:
     'Parkour kroužky pro děti, příměstské tábory a jednorázové workshopy pod vedením certifikovaných trenérů.',
-  email: 'ahoj@teamvys.cz',
+  email: 'info@teamvys.cz',
   telephone: '+420734167417',
   sport: 'Parkour',
   priceRange: 'Kč',

@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, RotateCcw, Send, Sparkles } from 'lucide-react';
+import { ArrowRight, RotateCcw, Send } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
@@ -182,7 +182,7 @@ const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ['prihlasit', 'prihlaseni', 'heslo', 'zapomenute', 'zapomnel', 'zapomnela', 'nefunguje ucet', 'reset hesla', 'email nefunguje'],
     answer: [
       'Zapomenuté heslo vyřešíš přímo na přihlašovací obrazovce aplikace — klepni na „Zapomenuté heslo" a přijde ti e-mail s obnovou. 🔑',
-      'Když se zasekneš, napiš nám na ahoj@teamvys.cz nebo zavolej 734 167 417 a vyřešíme to spolu.',
+      'Když se zasekneš, napiš nám na info@teamvys.cz nebo zavolej 734 167 417 a vyřešíme to spolu.',
     ],
     links: [{ href: APP_URL, label: 'Otevřít aplikaci', external: true }],
     followUps: ['app-download', 'contact'],
@@ -193,7 +193,7 @@ const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ['potvrzeni', 'faktura', 'doklad', 'uctenka', 'prispevek pojistovna', 'pojistovna', 'zamestnavatel'],
     answer: [
       'Ano — po zaplacení najdeš doklad v aplikaci u dané platby. 🧾',
-      'Potřebuješ-li potvrzení pro pojišťovnu nebo zaměstnavatele, napiš nám na ahoj@teamvys.cz a připravíme ho.',
+      'Potřebuješ-li potvrzení pro pojišťovnu nebo zaměstnavatele, napiš nám na info@teamvys.cz a připravíme ho.',
     ],
     followUps: ['buy-pass', 'contact'],
   },
@@ -223,7 +223,7 @@ const KNOWLEDGE: KnowledgeEntry[] = [
     chip: 'Kontakt na vás',
     keywords: ['kontakt', 'telefon', 'email', 'e-mail', 'zavolat', 'napsat', 'cislo', 'spojit'],
     answer: [
-      'Rádi pomůžeme osobně! 📞 Telefon: 734 167 417 · E-mail: ahoj@teamvys.cz',
+      'Rádi pomůžeme osobně! 📞 Telefon: 734 167 417 · E-mail: info@teamvys.cz',
       'Nebo mrkni na stránku Kontakty — je tam i rychlý rozcestník.',
     ],
     links: [{ href: '/kontakty', label: 'Kontakty' }],
@@ -233,7 +233,7 @@ const KNOWLEDGE: KnowledgeEntry[] = [
 const FALLBACK: Pick<KnowledgeEntry, 'answer' | 'links' | 'followUps'> = {
   answer: [
     'Hmm, na tohle zatím nemám připravenou odpověď. 🐱 Zkus to napsat jinak, nebo vyber jednu z otázek níže.',
-    'A kdyby nic — napiš nám na ahoj@teamvys.cz nebo zavolej 734 167 417, odpovídáme rychle.',
+    'A kdyby nic — napiš nám na info@teamvys.cz nebo zavolej 734 167 417, odpovídáme rychle.',
   ],
   links: [{ href: '/kontakty', label: 'Kontakty' }],
   followUps: ['add-child', 'buy-pass', 'cities'],
@@ -402,12 +402,7 @@ export function VysBotChat() {
           <Image src="/cats/premyslim.png" alt="VYS kočka" fill sizes="64px" className="object-contain drop-shadow-[0_8px_24px_rgba(139,29,255,0.45)]" />
         </motion.div>
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 text-base font-black text-white md:text-lg">
-            VYS kočka
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-purple/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-brand-purple-light ring-1 ring-inset ring-brand-purple/30">
-              <Sparkles size={10} /> AI pomocník
-            </span>
-          </p>
+          <p className="text-base font-black text-white md:text-lg">VYS kočka</p>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs font-bold text-white/50">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             online · odpovídá hned

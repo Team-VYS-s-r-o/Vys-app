@@ -9,7 +9,7 @@ const ease = [0.22, 1, 0.36, 1] as const;
 
 const WEB_APP_URL = 'https://vys-expo-web-export.vercel.app/sign-in?source=pwa';
 const WAITLIST_MAILTO =
-  'mailto:ahoj@teamvys.cz' +
+  'mailto:info@teamvys.cz' +
   '?subject=' +
   encodeURIComponent('Chci vědět, až bude aplikace na Google Play') +
   '&body=' +

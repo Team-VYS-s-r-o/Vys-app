@@ -75,7 +75,12 @@ export function SiteNav() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold text-white transition-all duration-300 ease-out hover:bg-white/10 group-hover:text-black group-hover:hover:bg-black/5"
+                  className={cn(
+                    'whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold transition-all duration-300 ease-out hover:bg-white/10 group-hover:hover:bg-black/5',
+                    item.href === '/pomocnik'
+                      ? 'text-brand-orange group-hover:text-brand-orange-deep'
+                      : 'text-white group-hover:text-black'
+                  )}
                 >
                   {item.label}
                 </Link>
@@ -137,7 +142,11 @@ export function SiteNav() {
                         onClick={() => setOpen(false)}
                         className={cn(
                           'block py-3 transition-colors',
-                          active ? 'text-brand-purple' : 'text-brand-ink hover:text-brand-purple'
+                          item.href === '/pomocnik'
+                            ? 'text-brand-orange-deep hover:text-brand-orange'
+                            : active
+                              ? 'text-brand-purple'
+                              : 'text-brand-ink hover:text-brand-purple'
                         )}
                       >
                         <span className="text-[clamp(1.9rem,7vw,3rem)] font-black leading-none">{item.label}</span>
