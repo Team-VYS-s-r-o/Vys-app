@@ -14,27 +14,27 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/app',
-        destination: 'https://vys-expo-web-export.vercel.app/sign-in',
+        destination: 'https://app.aplikacevys.cz/sign-in',
         permanent: false,
       },
       {
         source: '/app/sign-in',
-        destination: 'https://vys-expo-web-export.vercel.app/sign-in',
+        destination: 'https://app.aplikacevys.cz/sign-in',
         permanent: false,
       },
       {
         source: '/app/ucastnik',
-        destination: 'https://vys-expo-web-export.vercel.app/tricks',
+        destination: 'https://app.aplikacevys.cz/tricks',
         permanent: false,
       },
       {
         source: '/app/trener',
-        destination: 'https://vys-expo-web-export.vercel.app/coach',
+        destination: 'https://app.aplikacevys.cz/coach',
         permanent: false,
       },
       {
         source: '/app/:path*',
-        destination: 'https://vys-expo-web-export.vercel.app/sign-in',
+        destination: 'https://app.aplikacevys.cz/sign-in',
         permanent: false,
       },
     ];

@@ -7,7 +7,7 @@ import { useState, type ReactNode } from 'react';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-const WEB_APP_URL = 'https://vys-expo-web-export.vercel.app/sign-in?source=pwa';
+const WEB_APP_URL = 'https://app.aplikacevys.cz/sign-in?source=pwa';
 const WAITLIST_MAILTO =
   'mailto:info@teamvys.cz' +
   '?subject=' +

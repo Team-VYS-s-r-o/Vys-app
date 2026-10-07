@@ -27,7 +27,7 @@ Email verification and sender setup:
 
 1. In Supabase Dashboard open Authentication -> Providers -> Email and enable email confirmations.
 2. In Authentication -> URL Configuration set Site URL to the production app URL and add redirect URLs for both production frontends:
-	- `https://vys-expo-web-export.vercel.app/*`
+	- `https://app.aplikacevys.cz/*`
 	- `https://vys-web.vercel.app/*`
 	- local dev URLs when needed, for example `http://localhost:8081/*` and `http://localhost:3000/*`
 3. In Authentication -> Emails/SMTP enable custom SMTP so mails are sent from your domain instead of the default Supabase sender.

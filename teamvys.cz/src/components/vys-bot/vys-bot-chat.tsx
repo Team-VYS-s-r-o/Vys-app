@@ -28,7 +28,7 @@ type KnowledgeEntry = {
   followUps?: string[];
 };
 
-const APP_URL = 'https://vys-expo-web-export.vercel.app';
+const APP_URL = 'https://app.aplikacevys.cz';
 
 const KNOWLEDGE: KnowledgeEntry[] = [
   {
