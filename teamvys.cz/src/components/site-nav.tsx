@@ -15,6 +15,7 @@ const navItems = [
   { label: 'Workshopy', href: '/workshopy' },
   { label: 'O nás', href: '/o-nas' },
   { label: 'Kontakty', href: '/kontakty' },
+  { label: 'Pomocník', href: '/pomocnik' },
   { label: 'Aplikace', href: '/aplikace' },
 ] as const;
 
