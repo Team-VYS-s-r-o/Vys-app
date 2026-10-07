@@ -3842,10 +3842,22 @@ app.patch('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
   const orgId = await adminOrgId(profile);
 
   const id = requiredString(request.params.id, 'invoice id');
-  const paid = Boolean(request.body.paid);
+  // Částečný update: posílá se buď `paid`, nebo `category` (přeřazení štítku),
+  // nebo obojí. Chybějící pole se nepřepisuje.
+  const patch = {};
+  if (Object.prototype.hasOwnProperty.call(request.body, 'paid')) {
+    const paid = Boolean(request.body.paid);
+    patch.zaplaceno = paid;
+    patch.datum_zaplaceni = paid ? todayIsoDate() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(request.body, 'category')) {
+    patch.kategorie = optionalString(request.body.category) || null;
+  }
+  if (Object.keys(patch).length === 0) throw new Error('Není co upravit.');
+
   const { data, error } = await supabase
     .from('invoices')
-    .update({ zaplaceno: paid, datum_zaplaceni: paid ? todayIsoDate() : null })
+    .update(patch)
     .eq('id', id)
     .eq('org_id', orgId)
     .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,zdroj,created_at')
