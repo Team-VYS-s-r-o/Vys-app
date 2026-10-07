@@ -3801,7 +3801,7 @@ function parseInvoiceAmount(value) {
 // Kraj finance: tržby ze zaplacených nákupů krajských produktů minus náklady
 // (docházka trenérů na krajských místech + zaplacené krajské faktury).
 // Provize koordinátora = percent % z kladného čistého zisku.
-async function computeRegionFinance(orgId, region, percent, coordinatorId) {
+async function computeRegionFinance(orgId, region, percent, coordinatorId, commissionEnabled = true) {
   const { data: products, error: productsError } = await supabase
     .from('products')
     .select('id,type,title,city,place,venue,gym_contact,price,price_label,entries_total,capacity_total,capacity_current,coach_ids,is_published,region,event_date,hero_image,primary_meta')
@@ -3866,7 +3866,16 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId) {
     .eq('region', region)
     .order('created_at', { ascending: false });
   if (invoicesError) throw invoicesError;
-  const invoiceCost = (invoices || []).filter((invoice) => invoice.zaplaceno).reduce((sum, invoice) => sum + parseInvoiceAmount(invoice.castka), 0);
+  // Faktura za odměnu samotného koordinátora nesmí snižovat čistý zisk kraje
+  // (jinak by si provizní koordinátor fakturou vlastní odměny snížil provizi).
+  const isCoordinatorRewardInvoice = (invoice) => {
+    const normalized = `${invoice.kategorie || ''} ${invoice.popis || ''}`
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    return normalized.includes('odmena koordinator');
+  };
+  const invoiceCost = (invoices || [])
+    .filter((invoice) => invoice.zaplaceno && !isCoordinatorRewardInvoice(invoice))
+    .reduce((sum, invoice) => sum + parseInvoiceAmount(invoice.castka), 0);
 
   const { data: payouts, error: payoutsError } = await supabase
     .from('coordinator_payouts')
@@ -3876,9 +3885,9 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId) {
   if (payoutsError) throw payoutsError;
 
   const net = revenue - coachCost - invoiceCost;
-  const commission = net > 0 ? Math.round((net * percent) / 100) : 0;
+  const commission = commissionEnabled && net > 0 ? Math.round((net * percent) / 100) : 0;
   const paidOut = (payouts || []).reduce((sum, payout) => sum + (Number(payout.amount) || 0), 0);
-  const owed = Math.max(commission - paidOut, 0);
+  const owed = commissionEnabled ? Math.max(commission - paidOut, 0) : 0;
 
   return {
     products: products || [],
@@ -3888,7 +3897,7 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId) {
     participants: regionParticipants,
     invoices: invoices || [],
     payouts: payouts || [],
-    finance: { revenue, coachCost, invoiceCost, net, percent, commission, paidOut, owed },
+    finance: { revenue, coachCost, invoiceCost, net, percent, commissionEnabled, commission, paidOut, owed },
   };
 }
 
@@ -3898,24 +3907,39 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
   if (profile.role !== 'coordinator') throw httpError('Tahle sekce je pouze pro koordinátora.', 403);
   const { data: coordinatorProfile, error: coordinatorProfileError } = await supabase
     .from('coordinator_profiles')
-    .select('id,org_id,region,percent,permissions,profile_photo_url')
+    .select('id,org_id,region,percent,permissions,profile_photo_url,commission_enabled,payout_method')
     .eq('id', profile.id)
     .maybeSingle();
   if (coordinatorProfileError) throw coordinatorProfileError;
   if (!coordinatorProfile) {
     response.json({
       pending: true,
-      coordinator: { id: profile.id, name: profile.name, email: profile.email, phone: profile.phone ?? null, profile_photo_url: null, region: null, percent: null },
-      products: [], purchases: [], attendance: [], childAttendance: [], participants: [], invoices: [], payouts: [],
-      finance: { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commission: 0, paidOut: 0, owed: 0 },
+      coordinator: { id: profile.id, name: profile.name, email: profile.email, phone: profile.phone ?? null, profile_photo_url: null, region: null, percent: null, commissionEnabled: true, payoutMethod: null },
+      products: [], purchases: [], attendance: [], childAttendance: [], participants: [], invoices: [], payouts: [], contracts: [],
+      finance: { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commissionEnabled: true, commission: 0, paidOut: 0, owed: 0 },
       coaches: [], tasks: [], requests: [],
     });
     return;
   }
-  const coordinator = { ...profile, orgId: coordinatorProfile.org_id || VYS_ORG_ID, region: coordinatorProfile.region, percent: coordinatorProfile.percent ?? 30 };
+  const coordinator = {
+    ...profile,
+    orgId: coordinatorProfile.org_id || VYS_ORG_ID,
+    region: coordinatorProfile.region,
+    percent: coordinatorProfile.percent ?? 30,
+    commissionEnabled: coordinatorProfile.commission_enabled !== false,
+    payoutMethod: coordinatorProfile.payout_method || 'invoice',
+  };
   const permissions = normalizeCoordinatorPermissions(coordinatorProfile.permissions);
 
-  const financeData = await computeRegionFinance(coordinator.orgId, coordinator.region, coordinator.percent, coordinator.id);
+  const financeData = await computeRegionFinance(coordinator.orgId, coordinator.region, coordinator.percent, coordinator.id, coordinator.commissionEnabled);
+
+  // Smlouvy (DPP/HPP) koordinátora — ať v aplikaci vidí stav a může si stáhnout PDF.
+  const { data: contractRows, error: contractsError } = await supabase
+    .from('coordinator_contract_files')
+    .select('id,kind,year,status,status_changed_at,original_path,original_filename,signed_path,signed_filename,signed_uploaded_at,note,created_at')
+    .eq('coordinator_id', coordinator.id)
+    .order('created_at', { ascending: false });
+  if (contractsError) throw contractsError;
 
   // Trenéři jen z koordinátorova kraje: přiřazení ke krajskému produktu,
   // s kurzem na místě kraje nebo se zapsanou docházkou v kraji.
@@ -4004,7 +4028,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
 
   // Ořez dat podle oprávnění — citlivé údaje nesmí opustit server.
   if (!permissions.finance) {
-    financeData.finance = { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commission: 0, paidOut: 0, owed: 0 };
+    financeData.finance = { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commissionEnabled: coordinator.commissionEnabled, commission: 0, paidOut: 0, owed: 0 };
     financeData.purchases = (financeData.purchases || []).map((purchase) => ({ ...purchase, amount: null }));
     financeData.invoices = [];
     financeData.payouts = [];
@@ -4036,14 +4060,39 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
       profile_photo_url: coordinatorProfile.profile_photo_url ?? null,
       region: coordinator.region,
       percent: coordinator.percent,
+      commissionEnabled: coordinator.commissionEnabled,
+      payoutMethod: coordinator.payoutMethod,
     },
     permissions,
     ...financeData,
+    contracts: contractRows || [],
     coaches,
     tasks: tasks || [],
     requests: requests || [],
     trainingOverrides,
   });
+}));
+
+// Podepsaný odkaz na PDF smlouvy koordinátora (originál i podepsaná verze).
+app.get('/api/coordinator/contracts/:id/url', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const id = requiredString(request.params.id, 'contract id');
+  const variant = optionalString(request.query.variant) === 'signed' ? 'signed_path' : 'original_path';
+
+  const { data: row, error } = await supabase
+    .from('coordinator_contract_files')
+    .select('id,coordinator_id,original_path,signed_path')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row || row.coordinator_id !== coordinator.id) throw httpError('Smlouva nenalezena.', 404);
+  const path = row[variant];
+  if (!path) throw httpError('Soubor smlouvy zatím není nahraný.', 404);
+
+  const { data: signed, error: signError } = await supabase.storage.from('dpp-files').createSignedUrl(path, 300);
+  if (signError) throw signError;
+  response.json({ url: signed.signedUrl });
 }));
 
 // Koordinátor si může upravit vlastní profil (jméno, telefon, profilovou fotku).
@@ -4312,9 +4361,26 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
 
   const { data: coordinatorRows, error: coordinatorError } = await supabase
     .from('coordinator_profiles')
-    .select('id,org_id,region,percent,permissions,profile_photo_url,created_at');
+    .select('id,org_id,region,percent,permissions,profile_photo_url,created_at,commission_enabled,payout_method');
   if (coordinatorError) throw coordinatorError;
   const orgCoordinators = (coordinatorRows || []).filter((row) => (row.org_id || VYS_ORG_ID) === orgId);
+
+  // Smlouvy (DPP/HPP) všech koordinátorů organizace — jedno načtení pro celou sekci.
+  let contractsByCoordinator = new Map();
+  if (orgCoordinators.length > 0) {
+    const { data: contractRows, error: contractsError } = await supabase
+      .from('coordinator_contract_files')
+      .select('id,coordinator_id,kind,year,status,status_changed_at,original_path,original_filename,signed_path,signed_filename,signed_uploaded_at,note,created_at')
+      .in('coordinator_id', orgCoordinators.map((row) => row.id))
+      .order('created_at', { ascending: false });
+    if (contractsError) throw contractsError;
+    contractsByCoordinator = new Map();
+    for (const contract of contractRows || []) {
+      const list = contractsByCoordinator.get(contract.coordinator_id) || [];
+      list.push(contract);
+      contractsByCoordinator.set(contract.coordinator_id, list);
+    }
+  }
 
   let profiles = [];
   if (orgCoordinators.length > 0) {
@@ -4329,7 +4395,8 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
   const coordinators = [];
   for (const row of orgCoordinators) {
     const person = profiles.find((p) => p.id === row.id);
-    const financeData = await computeRegionFinance(orgId, row.region, row.percent ?? 30, row.id);
+    const commissionEnabled = row.commission_enabled !== false;
+    const financeData = await computeRegionFinance(orgId, row.region, row.percent ?? 30, row.id, commissionEnabled);
     coordinators.push({
       id: row.id,
       name: person?.name || person?.email || row.id,
@@ -4338,10 +4405,13 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
       profile_photo_url: row.profile_photo_url || null,
       region: row.region,
       percent: row.percent ?? 30,
+      commissionEnabled,
+      payoutMethod: row.payout_method || 'invoice',
       permissions: normalizeCoordinatorPermissions(row.permissions),
       finance: financeData.finance,
       payouts: financeData.payouts,
       productCount: financeData.products.length,
+      contracts: contractsByCoordinator.get(row.id) || [],
     });
   }
 
@@ -4376,6 +4446,8 @@ app.post('/api/admin/coordinators', asyncRoute(async (request, response) => {
   const email = candidateId ? null : requiredString(request.body.email, 'e-mail').toLowerCase();
   const region = requiredString(request.body.region, 'kraj');
   const percent = Math.min(Math.max(Math.round(Number(request.body.percent ?? 30)), 0), 100);
+  const commissionEnabled = request.body.commissionEnabled !== false;
+  const payoutMethod = ['invoice', 'dpp', 'hpp'].includes(request.body.payoutMethod) ? request.body.payoutMethod : 'invoice';
   if (!CZECH_REGIONS.includes(region)) throw httpError('Neznámý kraj.', 400);
 
   let personQuery = supabase.from('app_profiles').select('id,role,name,email,org_id');
@@ -4391,12 +4463,51 @@ app.post('/api/admin/coordinators', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('coordinator_profiles')
-    .upsert({ id: person.id, org_id: orgId, region, percent }, { onConflict: 'id' })
-    .select('id,region,percent')
+    .upsert({ id: person.id, org_id: orgId, region, percent, commission_enabled: commissionEnabled, payout_method: payoutMethod }, { onConflict: 'id' })
+    .select('id,region,percent,commission_enabled,payout_method')
     .single();
   if (error) throw error;
 
-  response.status(201).json({ coordinator: { id: data.id, name: person.name, email: person.email, region: data.region, percent: data.percent } });
+  response.status(201).json({ coordinator: { id: data.id, name: person.name, email: person.email, region: data.region, percent: data.percent, commissionEnabled: data.commission_enabled !== false, payoutMethod: data.payout_method || 'invoice' } });
+}));
+
+// Nastavení odměňování koordinátora: provize zapnout/vypnout, procento, forma výplaty.
+app.patch('/api/admin/coordinators/:id/compensation', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'coordinator id');
+
+  const { data: row, error: rowError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id,percent,commission_enabled,payout_method')
+    .eq('id', id)
+    .maybeSingle();
+  if (rowError) throw rowError;
+  if (!row || (row.org_id || VYS_ORG_ID) !== orgId) throw httpError('Koordinátor nenalezen.', 404);
+
+  const patch = {};
+  if (typeof request.body.commissionEnabled === 'boolean') patch.commission_enabled = request.body.commissionEnabled;
+  if (request.body.percent !== undefined) {
+    const percent = Math.round(Number(request.body.percent));
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) throw httpError('Provize musí být 0–100 %.', 400);
+    patch.percent = percent;
+  }
+  if (request.body.payoutMethod !== undefined) {
+    if (!['invoice', 'dpp', 'hpp'].includes(request.body.payoutMethod)) throw httpError('Neznámá forma výplaty.', 400);
+    patch.payout_method = request.body.payoutMethod;
+  }
+  if (Object.keys(patch).length === 0) throw httpError('Není co uložit.', 400);
+
+  const { data, error } = await supabase
+    .from('coordinator_profiles')
+    .update(patch)
+    .eq('id', id)
+    .select('id,percent,commission_enabled,payout_method')
+    .single();
+  if (error) throw error;
+
+  response.json({ compensation: { percent: data.percent ?? 30, commissionEnabled: data.commission_enabled !== false, payoutMethod: data.payout_method || 'invoice' } });
 }));
 
 app.patch('/api/admin/coordinators/:id/permissions', asyncRoute(async (request, response) => {
