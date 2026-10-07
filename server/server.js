@@ -23,6 +23,9 @@ const defaultCorsOrigins = [
   'https://aplikacevys-web.vercel.app',
   'https://aplikacevys.cz',
   'https://www.aplikacevys.cz',
+  // Web export aplikace (vys-aplikace) — veřejná doména i záložní vercel.app URL.
+  'https://app.aplikacevys.cz',
+  'https://vys-expo-web-export.vercel.app',
   'http://localhost:3000',
   'http://localhost:3002',
   'http://localhost:8081',
