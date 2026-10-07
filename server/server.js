@@ -4066,7 +4066,8 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
     purchases = data || [];
   }
 
-  const revenue = purchases.filter((p) => p.status === 'Placeno').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  // Nákupy mají v DB status 'Zaplaceno' (Stripe tok) — 'Placeno' necháváme pro jistotu kvůli starším řádkům.
+  const revenue = purchases.filter((p) => p.status === 'Zaplaceno' || p.status === 'Placeno').reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
   const { data: attendance, error: attendanceError } = await supabase
     .from('coach_attendance_records')
@@ -4819,9 +4820,16 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
   if (action === 'approve') {
     const payload = req.payload || {};
     createdProductId = `koord-${Date.now()}`;
+    const type = payload.type || 'Krouzek';
+    const isCourse = type === 'Krouzek' || type === 'Kroužek';
+    const price = Number(payload.price) || 0;
+    // Úroveň kurzu z návrhu koordinátora — stejné hodnoty jako admin web.
+    const skillCategory = ['zacatecnici', 'pokrocili', 'smisene'].includes(payload.skillCategory)
+      ? payload.skillCategory
+      : 'smisene';
     const productRow = {
       id: createdProductId,
-      type: payload.type || 'Krouzek',
+      type,
       title: String(payload.title || 'Nový produkt'),
       city: String(payload.city || ''),
       place: String(payload.place || payload.city || ''),
@@ -4830,9 +4838,11 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       capacity_total: Number(payload.capacityTotal) || 0,
       capacity_current: 0,
       event_date: optionalString(payload.eventDate),
-      price: Number(payload.price) || 0,
-      price_label: optionalString(payload.priceLabel),
-      entries_total: Number(payload.entriesTotal) || null,
+      price,
+      // Kroužky mají fixní strukturu 10/15 vstupů — popisek generujeme, ne z návrhu.
+      price_label: isCourse && price > 0 ? `10 vstupů · ${price.toLocaleString('cs-CZ')} Kč` : optionalString(payload.priceLabel),
+      entries_total: isCourse ? 10 : Number(payload.entriesTotal) || null,
+      skill_category: skillCategory,
       is_published: false,
       region: req.region,
       org_id: orgId,
@@ -4840,6 +4850,20 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
     };
     const { error: productError } = await supabase.from('products').insert(productRow);
     if (productError) throw productError;
+
+    // Kroužek existuje vždy ve dvou variantách (10 a 15 vstupů) — druhou
+    // zakládáme automaticky stejně jako admin web; cenu doladí admin v Produktech.
+    if (isCourse) {
+      const price15 = price > 0 ? price + 1000 : 0;
+      const { error: variantError } = await supabase.from('products').insert({
+        ...productRow,
+        id: `${createdProductId}-15`,
+        price: price15,
+        price_label: price15 > 0 ? `15 vstupů · ${price15.toLocaleString('cs-CZ')} Kč` : null,
+        entries_total: 15,
+      });
+      if (variantError) throw variantError;
+    }
   }
 
   const { data, error } = await supabase
