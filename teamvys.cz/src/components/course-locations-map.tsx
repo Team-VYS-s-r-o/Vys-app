@@ -95,8 +95,11 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
         containerRef.current.style.touchAction = 'pan-y';
       }
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      // Vlastní OSM tile server nám dlaždice blokuje (tile usage policy),
+      // CARTO basemaps jedou nad stejnými OSM daty a bez API klíče.
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
+        subdomains: 'abcd',
         maxZoom: 19,
       }).addTo(map);
 

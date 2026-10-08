@@ -103,9 +103,12 @@ export const LocationPickerMap = forwardRef<
       const initial = coords ?? CZECHIA_CENTER;
       const map = L.map(containerRef.current);
       map.setView([initial.lat, initial.lng], hasInitialPin ? 16 : 7);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Vlastní OSM tile server nám dlaždice blokuje (tile usage policy),
+      // CARTO basemaps jedou nad stejnými OSM daty a bez API klíče.
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap',
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
       }).addTo(map);
 
       const marker = L.marker([initial.lat, initial.lng], { draggable: true }).addTo(map);
