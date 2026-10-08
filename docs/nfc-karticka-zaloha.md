@@ -40,3 +40,11 @@ Rodiče registrovaní před verzí `2026-10-06` mají v `app_profiles.terms_vers
 - `startPurchase()` v `platby.tsx` nákup zablokuje, dokud souhlas chybí.
 - Jednorázové upozornění rozesláno přes `parent_broadcasts` + `parent_broadcast_recipients` (audience `selected`, 113 rodičů Team VYS).
 - Admin sekce NFC kartičky ukazuje panel „Souhlas s podmínkami o NFC kartičce" (Potvrzeno / Čeká).
+
+## Sklad kartiček vs. spárované čipy (2026-10-07)
+Sklad se původně počítal jen z `participants.nfc_card_status='issued'`, takže už nahrané čipy sklad nesnížily (admin hlásil 230 ks na skladě, i když 64 kartiček bylo fyzicky u dětí).
+- `NfcCardsSection` v adminu načítá navíc `digital_passes` (`participant_id, holder_name, nfc_chip_id` where `nfc_chip_id is not null`) → `chipParticipantIds`.
+- `chipOnlyOut` = děti se spárovaným čipem, které **nemají žádný záznam v `cards`** (tj. `nfc_card_status` je `none`/NULL). Filtr proti dvojímu počítání a proti držení „vrácených" kartiček venku (čip v `digital_passes` po vrácení zůstává).
+- `cardsOut = issuedCalm + withCountdown + chipOnlyOut`; `cardsInStock = purchased − cardsOut − cardsGone`.
+- **Odpočet na vrácení spárovaný čip nespouští** — kotvu `nfc_return_countdown_started_at` zapisuje server až pro status `issued`, takže rodičům nehrozí poplatek, dokud trenér neodklikne „Vydána". Proto se status v DB záměrně nebackfilloval.
+- Nový dlaždice „Z toho spárovaný čip" + vysvětlující věta pod přehledem.
