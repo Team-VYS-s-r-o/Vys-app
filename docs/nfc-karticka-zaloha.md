@@ -41,10 +41,11 @@ Rodiče registrovaní před verzí `2026-10-06` mají v `app_profiles.terms_vers
 - Jednorázové upozornění rozesláno přes `parent_broadcasts` + `parent_broadcast_recipients` (audience `selected`, 113 rodičů Team VYS).
 - Admin sekce NFC kartičky ukazuje panel „Souhlas s podmínkami o NFC kartičce" (Potvrzeno / Čeká).
 
-## Sklad kartiček vs. spárované čipy (2026-10-07)
-Sklad se původně počítal jen z `participants.nfc_card_status='issued'`, takže už nahrané čipy sklad nesnížily (admin hlásil 230 ks na skladě, i když 64 kartiček bylo fyzicky u dětí).
-- `NfcCardsSection` v adminu načítá navíc `digital_passes` (`participant_id, holder_name, nfc_chip_id` where `nfc_chip_id is not null`) → `chipParticipantIds`.
-- `chipOnlyOut` = děti se spárovaným čipem, které **nemají žádný záznam v `cards`** (tj. `nfc_card_status` je `none`/NULL). Filtr proti dvojímu počítání a proti držení „vrácených" kartiček venku (čip v `digital_passes` po vrácení zůstává).
-- `cardsOut = issuedCalm + withCountdown + chipOnlyOut`; `cardsInStock = purchased − cardsOut − cardsGone`.
-- **Odpočet na vrácení spárovaný čip nespouští** — kotvu `nfc_return_countdown_started_at` zapisuje server až pro status `issued`, takže rodičům nehrozí poplatek, dokud trenér neodklikne „Vydána". Proto se status v DB záměrně nebackfilloval.
-- Nový dlaždice „Z toho spárovaný čip" + vysvětlující věta pod přehledem.
+## Sklad kartiček — zdroj pravdy je docházka (2026-10-09)
+Mezikrok z 2026-10-07 počítal „kartičky venku" z `digital_passes.nfc_chip_id is not null`. **To bylo chybně**: `nfc_chip_id` není fyzický čip, server ho generuje synteticky v `createDigitalPassForPurchase` jako `NFC-<participant_id[0:8]>-<product_id[0:8]>` při každém nákupu kroužku. Admin tak hlásil 65 „spárovaných čipů", i když šlo prostě o 65 zaplacených kroužků. U `manual-*` id se navíc prefix slil (`NFC-MANUAL-D-COURSE-B` sdílelo víc dětí), takže id nebylo ani unikátní.
+
+Zdroj pravdy je teď výhradně `participants.nfc_card_status = 'issued'`. Jeden řádek v `participants` = jedno dítě = jedna kartička → nejde dvojit, ani až se budou párovat skutečné čipy.
+- Migrace `nfc_card_issued_from_attendance`: trigger `child_attendance_marks_nfc_issued` na `child_attendance_records` (AFTER INSERT OR UPDATE OF attendees) volá SECURITY DEFINER funkci `teamvys_mark_nfc_issued_from_attendance()`. Ta spáruje `attendees[].name` s `first_name || ' ' || last_name` v rámci stejného `org_id` a přepne `none`/NULL → `issued`. **Jiné stavy nikdy nepřepisuje** (vrácené / ztracené / proplacené zůstávají).
+- Migrace zároveň dorovnala už zapsanou docházku (7 dětí k 2026-10-09).
+- Admin `NfcCardsSection`: `cardsOut = issuedCalm + withCountdown`; dlaždice „Z toho spárovaný čip" nahrazena dlaždicí **„Čeká na vydání"** = děti s `pass_kind='course'`, které zatím nemají žádný stav kartičky. Ty se **ze skladu neodečítají** — doplní se samy při prvním zápisu docházky.
+- Odpočet na vrácení běží dál až od statusu `issued` + žádná aktivní permanentka, takže dětem s platným kroužkem poplatek nehrozí.
