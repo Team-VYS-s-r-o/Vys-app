@@ -818,6 +818,61 @@ async function safelySendCoachApprovalEmail(to, coachName, orgName) {
   }
 }
 
+// Nudges a coach to finish Stripe onboarding. Deliberately does NOT carry the
+// account link: those expire in minutes, so the coach starts a fresh one from
+// the app instead.
+async function sendCoachStripeOnboardingEmail(to, coachName, orgName) {
+  if (!to) return;
+  const emailer = paymentEmailer();
+  if (!emailer) {
+    console.info(`Coach Stripe onboarding email skipped for ${to}: SMTP is not configured.`);
+    return;
+  }
+
+  const org = orgName || 'TeamVYS';
+  const subject = `Nastavte si výplaty — ${org}`;
+  const lines = [
+    `Dobrý den${coachName ? ` ${coachName}` : ''},`,
+    '',
+    `abychom vám mohli posílat výplaty, potřebujeme od vás propojení s platební bránou Stripe.`,
+    '',
+    'Co udělat (zabere to pár minut):',
+    '1. Otevřete aplikaci TeamVYS a přihlaste se.',
+    '2. Dole vpravo klepněte na Profil.',
+    '3. Najděte kartu „Výplaty přes Stripe" a klepněte na „Nastavit výplaty".',
+    '4. Otevře se stránka Stripe — vyplňte své údaje a číslo bankovního účtu.',
+    '',
+    'Připravte si doklad totožnosti, Stripe si ho může vyžádat k ověření.',
+    'Nastavení děláte jen jednou, další výplaty už chodí automaticky.',
+    '',
+    `Děkujeme, ${org}`,
+  ];
+
+  await emailer.sendMail({
+    from: smtpFrom,
+    to,
+    subject,
+    text: lines.join('\n'),
+    html: `<p>Dobrý den${coachName ? ` ${escapeHtml(coachName)}` : ''},</p>`
+      + `<p>abychom vám mohli posílat výplaty, potřebujeme od vás propojení s platební bránou <strong>Stripe</strong>.</p>`
+      + `<p><strong>Co udělat</strong> (zabere to pár minut):</p>`
+      + `<ol><li>Otevřete aplikaci TeamVYS a přihlaste se.</li>`
+      + `<li>Dole vpravo klepněte na <strong>Profil</strong>.</li>`
+      + `<li>Najděte kartu <strong>„Výplaty přes Stripe"</strong> a klepněte na <strong>„Nastavit výplaty"</strong>.</li>`
+      + `<li>Otevře se stránka Stripe — vyplňte své údaje a číslo bankovního účtu.</li></ol>`
+      + `<p>Připravte si doklad totožnosti, Stripe si ho může vyžádat k ověření. Nastavení děláte jen jednou, další výplaty už chodí automaticky.</p>`
+      + `<p>Děkujeme,<br>${escapeHtml(org)}</p>`,
+  });
+}
+
+async function safelySendCoachStripeOnboardingEmail(to, coachName, orgName) {
+  try {
+    await sendCoachStripeOnboardingEmail(to, coachName, orgName);
+  } catch (error) {
+    console.error(`Coach Stripe onboarding email failed for ${to || 'unknown coach'}:`, error);
+  }
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -3574,6 +3629,69 @@ function normalizeAdminSeedText(value) {
     .trim();
 }
 
+// Coach e-mail + name: app_profiles first, auth.users metadata as fallback.
+async function resolveCoachContact(coachId) {
+  const { data: coachProfile } = await supabase
+    .from('app_profiles')
+    .select('email,name')
+    .eq('id', coachId)
+    .maybeSingle();
+
+  let to = normalizedEmail(coachProfile?.email);
+  let coachName = optionalString(coachProfile?.name);
+  if (!to) {
+    try {
+      const { data: authMeta } = await supabase.rpc('teamvys_get_coach_auth_meta', { p_coach_ids: [coachId] });
+      const meta = Array.isArray(authMeta) ? authMeta[0] : null;
+      to = normalizedEmail(meta?.email);
+      coachName = coachName || optionalString(meta?.full_name);
+    } catch (metaError) {
+      console.warn(`Coach auth meta lookup failed for ${coachId}: ${metaError.message}`);
+    }
+  }
+  return { to, coachName };
+}
+
+// Reuses the coach's Express account (creating it on first call) and mints a
+// fresh onboarding link. Links are only valid ~5 minutes, so never cache this.
+async function createCoachOnboardingLink(coachId, coachOrgId, returnUrl, refreshUrl) {
+  const coachStripe = await requireOrgStripe(coachOrgId);
+
+  const { data: coachRow, error: coachRowError } = await supabase
+    .from('coach_profiles')
+    .select('stripe_account_id')
+    .eq('id', coachId)
+    .maybeSingle();
+  if (coachRowError) throw coachRowError;
+
+  let accountId = coachRow?.stripe_account_id ?? null;
+  if (!accountId) {
+    const { to } = await resolveCoachContact(coachId);
+    const account = await coachStripe.accounts.create({
+      type: 'express',
+      country: 'CZ',
+      email: to || undefined,
+      metadata: { coach_id: coachId, org_id: coachOrgId },
+    });
+    accountId = account.id;
+
+    const { error: updateError } = await supabase
+      .from('coach_profiles')
+      .update({ stripe_account_id: accountId })
+      .eq('id', coachId);
+    if (updateError) throw updateError;
+  }
+
+  const accountLink = await coachStripe.accountLinks.create({
+    account: accountId,
+    refresh_url: refreshUrl,
+    return_url: returnUrl,
+    type: 'account_onboarding',
+  });
+
+  return { accountId, onboardingUrl: accountLink.url };
+}
+
 // Notify a coach by e-mail that their account has been approved. Called by the
 // web admin after a successful approval RPC. Admin-only and org-scoped.
 app.post('/api/admin/coaches/:coachId/notify-approved', asyncRoute(async (request, response) => {
@@ -3594,25 +3712,7 @@ app.post('/api/admin/coaches/:coachId/notify-approved', asyncRoute(async (reques
     throw httpError('Můžete spravovat pouze trenéry vlastní organizace.', 403);
   }
 
-  // Resolve the coach's e-mail + name (app_profiles, then auth.users fallback).
-  const { data: coachProfile } = await supabase
-    .from('app_profiles')
-    .select('email,name')
-    .eq('id', coachId)
-    .maybeSingle();
-
-  let to = normalizedEmail(coachProfile?.email);
-  let coachName = optionalString(coachProfile?.name);
-  if (!to) {
-    try {
-      const { data: authMeta } = await supabase.rpc('teamvys_get_coach_auth_meta', { p_coach_ids: [coachId] });
-      const meta = Array.isArray(authMeta) ? authMeta[0] : null;
-      to = normalizedEmail(meta?.email);
-      coachName = coachName || optionalString(meta?.full_name);
-    } catch (metaError) {
-      console.warn(`Coach auth meta lookup failed for ${coachId}: ${metaError.message}`);
-    }
-  }
+  const { to, coachName } = await resolveCoachContact(coachId);
 
   // Resolve org name for the e-mail body.
   const { data: org } = await supabase
@@ -3647,30 +3747,65 @@ app.post('/api/admin/coaches/:coachId/stripe-onboarding', asyncRoute(async (requ
   }
 
   const coachOrgId = profileData.org_id || VYS_ORG_ID;
-  const coachStripe = await requireOrgStripe(coachOrgId);
+  const link = await createCoachOnboardingLink(coachId, coachOrgId, returnUrl, refreshUrl);
 
-  let accountId = profileData?.stripe_account_id ?? null;
+  // The link dies in minutes, so the admin's click also e-mails the coach a
+  // pointer into the app, where they can start a fresh one themselves.
+  const { to, coachName } = await resolveCoachContact(coachId);
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('name')
+    .eq('id', coachOrgId)
+    .maybeSingle();
+  await safelySendCoachStripeOnboardingEmail(to, coachName, org?.name);
 
-  // Create Express account if not yet set
-  if (!accountId) {
-    const account = await coachStripe.accounts.create({ type: 'express', country: 'CZ' });
-    accountId = account.id;
+  response.json({ ...link, emailed: Boolean(to) });
+}));
 
-    await supabase
-      .from('coach_profiles')
-      .update({ stripe_account_id: accountId })
-      .eq('id', coachId);
-  }
+// Coach-initiated onboarding: no admin needed and the link is always fresh.
+app.post('/api/coach/stripe-onboarding', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireStaff(request);
+  requireStripe();
 
-  // Generate a fresh onboarding link (valid ~5 min)
-  const accountLink = await coachStripe.accountLinks.create({
-    account: accountId,
-    refresh_url: refreshUrl,
-    return_url: returnUrl,
-    type: 'account_onboarding',
+  const coachId = profile.id;
+  const returnUrl = requiredString(request.body.returnUrl, 'returnUrl');
+  const refreshUrl = requiredString(request.body.refreshUrl, 'refreshUrl');
+
+  const { data: coach } = await supabase
+    .from('coach_profiles')
+    .select('org_id')
+    .eq('id', coachId)
+    .maybeSingle();
+  if (!coach) throw httpError('Trenérský profil nebyl nalezen.', 404);
+
+  const link = await createCoachOnboardingLink(coachId, coach.org_id || VYS_ORG_ID, returnUrl, refreshUrl);
+  response.json(link);
+}));
+
+// Current Stripe state of the signed-in coach, so the app can tell them whether
+// payouts are actually ready or Stripe still wants something.
+app.get('/api/coach/stripe-status', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireStaff(request);
+
+  const { data: coach } = await supabase
+    .from('coach_profiles')
+    .select('org_id,stripe_account_id')
+    .eq('id', profile.id)
+    .maybeSingle();
+  if (!coach) throw httpError('Trenérský profil nebyl nalezen.', 404);
+
+  const accountId = coach.stripe_account_id || null;
+  if (!accountId) return response.json({ accountId: null, payoutsEnabled: false, detailsSubmitted: false });
+
+  const coachStripe = await requireOrgStripe(coach.org_id || VYS_ORG_ID);
+  const account = await coachStripe.accounts.retrieve(accountId);
+  response.json({
+    accountId,
+    payoutsEnabled: Boolean(account.payouts_enabled),
+    detailsSubmitted: Boolean(account.details_submitted),
   });
-
-  response.json({ accountId, onboardingUrl: accountLink.url });
 }));
 
 app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
