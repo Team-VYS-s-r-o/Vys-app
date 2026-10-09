@@ -2818,6 +2818,53 @@ app.post('/api/participants/link', asyncRoute(async (request, response) => {
   response.json({ participant: data });
 }));
 
+// Odebrání dítěte z rodičovského účtu. Ručně vytvořený profil bez historie se
+// smaže úplně, jinak se jen zruší vazba na rodiče — záznam musí zůstat kvůli
+// docházce, platbám a evidenci klubu.
+app.delete('/api/participants/:participantId', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const participantId = requiredString(request.params.participantId, 'participantId');
+
+  const { data: participant, error: findError } = await supabase
+    .from('participants')
+    .select('id,parent_profile_id,attendance_done,first_name,last_name')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (findError) throw findError;
+  if (!participant) throw httpError('Účastník nenalezen.', 404);
+
+  if (actor.role !== 'admin' && participant.parent_profile_id !== actor.id) {
+    throw httpError('Účastník patří k jinému rodičovskému účtu.', 403);
+  }
+
+  const [{ data: purchases, error: purchaseError }, { data: passes, error: passError }] = await Promise.all([
+    supabase.from('parent_purchases').select('id').eq('participant_id', participantId).limit(1),
+    supabase.from('digital_passes').select('id').eq('participant_id', participantId).limit(1),
+  ]);
+  if (purchaseError) throw purchaseError;
+  if (passError) throw passError;
+
+  const hasHistory = Number(participant.attendance_done || 0) > 0
+    || (purchases?.length ?? 0) > 0
+    || (passes?.length ?? 0) > 0;
+  const canHardDelete = participantId.startsWith('manual-') && !hasHistory;
+
+  if (canHardDelete) {
+    const { error } = await supabase.from('participants').delete().eq('id', participantId);
+    if (error) throw error;
+    response.json({ action: 'deleted' });
+    return;
+  }
+
+  const { error } = await supabase
+    .from('participants')
+    .update({ parent_profile_id: null })
+    .eq('id', participantId);
+  if (error) throw error;
+  response.json({ action: 'unlinked' });
+}));
+
 // Set the additional schools (same city) a child can attend on ONE permanentka.
 // The child keeps a single kroužek pass; its entries are shared across the
 // primary school (active_course) and these extra schools. Attendance RPC and
