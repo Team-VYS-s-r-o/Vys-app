@@ -526,6 +526,23 @@ export async function registerWorkshopInterest(payload: RegisterWorkshopInterest
   }, { auth: true });
 }
 
+export type ProductInterestPayload = {
+  productId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+};
+
+// Zájem o kroužek v testovacím režimu — bez registrace, veřejný endpoint.
+export async function registerProductInterest(payload: ProductInterestPayload): Promise<{ ok: boolean }> {
+  return requestJson('/api/public/product-interest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, source: 'web' }),
+  });
+}
+
 export async function confirmCheckoutSession(sessionId: string): Promise<ConfirmResponse> {
   return requestJson('/api/payments/confirm', {
     method: 'POST',
@@ -652,6 +669,7 @@ export type AdminProductRow = {
   capacity_current: number;
   interest_count?: number;
   can_purchase?: boolean;
+  interest_mode?: boolean;
   hero_image?: string;
   gallery: string[];
   map_query?: string;

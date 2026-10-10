@@ -55,6 +55,8 @@ export type ParentProduct = {
   capacityCurrent: number;
   interestCount?: number;
   canPurchase?: boolean;
+  /** Testovací režim — kroužek zatím jen sbírá zájemce, nelze koupit */
+  interestMode?: boolean;
   primaryMeta: string;
   secondaryMeta: string;
   description: string;

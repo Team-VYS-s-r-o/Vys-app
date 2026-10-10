@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Reveal } from '@/components/animated/reveal';
 import { CourseLocationsMap, normalizeCity } from '@/components/course-locations-map';
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
+import { registerProductInterest } from '@/lib/api-client';
 import { type ParentProduct } from '@/lib/portal-content';
 import { formatSeasonStart, parseScheduleDays, parseScheduleTime } from '@/lib/schedule-days';
 import { usePublicCoaches, type PublicCoachSummary } from '@/lib/use-public-coaches';
@@ -676,14 +677,24 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
               </div>
             ) : null}
 
-            <Link href="/aplikace" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-brand bg-gradient-brand px-6 py-4 text-sm font-black text-white shadow-brand-soft transition-transform hover:-translate-y-0.5">
-              <CreditCard size={18} />
-              Stáhnout aplikaci
-            </Link>
-            <p className="mt-3 inline-flex items-center justify-center gap-2 text-center text-xs font-bold text-slate-500">
-              <ScanLine size={15} />
-              Platba kartou přes Stripe, potvrzení e-mailem.
-            </p>
+            {product.interestMode ? (
+              <div className="mt-6 rounded-brand border-2 border-amber-400/80 bg-amber-50 p-4">
+                <p className="text-xs font-black uppercase text-amber-600">Sbíráme zájem</p>
+                <p className="mt-1 text-sm font-bold leading-5 text-brand-ink-soft">Kroužek otevřeme, až se nasbírá dost zájemců. Nech nám nezávazně kontakt.</p>
+                <CourseInterestForm productId={product.id} />
+              </div>
+            ) : (
+              <>
+                <Link href="/aplikace" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-brand bg-gradient-brand px-6 py-4 text-sm font-black text-white shadow-brand-soft transition-transform hover:-translate-y-0.5">
+                  <CreditCard size={18} />
+                  Stáhnout aplikaci
+                </Link>
+                <p className="mt-3 inline-flex items-center justify-center gap-2 text-center text-xs font-bold text-slate-500">
+                  <ScanLine size={15} />
+                  Platba kartou přes Stripe, potvrzení e-mailem.
+                </p>
+              </>
+            )}
           </div>
         </Reveal>
       </div>
@@ -876,6 +887,7 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
   void delay;
   const product = products[0];
   const merged = products.length > 1;
+  const interestMode = products.some((item) => item.interestMode);
   const scheduleDays = parseScheduleDays(product.primaryMeta);
   const scheduleTime = parseScheduleTime(product.primaryMeta);
   const multiDay = !merged && scheduleDays.length >= 2;
@@ -883,11 +895,14 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
   const seasonStart = formatSeasonStart(products.flatMap((item) => parseScheduleDays(item.primaryMeta)));
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft">
+    <div className={`flex h-full flex-col overflow-hidden rounded-[30px] shadow-brand-soft ${interestMode ? 'border-2 border-amber-400/80 bg-amber-50/70' : 'border border-brand-purple/12 bg-white'}`}>
       <div className="relative h-[210px] shrink-0 bg-brand-paper">
         <ProductImage src={product.heroImage} alt={product.venue} className="h-full w-full object-cover" />
         <div aria-hidden className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(23,18,32,0)_48%,rgba(23,18,32,0.44)_100%)]" />
         <span className="absolute left-3 top-3 rounded-[16px] bg-white px-3 py-2 text-xs font-black uppercase text-brand-ink shadow-brand-soft">{product.city}</span>
+        {interestMode ? (
+          <span className="absolute right-3 top-3 rounded-[16px] bg-amber-400 px-3 py-2 text-xs font-black uppercase text-brand-ink shadow-brand-soft">Sbíráme zájem</span>
+        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col p-5">
@@ -917,25 +932,133 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
           <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
             <Clock size={16} className="text-brand-cyan" />
             <span>
-              {seasonStart ? `Začínáme ${seasonStart} · ` : null}<span className="text-brand-cyan">1. lekce zdarma</span>
+              {interestMode ? (
+                <span className="text-amber-600">Otevřeme, až bude dost zájemců</span>
+              ) : (
+                <>{seasonStart ? `Začínáme ${seasonStart} · ` : null}<span className="text-brand-cyan">1. lekce zdarma</span></>
+              )}
             </span>
           </span>
         </div>
 
         {/* Vše ostatní (cena, kapacita, trenéři) na detailu produktu */}
         <div className="mt-auto pt-3">
-          <Link
-            href={`/krouzky/${product.id}`}
-            className="group flex items-center justify-between gap-2 rounded-[16px] bg-brand-paper px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-brand-purple-light"
-          >
-            Zobrazit více info
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
-              <ArrowRight size={16} />
-            </span>
-          </Link>
+          {interestMode ? (
+            <CourseInterestPanel productId={product.id} />
+          ) : (
+            <Link
+              href={`/krouzky/${product.id}`}
+              className="group flex items-center justify-between gap-2 rounded-[16px] bg-brand-paper px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-brand-purple-light"
+            >
+              Zobrazit více info
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-gradient-brand text-white transition-transform group-hover:translate-x-1">
+                <ArrowRight size={16} />
+              </span>
+            </Link>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+/** Tlačítko + rozbalovací formulář zájmu pro kroužek v testovacím režimu. */
+function CourseInterestPanel({ productId }: { productId: string }) {
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState(false);
+
+  if (done) {
+    return (
+      <p className="flex items-center gap-2 rounded-[16px] bg-amber-100 px-4 py-3 text-sm font-black text-amber-700">
+        <CheckCircle2 size={18} className="shrink-0" />
+        Díky! Ozveme se, jakmile kroužek spustíme.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="group flex w-full items-center justify-between gap-2 rounded-[16px] bg-amber-400 px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-amber-300"
+      >
+        Mám zájem — nezávazně
+        <ChevronDown size={18} className={`transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            key="interest-form"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <CourseInterestForm productId={productId} onDone={() => setDone(true)} />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function CourseInterestForm({ productId, onDone }: { productId: string; onDone?: () => void }) {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const inputClass = 'w-full rounded-[14px] border border-amber-300 bg-white px-3.5 py-2.5 text-sm font-bold text-brand-ink placeholder:font-bold placeholder:text-slate-400 focus:border-amber-500 focus:outline-none';
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      await registerProductInterest({ productId, firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), phone: phone.trim() });
+      setDone(true);
+      onDone?.();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Zájem se nepodařilo odeslat.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <p className="mt-3 flex items-center gap-2 rounded-[16px] bg-amber-100 px-4 py-3 text-sm font-black text-amber-700">
+        <CheckCircle2 size={18} className="shrink-0" />
+        Díky! Ozveme se, jakmile kroužek spustíme.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-3 grid gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
+        <input className={inputClass} value={firstName} onChange={(event) => setFirstName(event.target.value)} placeholder="Jméno" autoComplete="given-name" required />
+        <input className={inputClass} value={lastName} onChange={(event) => setLastName(event.target.value)} placeholder="Příjmení" autoComplete="family-name" required />
+      </div>
+      <input className={inputClass} type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail" autoComplete="email" required />
+      <input className={inputClass} type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Telefon" autoComplete="tel" required />
+      {error ? <p className="text-xs font-black text-brand-pink">{error}</p> : null}
+      <button
+        type="submit"
+        disabled={sending}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-[16px] bg-gradient-to-r from-amber-400 to-amber-500 px-4 py-3 text-sm font-black text-brand-ink shadow-brand-soft transition-transform hover:-translate-y-0.5 disabled:opacity-60"
+      >
+        {sending ? 'Odesílám…' : 'Odeslat zájem'}
+      </button>
+      <p className="text-center text-[11px] font-bold leading-4 text-slate-500">Nezávazné — jen ti dáme vědět, až kroužek otevřeme.</p>
+    </form>
   );
 }
 

@@ -180,6 +180,7 @@ function rowToProduct(row: AdminProductRow): ParentProduct {
     capacityCurrent: row.capacity_current,
     interestCount: row.interest_count ?? 0,
     canPurchase: row.can_purchase,
+    interestMode: row.interest_mode ?? false,
   };
 }
 

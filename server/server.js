@@ -571,7 +571,7 @@ async function getProduct(productId) {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,price,price_label,place,primary_meta,event_date,expires_at,entries_total,capacity_total,capacity_current,org_id')
+    .select('id,type,title,price,price_label,place,primary_meta,event_date,expires_at,entries_total,capacity_total,capacity_current,interest_mode,org_id')
     .eq('id', productId)
     .single();
 
@@ -1238,6 +1238,10 @@ async function createDigitalPassForPurchase(purchase, productOverride) {
 async function ensureProductCapacity(productId) {
   const product = await getProduct(productId);
 
+  if (product.interest_mode) {
+    throw httpError('Tento kroužek zatím jen sbírá zájemce — platby se spustí, až ho publikujeme.', 409);
+  }
+
   if (isWorkshopProduct(product)) {
     const interestCount = await countWorkshopInterests(product.id);
     const gate = workshopPurchaseGate(product, interestCount);
@@ -1537,7 +1541,7 @@ app.get('/api/parent/products', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,org_id')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,org_id')
     .eq('is_published', true)
     .in('org_id', orgIds)
     .order('created_at', { ascending: false });
@@ -1552,7 +1556,7 @@ app.get('/api/public/products', asyncRoute(async (_request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode')
     .eq('is_published', true)
     .eq('org_id', VYS_ORG_ID)
     .order('created_at', { ascending: false });
@@ -1560,6 +1564,43 @@ app.get('/api/public/products', asyncRoute(async (_request, response) => {
   if (error) throw error;
   const products = await applyLiveProductCapacities(data || []);
   response.json({ products });
+}));
+
+// Sběr zájmu o kroužek v testovacím režimu. Veřejné (bez přihlášení) — na webu
+// stačí vyplnit formulář, z appky se pošlou údaje z profilu + parentProfileId.
+app.post('/api/public/product-interest', asyncRoute(async (request, response) => {
+  requireServices();
+  const productId = requiredString(request.body.productId, 'productId');
+  const firstName = requiredString(request.body.firstName, 'jméno').slice(0, 80);
+  const lastName = requiredString(request.body.lastName, 'příjmení').slice(0, 80);
+  const email = requiredString(request.body.email, 'e-mail').toLowerCase().slice(0, 160);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw httpError('Zadej platný e-mail.', 400);
+  const phone = requiredString(request.body.phone, 'telefon').slice(0, 40);
+  const parentProfileId = optionalString(request.body.parentProfileId);
+  const source = request.body.source === 'app' ? 'app' : 'web';
+
+  const { data: product, error: productError } = await supabase
+    .from('products')
+    .select('id,title,interest_mode,org_id')
+    .eq('id', productId)
+    .maybeSingle();
+  if (productError) throw productError;
+  if (!product || !product.interest_mode) throw httpError('Tento kroužek už zájemce nesbírá.', 404);
+
+  const { error } = await supabase
+    .from('product_interests')
+    .upsert({
+      product_id: product.id,
+      first_name: firstName,
+      last_name: lastName,
+      email,
+      phone,
+      parent_profile_id: parentProfileId || null,
+      source,
+      org_id: product.org_id || VYS_ORG_ID,
+    }, { onConflict: 'product_id,email', ignoreDuplicates: true });
+  if (error) throw error;
+  response.status(201).json({ ok: true });
 }));
 
 app.post('/api/workshop-interests', asyncRoute(async (request, response) => {
@@ -4070,7 +4111,7 @@ app.get('/api/admin/products', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,gym_contact,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category')
+    .select('id,type,title,city,place,venue,gym_contact,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category,interest_mode')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -4094,7 +4135,7 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
     throw new Error('Invalid product: id is required.');
   }
 
-  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'gym_contact', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'map_query', 'latitude', 'longitude', 'skill_category', 'region'];
+  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'gym_contact', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'interest_mode', 'map_query', 'latitude', 'longitude', 'skill_category', 'region'];
   const row = Object.fromEntries(Object.entries(product).filter(([key]) => allowed.includes(key)));
 
   requiredString(row.type, 'type');
@@ -4161,6 +4202,62 @@ app.post('/api/admin/products/:id/coaches', asyncRoute(async (request, response)
   const { error } = await supabase.from('products').update({ coach_ids: coachIds }).eq('id', productId);
   if (error) throw error;
   response.json({ ok: true, coachIds });
+}));
+
+// Zájemci o kroužky v testovacím režimu — vidí jen admin (org-scoped).
+app.get('/api/admin/product-interests', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const { data, error } = await supabase
+    .from('product_interests')
+    .select('id,product_id,first_name,last_name,email,phone,source,created_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  response.json({ interests: data || [] });
+}));
+
+// Spuštění prodeje kroužku, který sbíral zájem: vypne interest_mode (u obou
+// variant 10/15 vstupů) a pošle push zájemcům z appky, že se otevřelo.
+async function launchInterestProduct(scope, productId) {
+  const baseId = productId.endsWith('-15') ? productId.slice(0, -3) : productId;
+  const ids = [baseId, `${baseId}-15`];
+
+  let query = supabase
+    .from('products')
+    .update({ interest_mode: false, is_published: true })
+    .in('id', ids)
+    .eq('interest_mode', true)
+    .eq('org_id', scope.orgId);
+  if (scope.region) query = query.eq('region', scope.region);
+
+  const { data, error } = await query.select('id,title');
+  if (error) throw error;
+  if (!data || data.length === 0) throw httpError('Produkt nenalezen nebo už je spuštěný.', 404);
+
+  const { data: interestRows } = await supabase
+    .from('product_interests')
+    .select('parent_profile_id')
+    .in('product_id', ids)
+    .not('parent_profile_id', 'is', null);
+  const parentIds = [...new Set((interestRows || []).map((row) => row.parent_profile_id))];
+  if (parentIds.length > 0) {
+    void sendExpoPushToProfiles(parentIds, 'Kroužek se otevřel!', `${data[0].title} má dost zájemců — přihlašování je spuštěné, místo si teď můžeš rezervovat v aplikaci.`);
+  }
+
+  return data.map((row) => row.id);
+}
+
+app.post('/api/admin/products/:id/launch', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const productId = requiredString(request.params.id, 'product id');
+
+  const ids = await launchInterestProduct({ orgId }, productId);
+  response.json({ ok: true, ids });
 }));
 
 app.delete('/api/admin/products/:id', asyncRoute(async (request, response) => {
@@ -4240,7 +4337,7 @@ function parseInvoiceAmount(value) {
 async function computeRegionFinance(orgId, region, percent, coordinatorId, commissionEnabled = true) {
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,gym_contact,price,price_label,entries_total,capacity_total,capacity_current,coach_ids,is_published,region,event_date,hero_image,primary_meta')
+    .select('id,type,title,city,place,venue,gym_contact,price,price_label,entries_total,capacity_total,capacity_current,coach_ids,is_published,interest_mode,region,event_date,hero_image,primary_meta')
     .eq('org_id', orgId)
     .eq('region', region)
     .order('created_at', { ascending: false });
@@ -4724,6 +4821,35 @@ app.post('/api/coordinator/products/:id/training-override', asyncRoute(async (re
   response.json({ ok: true });
 }));
 
+// Zájemci o kroužky v testovacím režimu — koordinátor vidí jen svůj kraj.
+app.get('/api/coordinator/product-interests', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id')
+    .eq('org_id', coordinator.orgId)
+    .eq('region', coordinator.region);
+  if (productsError) throw productsError;
+  const ids = (products || []).map((row) => row.id);
+  if (ids.length === 0) return response.json({ interests: [] });
+  const { data, error } = await supabase
+    .from('product_interests')
+    .select('id,product_id,first_name,last_name,email,phone,source,created_at')
+    .in('product_id', ids)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  response.json({ interests: data || [] });
+}));
+
+app.post('/api/coordinator/products/:id/launch', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const productId = requiredString(request.params.id, 'product id');
+  const ids = await launchInterestProduct({ orgId: coordinator.orgId, region: coordinator.region }, productId);
+  response.json({ ok: true, ids });
+}));
+
 // Návrh produktu / ceny — schvaluje admin. Ceny kroužků (10/15 vstupů) jsou
 // fixní a nastavuje je admin, koordinátor posílá jen návrh nákladů.
 app.post('/api/coordinator/product-requests', asyncRoute(async (request, response) => {
@@ -5043,6 +5169,7 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       entries_total: isCourse ? 10 : Number(payload.entriesTotal) || null,
       skill_category: skillCategory,
       is_published: false,
+      interest_mode: payload.interestMode === true,
       region: req.region,
       org_id: orgId,
       coach_ids: [],
