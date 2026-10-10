@@ -13,7 +13,7 @@ export function normalizeCity(value: string) {
 const CITY_POINTS: Record<string, { lat: number; lng: number }> = {
   blansko: { lat: 49.3667, lng: 16.6483 },
   brandys: { lat: 50.1866, lng: 14.6613 },
-  jesenice: { lat: 49.9686, lng: 14.5128 },
+  zdimerice: { lat: 49.9789, lng: 14.5022 },
   jesenik: { lat: 50.2243, lng: 17.1998 },
   prostejov: { lat: 49.4719, lng: 17.1093 },
   vrsovice: { lat: 50.0682, lng: 14.4576 },
@@ -24,7 +24,7 @@ const CITY_POINTS: Record<string, { lat: number; lng: number }> = {
 const LABEL_DIR: Record<string, 'top' | 'bottom' | 'left' | 'right'> = {
   blansko: 'left',
   brandys: 'top',
-  jesenice: 'bottom',
+  zdimerice: 'bottom',
   jesenik: 'top',
   prostejov: 'top',
   vrsovice: 'right',

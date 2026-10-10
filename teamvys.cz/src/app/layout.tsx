@@ -105,7 +105,7 @@ const organizationJsonLd = {
     '@type': 'PostalAddress',
     addressCountry: 'CZ',
   },
-  areaServed: ['Vyškov', 'Prostějov', 'Blansko', 'Brandýs nad Labem', 'Jeseník', 'Jesenice', 'Praha'],
+  areaServed: ['Vyškov', 'Prostějov', 'Blansko', 'Brandýs nad Labem', 'Jeseník', 'Zdiměřice', 'Praha'],
   makesOffer: [
     {
       '@type': 'Offer',
