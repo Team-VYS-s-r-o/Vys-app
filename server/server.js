@@ -5264,13 +5264,17 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       venue: isCourse
         ? deriveVenueFromPlace(payload.city, payload.place || payload.city)
         : optionalString(payload.venue),
-      description: optionalString(payload.description),
+      description: optionalString(payload.description) || (isCourse ? 'Permanentka na 10 vstupů do parkour tréninku.' : ''),
       capacity_total: Number(payload.capacityTotal) || 0,
       capacity_current: 0,
       event_date: optionalString(payload.eventDate),
       price,
       // Kroužky mají fixní strukturu 10/15 vstupů — popisek generujeme, ne z návrhu.
-      price_label: isCourse && price > 0 ? `10 vstupů · ${price.toLocaleString('cs-CZ')} Kč` : optionalString(payload.priceLabel),
+      price_label: isCourse && price > 0 ? `10 vstupů · ${price.toLocaleString('cs-CZ')} Kč` : optionalString(payload.priceLabel) || '',
+      // Sloupce jsou NOT NULL bez defaultu — bez nich insert spadne.
+      primary_meta: optionalString(payload.schedule) || optionalString(payload.primaryMeta) || '',
+      secondary_meta: isCourse ? 'Digitální permanentka přes NFC čip' : '',
+      badge: isCourse ? 'Kroužek' : String(type),
       entries_total: isCourse ? 10 : Number(payload.entriesTotal) || null,
       skill_category: skillCategory,
       is_published: false,
@@ -5290,8 +5294,10 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
         ...productRow,
         id: `${createdProductId}-15`,
         price: price15,
-        price_label: price15 > 0 ? `15 vstupů · ${price15.toLocaleString('cs-CZ')} Kč` : null,
+        price_label: price15 > 0 ? `15 vstupů · ${price15.toLocaleString('cs-CZ')} Kč` : '',
         entries_total: 15,
+        secondary_meta: 'Výhodnější digitální permanentka přes NFC čip',
+        description: 'Permanentka na 15 vstupů do parkour tréninku.',
       });
       if (variantError) throw variantError;
     }
