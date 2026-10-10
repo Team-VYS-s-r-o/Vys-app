@@ -3338,6 +3338,96 @@ app.get('/api/admin/broadcasts', asyncRoute(async (request, response) => {
 }));
 
 // ---------------------------------------------------------------------------
+// Admin → coaches broadcast messages (coach notification center)
+// ---------------------------------------------------------------------------
+app.post('/api/admin/coach-broadcasts', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const title = requiredString(request.body.title, 'title');
+  const body = requiredString(request.body.body, 'body');
+  const audience = optionalString(request.body.audience) === 'selected' ? 'selected' : 'all';
+  const requestedCoachIds = Array.isArray(request.body.coachProfileIds)
+    ? Array.from(new Set(request.body.coachProfileIds.map((id) => optionalString(id)).filter(Boolean)))
+    : [];
+
+  if (requestedCoachIds.length === 0) throw httpError('Vyber aspoň jednoho trenéra.', 400);
+
+  // SECURITY: same reasoning as /api/admin/broadcasts — this route runs with
+  // the service role, so every requested id must be proven to be a coach of
+  // THIS admin's organization before anything is written.
+  const { data: coachRows, error: coachError } = await supabase
+    .from('app_profiles')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('role', 'coach')
+    .in('id', requestedCoachIds);
+  if (coachError) throw coachError;
+
+  const validCoachIds = new Set((coachRows || []).map((row) => row.id));
+  const coachProfileIds = requestedCoachIds.filter((id) => validCoachIds.has(id));
+
+  if (coachProfileIds.length === 0) throw httpError('Žádný z vybraných trenérů nepatří k tvé organizaci.', 403);
+
+  const senderName = profile.name || 'Organizace';
+  const nowIso = new Date().toISOString();
+
+  const { data: broadcast, error: broadcastError } = await supabase
+    .from('coach_broadcasts')
+    .insert({
+      org_id: orgId,
+      sender_id: profile.id,
+      sender_name: senderName,
+      title,
+      body,
+      audience,
+      recipient_count: coachProfileIds.length,
+      created_at: nowIso,
+    })
+    .select('id')
+    .single();
+  if (broadcastError) throw broadcastError;
+
+  const recipientRows = coachProfileIds.map((coachProfileId) => ({
+    broadcast_id: broadcast.id,
+    org_id: orgId,
+    coach_profile_id: coachProfileId,
+    title,
+    body,
+    sender_name: senderName,
+    created_at: nowIso,
+  }));
+  const { error: recipientsError } = await supabase.from('coach_broadcast_recipients').insert(recipientRows);
+  if (recipientsError) throw recipientsError;
+
+  const pushed = await sendExpoPushToProfiles(coachProfileIds, title, body);
+
+  response.status(201).json({
+    ok: true,
+    broadcastId: broadcast.id,
+    recipients: coachProfileIds.length,
+    pushed,
+    skipped: requestedCoachIds.length - coachProfileIds.length,
+  });
+}));
+
+app.get('/api/admin/coach-broadcasts', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const { data, error } = await supabase
+    .from('coach_broadcasts')
+    .select('id,title,body,audience,recipient_count,sender_name,created_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  response.json({ broadcasts: data || [] });
+}));
+
+// ---------------------------------------------------------------------------
 // Organization-defined document slots
 // ---------------------------------------------------------------------------
 const DOCUMENT_SLOT_ACTIVITY_TYPES = ['Kroužek', 'Tábor', 'Workshop'];
