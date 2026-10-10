@@ -490,6 +490,12 @@ function skillLabel(product: ParentProduct) {
   return product.skillCategory === 'zacatecnici' ? 'Začátečníci' : product.skillCategory === 'pokrocili' ? 'Pokročilí' : 'Všechny úrovně';
 }
 
+function skillBadge(product: ParentProduct) {
+  if (product.skillCategory === 'zacatecnici') return { label: 'Začátečníci', dot: 'bg-emerald-500', text: 'text-emerald-600' };
+  if (product.skillCategory === 'pokrocili') return { label: 'Pokročilí', dot: 'bg-red-500', text: 'text-red-600' };
+  return { label: 'Všechny', dot: 'bg-amber-500', text: 'text-amber-600' };
+}
+
 function CatalogState({ loading, error, empty, emptyTitle, emptyText }: { loading: boolean; error: string | null; empty: boolean; emptyTitle: string; emptyText: string }) {
   if (loading) {
     return <div className="mt-6 rounded-brand border border-brand-purple/12 bg-white p-5 text-sm font-black text-brand-ink-soft shadow-brand-soft">Načítám aktuální nabídku...</div>;
@@ -941,13 +947,19 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
         <div className="mt-4 grid gap-2 rounded-[22px] bg-brand-paper p-3 text-sm font-bold text-brand-ink">
           {products.map((item) => {
             const meta = splitCourseMeta(item.primaryMeta);
+            const rawLabel = merged ? `${meta.day} · ${meta.time}` : multiDay && scheduleTime ? `${scheduleDays.join(' a ')} · ${scheduleTime}` : item.primaryMeta;
+            const timeLabel = rawLabel.replace(/(\d{1,2}[:.]\d{2})\s*-\s*(\d{1,2}[:.]\d{2})/, '$1–$2');
+            const badge = skillBadge(item);
             return (
               <span key={item.id} className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 whitespace-nowrap">
                   <CalendarDays size={16} className="shrink-0 text-brand-purple" />
-                  {merged ? `${meta.day} · ${meta.time}` : multiDay && scheduleTime ? `${scheduleDays.join(' a ')} · ${scheduleTime}` : item.primaryMeta}
+                  {timeLabel}
                 </span>
-                <span className="shrink-0 rounded-[10px] bg-brand-purple-light px-2 py-1 text-[10px] font-black uppercase text-brand-purple-deep">{skillLabel(item)}</span>
+                <span className={`inline-flex shrink-0 items-center gap-1.5 text-[10px] font-black uppercase tracking-wide ${badge.text}`}>
+                  <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
+                  {badge.label}
+                </span>
               </span>
             );
           })}
