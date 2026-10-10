@@ -4078,6 +4078,12 @@ app.get('/api/admin/products', asyncRoute(async (request, response) => {
   response.json({ products: data || [] });
 }));
 
+function deriveVenueFromPlace(city, place) {
+  const prefix = `${String(city || '').trim()} · `;
+  const placeText = String(place || '').trim();
+  return placeText.startsWith(prefix) ? placeText.slice(prefix.length) : placeText;
+}
+
 app.post('/api/admin/products', asyncRoute(async (request, response) => {
   requireServices();
   const profile = await requireAdmin(request);
@@ -4096,6 +4102,14 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
   requiredString(row.city, 'city');
   requiredString(row.place, 'place');
   if (!row.region) row.region = regionForCity(row.city);
+
+  // Trenérská appka skládá lokalitu jako „město · venue", rodiče mají v
+  // active_course hodnotu place. Když se rozjedou (Sokolovna vs. Sokol
+  // Vršovice), trenér nevidí děti na docházce — venue proto u kroužků
+  // odvozujeme z place a ručně poslanou hodnotu ignorujeme.
+  if (String(row.type) === 'Kroužek') {
+    row.venue = deriveVenueFromPlace(row.city, row.place);
+  }
 
   // Org separation: a product always belongs to the admin's organization.
   // If the product already exists, it must belong to the same org (no cross-org edits).
@@ -5015,7 +5029,11 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       title: String(payload.title || 'Nový produkt'),
       city: String(payload.city || ''),
       place: String(payload.place || payload.city || ''),
-      venue: optionalString(payload.venue),
+      // U kroužků musí platit place = „město · venue", jinak trenér nevidí děti
+      // na docházce (viz deriveVenueFromPlace u /api/admin/products).
+      venue: isCourse
+        ? deriveVenueFromPlace(payload.city, payload.place || payload.city)
+        : optionalString(payload.venue),
       description: optionalString(payload.description),
       capacity_total: Number(payload.capacityTotal) || 0,
       capacity_current: 0,
