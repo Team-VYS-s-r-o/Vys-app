@@ -103,12 +103,12 @@ export const LocationPickerMap = forwardRef<
       const initial = coords ?? CZECHIA_CENTER;
       const map = L.map(containerRef.current);
       map.setView([initial.lat, initial.lng], hasInitialPin ? 16 : 7);
-      // Vlastní OSM tile server nám dlaždice blokuje (tile usage policy),
-      // CARTO basemaps jedou nad stejnými OSM daty a bez API klíče.
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      // OSM tile server nás blokuje (usage policy) a CARTO od 2026 vyžaduje
+      // API klíč (dlaždice s vodoznakem "API KEY REQUIRED") — Esri jede bez klíče.
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        maxNativeZoom: 18,
         maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        attribution: 'Esri &copy; OpenStreetMap',
       }).addTo(map);
 
       const marker = L.marker([initial.lat, initial.lng], { draggable: true }).addTo(map);

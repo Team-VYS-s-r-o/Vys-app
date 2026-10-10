@@ -93,11 +93,11 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
         containerRef.current.style.touchAction = 'pan-y';
       }
 
-      // Vlastní OSM tile server nám dlaždice blokuje (tile usage policy),
-      // CARTO basemaps jedou nad stejnými OSM daty a bez API klíče.
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
-        subdomains: 'abcd',
+      // OSM tile server nás blokuje (usage policy) a CARTO od 2026 vyžaduje
+      // API klíč (dlaždice s vodoznakem "API KEY REQUIRED") — Esri jede bez klíče.
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Esri &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxNativeZoom: 18,
         maxZoom: 19,
       }).addTo(map);
 
