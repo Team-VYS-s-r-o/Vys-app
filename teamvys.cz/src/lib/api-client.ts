@@ -679,6 +679,8 @@ export type AdminProductRow = {
   training_focus: string[];
   is_published: boolean;
   skill_category?: string;
+  included_items?: string[];
+  bring_items?: string[];
 };
 
 export async function loadAdminProducts(): Promise<AdminProductRow[]> {
@@ -700,6 +702,8 @@ export type PublicCoachSummary = {
   id: string;
   name: string;
   photoUrl: string;
+  /** Lokace trenéra ve formátu „Město · venue" (coach_profiles.assigned_courses) */
+  locations?: string[];
 };
 
 export async function loadPublicCoaches(): Promise<PublicCoachSummary[]> {

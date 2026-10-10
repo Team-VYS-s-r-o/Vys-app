@@ -300,6 +300,20 @@ const DEFAULT_COURSE_ATTENDANCE_RATE = 500;
 const SOLO_COURSE_ATTENDANCE_RATE = 750;
 const IGNORED_COACH_SESSION_IDS = new Set(['coach-demo']);
 const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
+// Výchozí body „Co je v ceně" / „Co s sebou" pro kroužky VYS — stejné texty
+// používá web i admin; jiné organizace startují s prázdnými poli.
+const VYS_COURSE_INCLUDED_ITEMS = [
+  'Permanentka 10 nebo 15 vstupů',
+  'NFC docházka v rodičovském přehledu',
+  'Skill tree s XP a barevnými náramky',
+  'Profesionální trenéři a žíněnky',
+];
+const VYS_COURSE_BRING_ITEMS = [
+  'Sálové boty se světlou podrážkou',
+  'Volné tričko',
+  'Tepláky nebo volné kraťasy',
+  'Pití',
+];
 
 function normalizeActivityType(value) {
   const normalized = String(value || '')
@@ -1541,7 +1555,7 @@ app.get('/api/parent/products', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,org_id')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,org_id')
     .eq('is_published', true)
     .in('org_id', orgIds)
     .order('created_at', { ascending: false });
@@ -1556,7 +1570,7 @@ app.get('/api/public/products', asyncRoute(async (_request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,org_id')
     .eq('is_published', true)
     .eq('org_id', VYS_ORG_ID)
     .order('created_at', { ascending: false });
@@ -1928,7 +1942,7 @@ app.get('/api/public/coaches', asyncRoute(async (_request, response) => {
 
   const { data: coachRows, error } = await supabase
     .from('coach_profiles')
-    .select('id, profile_photo_url')
+    .select('id, profile_photo_url, assigned_courses')
     .eq('approval_status', 'approved');
 
   if (error) throw error;
@@ -1951,6 +1965,7 @@ app.get('/api/public/coaches', asyncRoute(async (_request, response) => {
       id: r.id,
       name: profileMap.get(r.id) || 'Trenér TeamVYS',
       photoUrl: r.profile_photo_url || '/vys-logo-mark.png',
+      locations: Array.isArray(r.assigned_courses) ? r.assigned_courses : [],
     }));
 
   response.json({ coaches });
@@ -4111,7 +4126,7 @@ app.get('/api/admin/products', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,gym_contact,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category,interest_mode')
+    .select('id,type,title,city,place,venue,gym_contact,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -4135,7 +4150,7 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
     throw new Error('Invalid product: id is required.');
   }
 
-  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'gym_contact', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'interest_mode', 'map_query', 'latitude', 'longitude', 'skill_category', 'region'];
+  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'gym_contact', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'interest_mode', 'map_query', 'latitude', 'longitude', 'skill_category', 'region', 'included_items', 'bring_items'];
   const row = Object.fromEntries(Object.entries(product).filter(([key]) => allowed.includes(key)));
 
   requiredString(row.type, 'type');
@@ -5253,17 +5268,19 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
     const skillCategory = ['zacatecnici', 'pokrocili', 'smisene'].includes(payload.skillCategory)
       ? payload.skillCategory
       : 'smisene';
+    const city = String(payload.city || '');
+    // U kroužků musí platit place = „město · venue", jinak trenér nevidí děti
+    // na docházce (viz deriveVenueFromPlace u /api/admin/products).
+    const courseVenue = deriveVenueFromPlace(city, payload.place || payload.city);
     const productRow = {
       id: createdProductId,
       type,
       title: String(payload.title || 'Nový produkt'),
-      city: String(payload.city || ''),
-      place: String(payload.place || payload.city || ''),
-      // U kroužků musí platit place = „město · venue", jinak trenér nevidí děti
-      // na docházce (viz deriveVenueFromPlace u /api/admin/products).
-      venue: isCourse
-        ? deriveVenueFromPlace(payload.city, payload.place || payload.city)
-        : optionalString(payload.venue),
+      city,
+      place: isCourse && city && courseVenue
+        ? `${city} · ${courseVenue}`
+        : String(payload.place || payload.city || ''),
+      venue: isCourse ? courseVenue : optionalString(payload.venue),
       description: optionalString(payload.description) || (isCourse ? 'Permanentka na 10 vstupů do parkour tréninku.' : ''),
       capacity_total: Number(payload.capacityTotal) || 0,
       capacity_current: 0,
@@ -5277,6 +5294,10 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       badge: isCourse ? 'Kroužek' : String(type),
       entries_total: isCourse ? 10 : Number(payload.entriesTotal) || null,
       skill_category: skillCategory,
+      // Předvyplněné body „Co je v ceně" / „Co s sebou" — jen pro VYS,
+      // jiné organizace startují s prázdnými poli.
+      included_items: isCourse && orgId === VYS_ORG_ID ? VYS_COURSE_INCLUDED_ITEMS : [],
+      bring_items: isCourse && orgId === VYS_ORG_ID ? VYS_COURSE_BRING_ITEMS : [],
       is_published: false,
       interest_mode: payload.interestMode === true,
       region: req.region,

@@ -181,6 +181,8 @@ function rowToProduct(row: AdminProductRow): ParentProduct {
     interestCount: row.interest_count ?? 0,
     canPurchase: row.can_purchase,
     interestMode: row.interest_mode ?? false,
+    includedItems: Array.isArray(row.included_items) ? row.included_items : [],
+    bringItems: Array.isArray(row.bring_items) ? row.bring_items : [],
   };
 }
 

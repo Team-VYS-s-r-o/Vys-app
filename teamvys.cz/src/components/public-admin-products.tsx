@@ -15,7 +15,14 @@ import { usePublicCoaches, type PublicCoachSummary } from '@/lib/use-public-coac
 
 const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
 
-// Team VYS gear list shown on every VYS kroužek detail (fixed, not per product).
+// Výchozí texty pro VYS kroužky — použijí se jen když produkt nemá vlastní
+// included_items / bring_items v databázi.
+const VYS_WHAT_IS_INCLUDED = [
+  'Permanentka 10 nebo 15 vstupů',
+  'NFC docházka v rodičovském přehledu',
+  'Skill tree s XP a barevnými náramky',
+  'Profesionální trenéři a žíněnky',
+];
 const VYS_WHAT_TO_BRING = [
   'Sálové boty se světlou podrážkou',
   'Volné tričko',
@@ -507,7 +514,7 @@ function CatalogState({ loading, error, empty, emptyTitle, emptyText }: { loadin
 
 export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
   const { products } = useAdminCreatedProducts();
-  const { coachesForIds } = usePublicCoaches();
+  const { coaches: allCoaches, coachesForIds } = usePublicCoaches();
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => setLoaded(true), []);
@@ -540,16 +547,30 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
   const gallery = product.gallery.length ? product.gallery : [product.heroImage];
   const [hero, ...rest] = gallery;
   const { day, time } = splitCourseMeta(product.primaryMeta);
-  const coaches = coachesForIds(product.coachIds ?? []);
   const sameVenue = products
     .filter((item) => item.type === 'Krouzek' && !item.id.endsWith('-15') && venueKey(item.city) === venueKey(product.city) && venueKey(item.venue) === venueKey(product.venue))
     .sort((a, b) => startMinutes(a.primaryMeta) - startMinutes(b.primaryMeta));
   const group = sameVenue.length > 0 ? sameVenue : [product];
+  // Trenéři na lokaci = trenéři přiřazení na produktech této lokace + trenéři,
+  // kteří mají lokaci v profilu (assigned_courses „Město · venue").
+  const groupCoachIds = Array.from(new Set(group.flatMap((item) => item.coachIds ?? [])));
+  const assignedCoaches = coachesForIds(groupCoachIds);
+  const locationLabel = venueKey(`${product.city} · ${product.venue}`);
+  const locationCoaches = allCoaches.filter((coach) => (coach.locations ?? []).some((location) => venueKey(location) === locationLabel));
+  const coaches = [...assignedCoaches, ...locationCoaches.filter((coach) => !assignedCoaches.some((assigned) => assigned.id === coach.id))];
   const merged = group.length > 1;
   const scheduleDays = parseScheduleDays(product.primaryMeta);
   const multiDay = !merged && scheduleDays.length >= 2;
   const uniformLevel = group.every((item) => item.skillCategory === product.skillCategory);
   const minPrice = Math.min(...group.map((item) => item.price));
+  // Body sekcí jsou per produkt; u VYS kroužků bez vlastních bodů padáme na výchozí texty.
+  const isVysProduct = product.orgId === VYS_ORG_ID || !product.orgId;
+  const includedItems = product.includedItems && product.includedItems.length > 0
+    ? product.includedItems
+    : isVysProduct ? VYS_WHAT_IS_INCLUDED : [];
+  const bringItems = product.bringItems && product.bringItems.length > 0
+    ? product.bringItems
+    : isVysProduct ? VYS_WHAT_TO_BRING : [];
 
   return (
     <article className="section-shell py-10">
@@ -653,21 +674,22 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
               </div>
             </div>
 
-            <div className="mt-5 border-t border-black/10 pt-5">
-              <p className="text-xs font-black uppercase text-slate-400">Co je v ceně</p>
-              <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-                <li>Permanentka 10 nebo 15 vstupů</li>
-                <li>NFC docházka v rodičovském přehledu</li>
-                <li>Skill tree s XP a barevnými náramky</li>
-                <li>Profesionální trenéři a žíněnky</li>
-              </ul>
-            </div>
+            {includedItems.length > 0 ? (
+              <div className="mt-5 border-t border-black/10 pt-5">
+                <p className="text-xs font-black uppercase text-slate-400">Co je v ceně</p>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                  {includedItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
-            {product.orgId === VYS_ORG_ID || !product.orgId ? (
+            {bringItems.length > 0 ? (
               <div className="mt-5 border-t border-black/10 pt-5">
                 <p className="text-xs font-black uppercase text-slate-400">Co s sebou</p>
                 <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-                  {VYS_WHAT_TO_BRING.map((item) => (
+                  {bringItems.map((item) => (
                     <li key={item} className="flex items-start gap-2">
                       <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-brand-cyan" />
                       <span>{item}</span>

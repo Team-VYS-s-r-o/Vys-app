@@ -70,6 +70,10 @@ export type ParentProduct = {
   importantInfo: Array<{ label: string; value: string }>;
   trainingFocus: string[];
   skillCategory?: string;
+  /** Body „Co je v ceně" na webu (per produkt, jiné org startují prázdné) */
+  includedItems?: string[];
+  /** Body „Co s sebou" na webu (per produkt, jiné org startují prázdné) */
+  bringItems?: string[];
 };
 
 export type RequiredDocumentTemplate = {
