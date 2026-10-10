@@ -2212,6 +2212,34 @@ app.post('/api/coach/attendance', asyncRoute(async (request, response) => {
   response.status(201).json({ attendance: data });
 }));
 
+// Sourozenecká sleva na permanentku: DRUHÉ a TŘETÍ dítě v rodině má −250 Kč,
+// první a čtvrté+ platí plnou cenu. Pořadí dětí určuje datum prvního
+// zaplaceného nákupu permanentky; dítě bez nákupní historie se řadí za
+// sourozence, kteří už permanentku mají. Sleva platí i při obnově permanentky
+// (dítě zůstává „druhé/třetí" trvale).
+const SIBLING_DISCOUNT_CZK = 250;
+
+async function siblingDiscountForPurchase(parentProfileId, participantId, productType) {
+  if (productType !== 'Kroužek' || !parentProfileId) return 0;
+  const { data: rows, error } = await supabase
+    .from('parent_purchases')
+    .select('participant_id, created_at')
+    .eq('parent_profile_id', parentProfileId)
+    .eq('type', 'Kroužek')
+    .eq('status', 'Zaplaceno')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+
+  const siblingOrder = [];
+  for (const row of rows || []) {
+    if (row.participant_id && !siblingOrder.includes(row.participant_id)) siblingOrder.push(row.participant_id);
+  }
+  let rank = siblingOrder.indexOf(participantId);
+  if (rank === -1) rank = siblingOrder.length;
+  // rank 0 = první dítě (plná cena), 1–2 = druhé a třetí (sleva), 3+ = plná cena
+  return rank === 1 || rank === 2 ? SIBLING_DISCOUNT_CZK : 0;
+}
+
 app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireParentOrAdmin(request);
@@ -2233,7 +2261,9 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
 
   if (discountCode && !discount) throw new Error('Slevový kód nejde použít pro tento produkt.');
 
-  const discountAmount = discount ? Math.round((originalAmount * discount.percent) / 100) : 0;
+  const codeDiscountAmount = discount ? Math.round((originalAmount * discount.percent) / 100) : 0;
+  const siblingDiscount = await siblingDiscountForPurchase(parentProfileId, participantId, product.type);
+  const discountAmount = codeDiscountAmount + siblingDiscount;
   const amount = Math.max(0, originalAmount - discountAmount);
   const { orgStripe } = await getProductOrgStripe(product);
 
@@ -2273,8 +2303,13 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
       discount_code: discountCode || '',
       discount_percent: discount ? String(discount.percent) : '',
       discount_amount: discountAmount ? String(discountAmount) : '',
+      sibling_discount: siblingDiscount ? String(siblingDiscount) : '',
       receipt_email: receiptEmail || '',
-      price_label: discount ? `${product.price_label} · sleva ${discount.percent} %` : product.price_label,
+      price_label: [
+        product.price_label,
+        discount ? `sleva ${discount.percent} %` : null,
+        siblingDiscount ? `sourozenecká sleva −${siblingDiscount} Kč` : null,
+      ].filter(Boolean).join(' · '),
       place: product.place,
       org_id: product.org_id || VYS_ORG_ID,
       event_date: product.event_date || '',
@@ -2424,12 +2459,18 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
 
   if (discountCode && !discount) throw new Error('Slevový kód nejde použít pro tento produkt.');
 
-  const discountAmount = discount ? Math.round((originalAmount * discount.percent) / 100) : 0;
+  const codeDiscountAmount = discount ? Math.round((originalAmount * discount.percent) / 100) : 0;
+  const siblingDiscount = await siblingDiscountForPurchase(parentProfileId, participantId, product.type);
+  const discountAmount = codeDiscountAmount + siblingDiscount;
   const amount = Math.max(0, originalAmount - discountAmount);
   if (amount <= 0) throw new Error('Částka platby musí být větší než 0 Kč.');
 
   const trainingDays = resolveTrainingDaysSelection(product, request.body.trainingDays);
-  const priceLabel = discount ? `${product.price_label} · sleva ${discount.percent} %` : product.price_label;
+  const priceLabel = [
+    product.price_label,
+    discount ? `sleva ${discount.percent} %` : null,
+    siblingDiscount ? `sourozenecká sleva −${siblingDiscount} Kč` : null,
+  ].filter(Boolean).join(' · ');
   const metadata = {
     parent_profile_id: parentProfileId,
     product_id: product.id,
@@ -2442,6 +2483,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
     discount_code: discountCode || '',
     discount_percent: discount ? String(discount.percent) : '',
     discount_amount: discountAmount ? String(discountAmount) : '',
+    sibling_discount: siblingDiscount ? String(siblingDiscount) : '',
     receipt_email: receiptEmail || '',
     price_label: priceLabel,
     place: product.place,
@@ -2475,6 +2517,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
     originalAmount,
     discountAmount,
     discountPercent: discount?.percent ?? 0,
+    siblingDiscount,
     priceLabel,
   });
 }));
