@@ -4331,6 +4331,24 @@ function parseInvoiceAmount(value) {
   return Number.isFinite(numeric) ? Math.round(numeric) : 0;
 }
 
+const CZECH_MONTH_NAMES = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
+
+function monthKeyFromDate(date) {
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// period_label výplat má formát „říjen 2025" (cs-CZ long month) — mapujeme zpět na YYYY-MM.
+function monthKeyFromPeriodLabel(label) {
+  const text = optionalString(label);
+  if (!text) return null;
+  const match = text.trim().toLowerCase().match(/^(\S+)\s+(\d{4})$/);
+  if (!match) return null;
+  const index = CZECH_MONTH_NAMES.indexOf(match[1]);
+  if (index === -1) return null;
+  return `${match[2]}-${String(index + 1).padStart(2, '0')}`;
+}
+
 // Kraj finance: tržby ze zaplacených nákupů krajských produktů minus náklady
 // (docházka trenérů na krajských místech + zaplacené krajské faktury).
 // Provize koordinátora = percent % z kladného čistého zisku.
@@ -4423,7 +4441,48 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
   const paidOut = (payouts || []).reduce((sum, payout) => sum + (Number(payout.amount) || 0), 0);
   const owed = commissionEnabled ? Math.max(commission - paidOut, 0) : 0;
 
+  // Měsíční rozpad pro přehlednou výplatu na konci měsíce.
+  const monthlyMap = new Map();
+  const monthBucket = (key) => {
+    if (!monthlyMap.has(key)) monthlyMap.set(key, { key, revenue: 0, coachCost: 0, invoiceCost: 0, paidOut: 0 });
+    return monthlyMap.get(key);
+  };
+  for (const purchase of purchases) {
+    if (purchase.status !== 'Zaplaceno' && purchase.status !== 'Placeno') continue;
+    const key = monthKeyFromDate(parseFlexibleDate(purchase.paid_at) || parseFlexibleDate(purchase.created_at));
+    if (key) monthBucket(key).revenue += Number(purchase.amount) || 0;
+  }
+  for (const record of regionAttendance) {
+    const key = monthKeyFromDate(parseFlexibleDate(record.date_text) || parseFlexibleDate(record.created_at));
+    if (key) monthBucket(key).coachCost += Number(record.amount) || 0;
+  }
+  for (const invoice of invoices || []) {
+    if (!invoice.zaplaceno || isCoordinatorRewardInvoice(invoice)) continue;
+    const key = monthKeyFromDate(parseFlexibleDate(invoice.datum_zaplaceni) || parseFlexibleDate(invoice.created_at));
+    if (key) monthBucket(key).invoiceCost += parseInvoiceAmount(invoice.castka);
+  }
+  for (const payout of payouts || []) {
+    const key = monthKeyFromPeriodLabel(payout.period_label) || monthKeyFromDate(parseFlexibleDate(payout.created_at));
+    if (key) monthBucket(key).paidOut += Number(payout.amount) || 0;
+  }
+  const monthly = Array.from(monthlyMap.values())
+    .sort((a, b) => (a.key < b.key ? 1 : -1))
+    .slice(0, 12)
+    .map((bucket) => {
+      const monthNet = bucket.revenue - bucket.coachCost - bucket.invoiceCost;
+      const monthCommission = commissionEnabled && monthNet > 0 ? Math.round((monthNet * percent) / 100) : 0;
+      const [yearPart, monthPart] = bucket.key.split('-');
+      return {
+        ...bucket,
+        label: `${CZECH_MONTH_NAMES[Number(monthPart) - 1]} ${yearPart}`,
+        net: monthNet,
+        commission: monthCommission,
+        owed: commissionEnabled ? Math.max(monthCommission - bucket.paidOut, 0) : 0,
+      };
+    });
+
   return {
+    monthly,
     products: products || [],
     purchases,
     attendance: regionAttendance,
@@ -4972,11 +5031,20 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
       payoutMethod: row.payout_method || 'invoice',
       permissions: normalizeCoordinatorPermissions(row.permissions),
       finance: financeData.finance,
+      monthly: financeData.monthly,
       payouts: financeData.payouts,
       productCount: financeData.products.length,
       contracts: contractsByCoordinator.get(row.id) || [],
     });
   }
+
+  // Všechny produkty organizace — admin z nich přiřazuje kroužky koordinátorům (přes region).
+  const { data: orgProductRows, error: orgProductsError } = await supabase
+    .from('products')
+    .select('id,type,title,city,place,region,is_published,interest_mode,entries_total')
+    .eq('org_id', orgId)
+    .order('title', { ascending: true });
+  if (orgProductsError) throw orgProductsError;
 
   const { data: requests, error: requestsError } = await supabase
     .from('coordinator_product_requests')
@@ -4997,7 +5065,44 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
     .filter((row) => !assignedIds.has(row.id) && (!row.org_id || row.org_id === orgId))
     .map((row) => ({ id: row.id, name: row.name || row.email || row.id, email: row.email || null, phone: row.phone || null, created_at: row.created_at }));
 
-  response.json({ coordinators, candidates, requests: requests || [], regions: CZECH_REGIONS });
+  response.json({ coordinators, candidates, requests: requests || [], regions: CZECH_REGIONS, products: orgProductRows || [] });
+}));
+
+// Přiřazení/odebrání kroužku koordinátorovi = nastavení/vymazání kraje produktu.
+// Kroužky existují v páru variant (base + base-15) — měníme obě najednou.
+app.post('/api/admin/coordinators/:id/products', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'coordinator id');
+  const productId = requiredString(request.body.productId, 'productId');
+  const action = requiredString(request.body.action, 'action');
+  if (!['assign', 'remove'].includes(action)) throw httpError("action musí být 'assign' nebo 'remove'.", 400);
+
+  const { data: coordinatorRow, error: coordinatorError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id,region')
+    .eq('id', id)
+    .maybeSingle();
+  if (coordinatorError) throw coordinatorError;
+  if (!coordinatorRow || (coordinatorRow.org_id || VYS_ORG_ID) !== orgId) throw httpError('Koordinátor nenalezen.', 404);
+
+  const baseId = productId.replace(/-15$/, '');
+  const { data: productRows, error: productsError } = await supabase
+    .from('products')
+    .select('id,org_id,region')
+    .in('id', [baseId, `${baseId}-15`]);
+  if (productsError) throw productsError;
+  const orgRows = (productRows || []).filter((row) => (row.org_id || VYS_ORG_ID) === orgId);
+  if (orgRows.length === 0) throw httpError('Produkt nenalezen.', 404);
+
+  const region = action === 'assign' ? coordinatorRow.region : null;
+  const { error: updateError } = await supabase
+    .from('products')
+    .update({ region })
+    .in('id', orgRows.map((row) => row.id));
+  if (updateError) throw updateError;
+  response.json({ ok: true, region, ids: orgRows.map((row) => row.id) });
 }));
 
 app.post('/api/admin/coordinators', asyncRoute(async (request, response) => {
