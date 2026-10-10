@@ -4321,7 +4321,7 @@ app.get('/api/admin/invoices', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('invoices')
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,zdroj,created_at')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -4356,7 +4356,7 @@ app.post('/api/admin/invoices', asyncRoute(async (request, response) => {
   const { data, error } = await supabase
     .from('invoices')
     .insert(row)
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,zdroj,created_at')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at')
     .single();
 
   if (error) throw error;
@@ -4380,6 +4380,10 @@ app.patch('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
   if (Object.prototype.hasOwnProperty.call(request.body, 'category')) {
     patch.kategorie = optionalString(request.body.category) || null;
   }
+  // Přijetí faktury nahrané trenérem/koordinátorem v aplikaci → objeví se v sekci Faktury.
+  if (Object.prototype.hasOwnProperty.call(request.body, 'accepted')) {
+    patch.prijato = Boolean(request.body.accepted);
+  }
   if (Object.keys(patch).length === 0) throw new Error('Není co upravit.');
 
   const { data, error } = await supabase
@@ -4387,7 +4391,7 @@ app.patch('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
     .update(patch)
     .eq('id', id)
     .eq('org_id', orgId)
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,zdroj,created_at')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at')
     .single();
 
   if (error) throw error;
@@ -5268,6 +5272,7 @@ app.post('/api/coordinator/invoices', asyncRoute(async (request, response) => {
     coordinator_id: coordinator.id,
     region: coordinator.region,
     org_id: coordinator.orgId,
+    prijato: false,
   };
 
   const { data, error } = await supabase.from('invoices').insert(row).select('id').single();
