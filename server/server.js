@@ -4191,7 +4191,6 @@ const CITY_REGIONS = {
   jesenik: 'Olomoucký kraj',
   prostejov: 'Olomoucký kraj',
   praha: 'Praha',
-  kobylisy: 'Praha',
   vrsovice: 'Praha',
   veliny: 'Pardubický kraj',
 };
@@ -6242,6 +6241,71 @@ app.post('/api/auth/coach-register', asyncRoute(async (request, response) => {
     email,
     access_token: sessionData.session.access_token,
     refresh_token: sessionData.session.refresh_token,
+  });
+}));
+
+// TEMPORARY diagnostic endpoint: search Stripe payments by customer e-mail.
+// Protected by the Supabase service role key — only the operator has it.
+app.get('/api/stripe/debug-payments', asyncRoute(async (request, response) => {
+  requireStripe();
+  const token = (request.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token || token !== supabaseServiceKey) {
+    const error = new Error('Unauthorized.');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const email = requiredString(request.query.email, 'email').toLowerCase();
+  const sessions = await stripe.checkout.sessions.list({ customer_details: { email }, limit: 20 });
+
+  // Fulltext scan of recent payment intents: match the query against metadata
+  // values and billing e-mails, because the payment sheet may not collect e-mail.
+  const needle = String(request.query.q || email).toLowerCase();
+  const intentList = await stripe.paymentIntents.list({ limit: 100, expand: ['data.latest_charge'] });
+  const intents = {
+    data: intentList.data.filter((intent) => {
+      const charge = intent.latest_charge && typeof intent.latest_charge === 'object' ? intent.latest_charge : null;
+      const haystack = [
+        ...Object.values(intent.metadata || {}),
+        charge?.billing_details?.email || '',
+        charge?.billing_details?.name || '',
+        intent.receipt_email || '',
+      ].join(' ').toLowerCase();
+      return haystack.includes(needle);
+    }),
+  };
+  const charges = { data: [] };
+
+  response.json({
+    paymentIntents: intents.data.map((intent) => ({
+      id: intent.id,
+      amount: intent.amount,
+      status: intent.status,
+      created: new Date(intent.created * 1000).toISOString(),
+      metadata: intent.metadata,
+    })),
+    charges: charges.data.map((charge) => ({
+      id: charge.id,
+      payment_intent: charge.payment_intent,
+      amount: charge.amount,
+      currency: charge.currency,
+      status: charge.status,
+      created: new Date(charge.created * 1000).toISOString(),
+      description: charge.description,
+      metadata: charge.metadata,
+      receipt_email: charge.receipt_email,
+      billing_email: charge.billing_details?.email || null,
+    })),
+    checkoutSessions: sessions.data.map((session) => ({
+      id: session.id,
+      payment_intent: session.payment_intent,
+      amount_total: session.amount_total,
+      status: session.status,
+      payment_status: session.payment_status,
+      created: new Date(session.created * 1000).toISOString(),
+      metadata: session.metadata,
+      customer_email: session.customer_details?.email || null,
+    })),
   });
 }));
 
