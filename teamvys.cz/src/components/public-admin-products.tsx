@@ -966,16 +966,18 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
               </span>
             );
           })}
-          <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
-            <Clock size={16} className="text-brand-cyan" />
-            <span>
-              {interestMode ? (
-                <span className="text-amber-600">Otevřeme, až bude dost zájemců</span>
-              ) : (
-                <>{seasonStart ? `Začínáme ${seasonStart} · ` : null}<span className="text-brand-cyan">1. lekce zdarma</span></>
-              )}
+          {interestMode || seasonStart ? (
+            <span className="inline-flex items-start gap-2 leading-5 text-brand-purple-deep">
+              <Clock size={16} className="shrink-0 text-brand-cyan" />
+              <span>
+                {interestMode ? (
+                  <span className="text-amber-600">Otevřeme, až bude dost zájemců</span>
+                ) : (
+                  <span className="text-brand-cyan">Začínáme {seasonStart}</span>
+                )}
+              </span>
             </span>
-          </span>
+          ) : null}
         </div>
 
         {/* Vše ostatní (cena, kapacita, trenéři) na detailu produktu */}
