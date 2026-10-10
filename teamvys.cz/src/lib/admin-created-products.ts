@@ -163,6 +163,7 @@ function rowToProduct(row: AdminProductRow): ParentProduct {
     entriesTotal: row.entries_total,
     primaryMeta: row.primary_meta,
     secondaryMeta: row.secondary_meta,
+    eventDate: row.event_date ?? undefined,
     description: row.description,
     badge: row.badge,
     heroImage,

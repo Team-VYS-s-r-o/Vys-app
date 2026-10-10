@@ -10,7 +10,7 @@ import { CourseLocationsMap, normalizeCity } from '@/components/course-locations
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
 import { registerProductInterest } from '@/lib/api-client';
 import { type ParentProduct } from '@/lib/portal-content';
-import { formatSeasonStart, parseScheduleDays, parseScheduleTime } from '@/lib/schedule-days';
+import { formatCourseStart, parseScheduleDays, parseScheduleTime } from '@/lib/schedule-days';
 import { usePublicCoaches, type PublicCoachSummary } from '@/lib/use-public-coaches';
 
 const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
@@ -377,6 +377,9 @@ export function PublicCourseCatalog() {
           <CheckCircle2 size={18} className="text-brand-purple" />
           První lekce zdarma
         </p>
+        <p className="mx-auto mt-2 max-w-xl text-center text-sm font-semibold text-brand-ink-soft">
+          Přihlásit se můžete kdykoliv během roku — fungujeme na permanentky, takže dítě může naskočit do tréninků hned.
+        </p>
       </Reveal>
 
       <CatalogState loading={loading} error={error} empty={!loading && courses.length === 0} emptyTitle="Žádné kroužky nejsou aktuálně vypsané" emptyText="Jakmile admin zveřejní lokalitu v databázi, objeví se tady s aktuální kapacitou." />
@@ -493,7 +496,7 @@ function skillLabel(product: ParentProduct) {
 function skillBadge(product: ParentProduct) {
   if (product.skillCategory === 'zacatecnici') return { label: 'Začátečníci', dot: 'bg-emerald-500', text: 'text-emerald-600' };
   if (product.skillCategory === 'pokrocili') return { label: 'Pokročilí', dot: 'bg-red-500', text: 'text-red-600' };
-  return { label: 'Všechny', dot: 'bg-amber-500', text: 'text-amber-600' };
+  return { label: 'Pro všechny', dot: 'bg-amber-500', text: 'text-amber-600' };
 }
 
 function CatalogState({ loading, error, empty, emptyTitle, emptyText }: { loading: boolean; error: string | null; empty: boolean; emptyTitle: string; emptyText: string }) {
@@ -920,7 +923,7 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
   const scheduleTime = parseScheduleTime(product.primaryMeta);
   const multiDay = !merged && scheduleDays.length >= 2;
   // Season start = first October date matching any of this card's training days.
-  const seasonStart = formatSeasonStart(products.flatMap((item) => parseScheduleDays(item.primaryMeta)));
+  const seasonStart = formatCourseStart(products.map((item) => item.eventDate), products.flatMap((item) => parseScheduleDays(item.primaryMeta)));
 
   return (
     <div className={`flex h-full flex-col overflow-hidden rounded-[30px] shadow-brand-soft ${interestMode ? 'border-2 border-amber-400/80 bg-amber-50/70' : 'border border-brand-purple/12 bg-white'}`}>

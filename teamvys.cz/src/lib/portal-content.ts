@@ -59,6 +59,8 @@ export type ParentProduct = {
   interestMode?: boolean;
   primaryMeta: string;
   secondaryMeta: string;
+  /** Datum startu kroužku zadané při vytvoření produktu (např. "4.11.2026") */
+  eventDate?: string;
   description: string;
   badge: string;
   heroImage: string;
