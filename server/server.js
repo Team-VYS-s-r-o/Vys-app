@@ -2921,6 +2921,159 @@ app.delete('/api/participants/:participantId', asyncRoute(async (request, respon
   response.json({ action: 'unlinked' });
 }));
 
+// Převod dítěte na jeho vlastní profil: rodič zadá kód (claim_code) nového
+// profilu, který si dítě založilo na svém telefonu. Server ověří shodu jména,
+// příjmení a data narození (docházka i skeny permanentky se párují podle jména,
+// rozdíl by rozbil evidenci) a přenese permanentky, nákupy, platby, dokumenty,
+// NFC kartičku i herní postup. Starý ručně vytvořený profil pak jde odebrat.
+app.post('/api/participants/transfer', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+
+  const sourceParticipantId = requiredString(request.body.sourceParticipantId, 'sourceParticipantId');
+  const claimCode = requiredString(request.body.claimCode, 'claimCode').toUpperCase().trim();
+  const parentProfileId = parentProfileIdForActor(actor, request.body.parentProfileId);
+
+  const { data: source, error: sourceError } = await supabase
+    .from('participants')
+    .select('*')
+    .eq('id', sourceParticipantId)
+    .maybeSingle();
+  if (sourceError) throw sourceError;
+  if (!source) throw httpError('Účastník nenalezen.', 404);
+  if (actor.role !== 'admin' && source.parent_profile_id !== actor.id) {
+    throw httpError('Účastník patří k jinému rodičovskému účtu.', 403);
+  }
+
+  const { data: target, error: targetError } = await supabase
+    .from('participants')
+    .select('*')
+    .eq('claim_code', claimCode)
+    .maybeSingle();
+  if (targetError) throw targetError;
+  if (!target) throw httpError('Profil s tímto kódem nebyl nalezen. Zkontroluj kód v aplikaci dítěte a zkus to znovu.', 404);
+  if (target.id === source.id) {
+    throw httpError('Tento kód patří stejnému profilu. Zadej kód z NOVÉHO profilu, který si dítě založilo na svém telefonu.', 400);
+  }
+  if (target.parent_profile_id && target.parent_profile_id !== parentProfileId) {
+    throw httpError('Nový profil dítěte je připojený k jinému rodičovskému účtu.', 403);
+  }
+
+  const mismatches = [];
+  if (normalizePersonNamePart(source.first_name) !== normalizePersonNamePart(target.first_name)) mismatches.push('jméno');
+  if (normalizePersonNamePart(source.last_name) !== normalizePersonNamePart(target.last_name)) mismatches.push('příjmení');
+  const sourceBirth = parseFlexibleDate(source.date_of_birth);
+  const targetBirth = parseFlexibleDate(target.date_of_birth);
+  const birthMatches = sourceBirth && targetBirth
+    ? sourceBirth.getFullYear() === targetBirth.getFullYear()
+      && sourceBirth.getMonth() === targetBirth.getMonth()
+      && sourceBirth.getDate() === targetBirth.getDate()
+    : String(source.date_of_birth || '').replace(/\s+/g, '') === String(target.date_of_birth || '').replace(/\s+/g, '');
+  if (!birthMatches) mismatches.push('datum narození');
+  if (mismatches.length > 0) {
+    throw httpError(
+      `Údaje se neshodují (${mismatches.join(', ')}). Nový profil musí mít stejné jméno, příjmení i datum narození jako ${source.first_name} ${source.last_name}`
+      + (source.date_of_birth ? ` (nar. ${source.date_of_birth})` : '')
+      + '. Oprav údaje v profilu dítěte a zkus to znovu.',
+      409,
+    );
+  }
+
+  // Přepsání vazeb je idempotentní — při výpadku uprostřed stačí převod spustit znovu.
+  const linkedTables = ['digital_passes', 'parent_purchases', 'parent_payments', 'parent_notifications', 'course_documents'];
+  for (const table of linkedTables) {
+    const { error } = await supabase.from(table).update({ participant_id: target.id }).eq('participant_id', source.id);
+    if (error) throw error;
+  }
+
+  const isEmpty = (value) => value == null
+    || (typeof value === 'string' && value.trim() === '')
+    || (Array.isArray(value) && value.length === 0);
+  const pick = (field) => (isEmpty(target[field]) ? source[field] : target[field]);
+  const maxOf = (field) => Math.max(Number(target[field]) || 0, Number(source[field]) || 0);
+
+  const sourceHasNfc = source.nfc_card_status && source.nfc_card_status !== 'none';
+  const targetHasNfc = target.nfc_card_status && target.nfc_card_status !== 'none';
+  const moveNfc = sourceHasNfc && !targetHasNfc;
+
+  const targetUpdate = {
+    parent_profile_id: parentProfileId,
+    date_of_birth: pick('date_of_birth'),
+    school_year: pick('school_year'),
+    parent_name: pick('parent_name'),
+    parent_phone: pick('parent_phone'),
+    emergency_phone: pick('emergency_phone'),
+    address: pick('address'),
+    departure_mode: target.departure_mode && target.departure_mode !== 'parent' ? target.departure_mode : source.departure_mode,
+    authorized_people: pick('authorized_people'),
+    allergies: pick('allergies'),
+    health_limits: pick('health_limits'),
+    medication_note: pick('medication_note'),
+    coach_note: pick('coach_note'),
+    org_id: target.org_id ?? source.org_id,
+    active_course: pick('active_course'),
+    extra_courses: isEmpty(target.extra_courses) ? (source.extra_courses ?? []) : target.extra_courses,
+    active_purchases: isEmpty(target.active_purchases) ? (source.active_purchases ?? []) : target.active_purchases,
+    next_training: pick('next_training'),
+    paid_status: source.paid_status ?? target.paid_status,
+    bracelet: pick('bracelet'),
+    bracelet_color: pick('bracelet_color'),
+    xp: maxOf('xp'),
+    coins: maxOf('coins'),
+    level: maxOf('level'),
+    next_bracelet_xp: maxOf('next_bracelet_xp'),
+    attendance_done: (Number(target.attendance_done) || 0) + (Number(source.attendance_done) || 0),
+    attendance_total: maxOf('attendance_total'),
+    converted_attendance: (Number(target.converted_attendance) || 0) + (Number(source.converted_attendance) || 0),
+    owned_mascots: [...new Set([...(target.owned_mascots ?? []), ...(source.owned_mascots ?? [])])],
+    equipped_mascot_id: target.equipped_mascot_id ?? source.equipped_mascot_id,
+    reward_path_month: pick('reward_path_month'),
+    reward_path_baseline_xp: isEmpty(target.reward_path_month) ? source.reward_path_baseline_xp : target.reward_path_baseline_xp,
+  };
+  if (moveNfc) {
+    targetUpdate.nfc_card_status = source.nfc_card_status;
+    targetUpdate.nfc_card_issued_at = source.nfc_card_issued_at;
+    targetUpdate.nfc_card_returned_at = source.nfc_card_returned_at;
+    targetUpdate.nfc_fee_paid_at = source.nfc_fee_paid_at;
+    targetUpdate.nfc_fee_payment_intent_id = source.nfc_fee_payment_intent_id;
+    targetUpdate.nfc_return_countdown_started_at = source.nfc_return_countdown_started_at;
+  }
+
+  const { data: updatedTarget, error: updateTargetError } = await supabase
+    .from('participants')
+    .update(targetUpdate)
+    .eq('id', target.id)
+    .select('id,first_name,last_name,active_course,parent_profile_id')
+    .single();
+  if (updateTargetError) throw updateTargetError;
+
+  // Starý profil vyprázdnit, aby se dítě nepočítalo do kurzů dvakrát a aby šel
+  // ručně vytvořený záznam bez historie úplně smazat.
+  const sourceReset = {
+    active_course: '',
+    extra_courses: [],
+    active_purchases: [],
+    next_training: 'Převedeno na vlastní profil dítěte',
+    attendance_done: 0,
+    converted_attendance: 0,
+  };
+  if (moveNfc) {
+    sourceReset.nfc_card_status = 'none';
+    sourceReset.nfc_card_issued_at = null;
+    sourceReset.nfc_card_returned_at = null;
+    sourceReset.nfc_fee_paid_at = null;
+    sourceReset.nfc_fee_payment_intent_id = null;
+    sourceReset.nfc_return_countdown_started_at = null;
+  }
+  const { error: resetError } = await supabase.from('participants').update(sourceReset).eq('id', source.id);
+  if (resetError) throw resetError;
+
+  response.json({
+    participant: updatedTarget,
+    source: { id: source.id, removable: source.id.startsWith('manual-') },
+  });
+}));
+
 // Set the additional schools (same city) a child can attend on ONE permanentka.
 // The child keeps a single kroužek pass; its entries are shared across the
 // primary school (active_course) and these extra schools. Attendance RPC and
