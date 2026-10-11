@@ -106,6 +106,17 @@ export function HomeHero() {
 
   const words = ['Team VYS', ...chapters.map((c) => c.label)];
 
+  // Šířka každého slova v em (změřeno při renderu) + rezerva. Grid sloupec se jinak
+  // roztáhne podle nejširšího slova (WORKSHOPY) přes okraj mobilu a text se ořízne.
+  const wordEmWidths: Record<string, number> = {
+    'Team VYS': 6.65,
+    'Kroužky': 6.15,
+    'Workshopy': 8.4,
+    'Tábory': 5.25,
+    'Aplikace': 6.4,
+  };
+  const capFor = (em: number) => ({ '--hero-cap': `calc((100vw - 44px) / ${em})` }) as React.CSSProperties;
+
   return (
     <section ref={containerRef} className="relative bg-[#0B0B10] h-[360vh]">
       <div className="relative sticky top-0 flex h-dvh flex-col items-center justify-center overflow-hidden">
@@ -151,7 +162,8 @@ export function HomeHero() {
               The paragraph/CTA area below is absolutely positioned so it never affects that. */}
           <motion.div className="relative flex w-full flex-col items-center text-center sm:items-start sm:text-left" style={prefersReducedMotion ? undefined : { y: contentY }}>
             <h1
-              className={`${displayFont.className} block text-[clamp(3rem,14vw,9.5rem)] font-extrabold uppercase leading-[0.94] tracking-[-0.03em] text-white sm:text-[clamp(2.3rem,11vw,9.5rem)]`}
+              style={capFor(6.05)}
+              className={`${displayFont.className} block text-[length:min(clamp(3rem,14vw,9.5rem),var(--hero-cap))] font-extrabold uppercase leading-[0.94] tracking-[-0.03em] text-white sm:text-[length:min(clamp(2.3rem,11vw,9.5rem),var(--hero-cap))]`}
             >
               parkour
             </h1>
@@ -162,8 +174,11 @@ export function HomeHero() {
               {words.map((word, index) => (
                 <motion.span
                   key={word}
-                  style={prefersReducedMotion ? { opacity: index === 1 ? 1 : 0 } : slideMotion[index]}
-                  className={`${displayFont.className} hero-outline-text col-start-1 row-start-1 block text-[clamp(3rem,14vw,9.5rem)] font-extrabold uppercase leading-[0.94] tracking-[-0.03em] sm:text-[clamp(2.3rem,11vw,9.5rem)]`}
+                  style={{
+                    ...(prefersReducedMotion ? { opacity: index === 1 ? 1 : 0 } : slideMotion[index]),
+                    ...capFor(wordEmWidths[word] ?? 8.4),
+                  }}
+                  className={`${displayFont.className} hero-outline-text col-start-1 row-start-1 block text-[length:min(clamp(3rem,14vw,9.5rem),var(--hero-cap))] font-extrabold uppercase leading-[0.94] tracking-[-0.03em] sm:text-[length:min(clamp(2.3rem,11vw,9.5rem),var(--hero-cap))]`}
                 >
                   {word}
                 </motion.span>
