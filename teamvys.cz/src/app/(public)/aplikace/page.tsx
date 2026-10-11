@@ -1,13 +1,14 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, Building2, Check, ChevronDown, Gamepad2, Info, LogIn, Play, PlusSquare, Share, Sparkles, Ticket, UserPlus, Users, X, Zap } from 'lucide-react';
+import { Apple, Bell, Building2, Check, ChevronDown, Gamepad2, LogIn, Play, Sparkles, Ticket, UserPlus, Users, X, Zap } from 'lucide-react';
 import Image from 'next/image';
 import { useState, type ReactNode } from 'react';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
 const WEB_APP_URL = 'https://app.aplikacevys.cz/sign-in?source=pwa';
+const APP_STORE_URL = 'https://apps.apple.com/cz/app/vys/id6816709958';
 const WAITLIST_MAILTO =
   'mailto:info@teamvys.cz' +
   '?subject=' +
@@ -48,8 +49,8 @@ const audiences = [
 ] as const;
 
 const steps = [
-  'Přihlas se rovnou v prohlížeči — bez stahování, jako účastník, rodič nebo trenér.',
-  'iPhone: otevři VYS v Safari a přidej si ho na plochu. Návod najdeš hned pod tlačítky.',
+  'iPhone: stáhni si aplikaci VYS z App Storu. Android: brzy na Google Play, zatím funguje prohlížeč.',
+  'Přihlas se jako účastník, rodič nebo trenér — jde to i rovnou v prohlížeči bez stahování.',
   'Účastník vidí progres, rodič spravuje děti a platby, trenér řeší docházku a QR potvrzení triků.',
 ] as const;
 
@@ -81,8 +82,8 @@ export default function AplikacePage() {
               Celý Team VYS v telefonu
             </motion.h1>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <AppStoreButton />
               <WebSignInButton />
-              <IphoneButton />
             </div>
 
             <div className="mt-5 max-w-[620px] rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left sm:p-5">
@@ -107,19 +108,6 @@ export default function AplikacePage() {
               </div>
             </div>
 
-            <div className="mt-5 max-w-[620px] rounded-2xl border border-brand-purple/30 bg-brand-purple/[0.09] p-4 text-left sm:p-5">
-              <div className="flex items-start gap-3">
-                <Info className="mt-0.5 shrink-0 text-brand-purple-light" size={20} aria-hidden />
-                <div>
-                  <h2 className="text-sm font-black text-white">Jak přidat VYS na plochu iPhonu</h2>
-                  <ol className="mt-3 grid gap-2 text-sm leading-6 text-white/70 sm:grid-cols-3 sm:gap-4">
-                    <li><strong className="text-white">1.</strong> Otevři tlačítko „Plochu“ v <strong className="text-white">Safari</strong>.</li>
-                    <li><strong className="text-white">2.</strong> Klepni dole na ikonu <Share className="mx-1 inline-block align-[-3px] text-white" size={16} aria-label="Sdílet" /> Sdílet.</li>
-                    <li><strong className="text-white">3.</strong> Vyber <PlusSquare className="mx-1 inline-block align-[-3px] text-white" size={16} aria-label="Přidat na plochu" /> Přidat na plochu.</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="pointer-events-none relative mx-auto w-full max-w-[300px] lg:max-w-[360px]">
@@ -243,7 +231,7 @@ function HowToBuy() {
             >
               <ol className="space-y-4 p-6 md:p-8">
                 <Step n={1} icon={<UserPlus size={18} />} title="Vytvoř si profil rodiče">
-                  Otevři aplikaci v prohlížeči (tlačítko nahoře) nebo z plochy iPhonu a zaregistruj se jako{' '}
+                  Stáhni si aplikaci z App Storu (tlačítko nahoře) nebo ji otevři v prohlížeči a zaregistruj se jako{' '}
                   <strong className="text-white">rodič</strong>. Stačí e-mail a heslo — hotovo za minutu.
                 </Step>
 
@@ -311,19 +299,19 @@ function WebSignInButton() {
   );
 }
 
-function IphoneButton() {
+function AppStoreButton() {
   return (
     <a
-      href={WEB_APP_URL}
+      href={APP_STORE_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white/[0.05] px-5 py-3.5 text-left text-white transition-transform hover:-translate-y-0.5 sm:w-auto sm:px-6"
-      aria-label="Otevřít VYS v Safari a přidat jej na plochu iPhonu"
+      className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white px-5 py-3.5 text-left text-[#0B0B10] transition-transform hover:-translate-y-0.5 sm:w-auto sm:px-6"
+      aria-label="Stáhnout aplikaci VYS pro iPhone z App Storu"
     >
-      <Share size={20} />
+      <Apple size={24} className="fill-[#0B0B10]" aria-hidden />
       <span className="leading-tight">
-        <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/50">iPhone · přidat na</span>
-        <span className="block text-base font-black">Plochu (web app)</span>
+        <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#0B0B10]/60">Stáhnout pro iPhone</span>
+        <span className="block text-base font-black">App Store</span>
       </span>
     </a>
   );
