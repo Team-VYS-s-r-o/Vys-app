@@ -496,7 +496,8 @@ function startMinutes(primaryMeta: string) {
 function groupCoursesByVenue(courses: ParentProduct[]): ParentProduct[][] {
   const groups = new Map<string, ParentProduct[]>();
   for (const course of courses) {
-    const key = `${venueKey(course.city)}|${venueKey(course.venue)}`;
+    // Kroužek ve sběru zájmu má vlastní kartu — nesmí „zežloutit" prodejní termíny stejné tělocvičny.
+    const key = `${venueKey(course.city)}|${venueKey(course.venue)}|${course.interestMode ? 'zajem' : 'prodej'}`;
     const list = groups.get(key);
     if (list) list.push(course);
     else groups.set(key, [course]);
@@ -572,7 +573,7 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
   const [hero, ...rest] = gallery;
   const { day, time } = splitCourseMeta(product.primaryMeta);
   const sameVenue = products
-    .filter((item) => item.type === 'Krouzek' && !item.id.endsWith('-15') && venueKey(item.city) === venueKey(product.city) && venueKey(item.venue) === venueKey(product.venue))
+    .filter((item) => item.type === 'Krouzek' && !item.id.endsWith('-15') && !item.interestMode && venueKey(item.city) === venueKey(product.city) && venueKey(item.venue) === venueKey(product.venue))
     .sort((a, b) => startMinutes(a.primaryMeta) - startMinutes(b.primaryMeta));
   const group = sameVenue.length > 0 ? sameVenue : [product];
   // Trenéři na lokaci = trenéři přiřazení na produktech této lokace + trenéři,
