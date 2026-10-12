@@ -91,6 +91,21 @@ export function WorkshopBrowser() {
   const [cityFilter, setCityFilter] = useState<CityFilter>('Vše');
   const [trickSearch, setTrickSearch] = useState('');
 
+  // Po načtení skoč rovnou na první víkend, kde nějaký workshop je — ať
+  // návštěvník nevidí prázdné "Tento víkend žádný workshop".
+  const autoJumpedRef = useRef(false);
+  useEffect(() => {
+    if (autoJumpedRef.current || workshops.length === 0) return;
+    autoJumpedRef.current = true;
+    const firstIdx = weekends.findIndex((w) =>
+      workshops.some((ws) => {
+        const d = parsePrimaryMetaDate(ws.primaryMeta);
+        return d === isoDate(w.sat) || d === isoDate(w.sun);
+      }),
+    );
+    if (firstIdx > 0) setWeekendIdx(firstIdx);
+  }, [workshops, weekends]);
+
   const selectedWeekend = weekends[weekendIdx];
 
   // Collect all unique trick names from all workshops for the suggestion dropdown
@@ -837,14 +852,22 @@ function CampPublicCard({ product, coaches = [] }: { product: ParentProduct; coa
 }
 
 function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct; coaches?: PublicCoachSummary[] }) {
+  // Hlavní host workshopu — úvodní fotka je vždy fotka hosta.
+  const mainGuest = product.importantInfo.find((item) => item.label === 'Hlavní host')?.value;
   return (
     <article className="h-full overflow-hidden rounded-brand border border-brand-purple/12 bg-white shadow-brand">
-      <div className="relative h-48 overflow-hidden bg-brand-paper">
-        <ProductImage src={product.heroImage} alt={product.venue} className="h-full w-full object-cover transition-transform duration-500 hover:scale-105" />
+      <div className={`relative overflow-hidden bg-brand-paper ${mainGuest ? 'h-64' : 'h-48'}`}>
+        <ProductImage src={product.heroImage} alt={mainGuest ?? product.venue} className="h-full w-full object-cover transition-transform duration-500 hover:scale-105" />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
+        {mainGuest ? (
+          <span className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-gradient-brand px-4 py-2 text-xs font-black uppercase tracking-wide text-white shadow-brand">
+            ★ Hlavní host · {mainGuest}
+          </span>
+        ) : null}
         <div className="absolute bottom-4 left-4 pr-4">
           <p className="text-xs font-black uppercase text-brand-lime">{product.city}</p>
-          <h3 className="mt-1 text-2xl font-black text-white">{product.venue}</h3>
+          <h3 className="mt-1 text-2xl font-black text-white">{mainGuest ?? product.venue}</h3>
+          {mainGuest ? <p className="mt-0.5 text-sm font-bold text-white/85">{product.venue} · {product.city}</p> : null}
         </div>
       </div>
       <div className="p-6 md:p-7">
