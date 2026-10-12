@@ -1031,6 +1031,7 @@ async function markPaymentIntentFailed(paymentIntent) {
 
 const NFC_FEE_PRODUCT_ID = 'nfc-card-fee';
 const NFC_FEE_TITLE = 'Poplatek za nevrácenou NFC kartičku';
+const NFC_FEE_TITLE_LOST = 'Poplatek za ztracenou NFC kartičku';
 
 // Pass dates are stored as text in multiple formats (ISO, 'd.m.yyyy'); parse
 // defensively and treat unparseable values as "no expiry".
@@ -2374,6 +2375,7 @@ app.post('/api/payments/nfc-fee/checkout', asyncRoute(async (request, response) 
   const participantName = `${state.participant.first_name || ''} ${state.participant.last_name || ''}`.trim() || participantId;
   const amount = state.fee;
   const place = state.org?.name || 'Team VYS';
+  const feeTitle = state.status === 'lost' ? NFC_FEE_TITLE_LOST : NFC_FEE_TITLE;
 
   const session = await orgStripe.checkout.sessions.create({
     mode: 'payment',
@@ -2389,7 +2391,7 @@ app.post('/api/payments/nfc-fee/checkout', asyncRoute(async (request, response) 
           currency: 'czk',
           unit_amount: amount * 100,
           product_data: {
-            name: NFC_FEE_TITLE,
+            name: feeTitle,
             description: `${place} · ${participantName}`,
           },
         },
@@ -2402,7 +2404,7 @@ app.post('/api/payments/nfc-fee/checkout', asyncRoute(async (request, response) 
       participant_id: participantId,
       participant_name: participantName,
       type: 'Poplatek',
-      title: NFC_FEE_TITLE,
+      title: feeTitle,
       amount: String(amount),
       original_amount: String(amount),
       receipt_email: receiptEmail || '',
@@ -4702,7 +4704,7 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
   const placesList = Array.from(regionPlaces);
   let regionParticipants = [];
   if (placesList.length > 0) {
-    const participantCols = 'id,first_name,last_name,active_course,extra_courses,paid_status,level,xp,attendance_done,bracelet,bracelet_color,school_year,parent_name,parent_phone,emergency_phone,departure_mode,allergies,health_limits';
+    const participantCols = 'id,first_name,last_name,active_course,extra_courses,paid_status,level,xp,attendance_done,bracelet,bracelet_color,school_year,parent_name,parent_phone,emergency_phone,departure_mode,allergies,health_limits,nfc_card_status,nfc_fee_paid_at';
     const [primaryRes, extraRes] = await Promise.all([
       supabase.from('participants').select(participantCols).in('active_course', placesList),
       supabase.from('participants').select(participantCols).overlaps('extra_courses', placesList),
