@@ -948,8 +948,11 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
   const multiDay = !merged && scheduleDays.length >= 2;
   // Season start = first October date matching any of this card's training days.
   const seasonStart = formatCourseStart(products.map((item) => item.eventDate), products.flatMap((item) => parseScheduleDays(item.primaryMeta)));
+  // Zájmový formulář se vyplňuje na „zadní straně" karty — karta se otočí, nenatahuje se.
+  const [flipped, setFlipped] = useState(false);
+  const [interestDone, setInterestDone] = useState(false);
 
-  return (
+  const card = (
     <div className={`flex h-full flex-col overflow-hidden rounded-[30px] shadow-brand-soft ${interestMode ? 'border-2 border-amber-400/80 bg-amber-50/70' : 'border border-brand-purple/12 bg-white'}`}>
       <div className="relative h-[210px] shrink-0 bg-brand-paper">
         <ProductImage src={product.heroImage} alt={product.venue} className="h-full w-full object-cover" />
@@ -1007,7 +1010,23 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
         {/* Vše ostatní (cena, kapacita, trenéři) na detailu produktu */}
         <div className="mt-auto pt-3">
           {interestMode ? (
-            <CourseInterestPanel productId={product.id} />
+            interestDone ? (
+              <p className="flex items-center gap-2 rounded-[16px] bg-amber-100 px-4 py-3 text-sm font-black text-amber-700">
+                <CheckCircle2 size={18} className="shrink-0" />
+                Díky! Ozveme se, jakmile kroužek spustíme.
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setFlipped(true)}
+                className="group flex w-full items-center justify-between gap-2 rounded-[16px] bg-amber-400 px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-amber-300"
+              >
+                Mám zájem — nezávazně
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-brand-ink text-amber-300 transition-transform group-hover:translate-x-1">
+                  <ArrowRight size={16} />
+                </span>
+              </button>
+            )
           ) : (
             <Link
               href={`/krouzky/${product.id}`}
@@ -1023,47 +1042,43 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
       </div>
     </div>
   );
-}
 
-/** Tlačítko + rozbalovací formulář zájmu pro kroužek v testovacím režimu. */
-function CourseInterestPanel({ productId }: { productId: string }) {
-  const [open, setOpen] = useState(false);
-  const [done, setDone] = useState(false);
-
-  if (done) {
-    return (
-      <p className="flex items-center gap-2 rounded-[16px] bg-amber-100 px-4 py-3 text-sm font-black text-amber-700">
-        <CheckCircle2 size={18} className="shrink-0" />
-        Díky! Ozveme se, jakmile kroužek spustíme.
-      </p>
-    );
-  }
+  if (!interestMode) return card;
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        className="group flex w-full items-center justify-between gap-2 rounded-[16px] bg-amber-400 px-4 py-3 text-sm font-black text-brand-ink transition-colors hover:bg-amber-300"
+    <div className="h-full [perspective:1600px]">
+      <div
+        className={`relative h-full transition-transform duration-[650ms] ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d] ${flipped ? '[transform:rotateY(180deg)]' : ''}`}
       >
-        Mám zájem — nezávazně
-        <ChevronDown size={18} className={`transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
-      </button>
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.div
-            key="interest-form"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden"
-          >
-            <CourseInterestForm productId={productId} onDone={() => setDone(true)} />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+        <div className="h-full [backface-visibility:hidden] [-webkit-backface-visibility:hidden]">{card}</div>
+        <div className="absolute inset-0 overflow-auto rounded-[30px] border-2 border-amber-400/80 bg-amber-50 shadow-brand-soft [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)]">
+          <div className="flex min-h-full flex-col p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase text-amber-600">Sbíráme zájem</p>
+                <h3 className="mt-1 text-xl font-black leading-tight text-brand-ink">{product.venue}</h3>
+                <p className="mt-1 text-sm font-bold text-brand-ink-soft">{product.primaryMeta}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFlipped(false)}
+                aria-label="Zpět na kartu"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-white text-brand-ink shadow-brand-soft transition-colors hover:bg-amber-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="mt-3 text-sm font-bold leading-5 text-brand-ink-soft">Kroužek otevřeme, až se nasbírá dost zájemců. Nech nám nezávazně kontakt.</p>
+            <CourseInterestForm
+              productId={product.id}
+              onDone={() => {
+                setInterestDone(true);
+                window.setTimeout(() => setFlipped(false), 1500);
+              }}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
