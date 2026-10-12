@@ -881,6 +881,16 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
             <p className="mt-1 text-2xl font-black text-brand-ink">{product.price.toLocaleString('cs-CZ')} Kč</p>
           </div>
         </div>
+        {product.trainingFocus.length > 0 ? (
+          <div className="mt-5">
+            <p className="text-xs font-black uppercase text-slate-400">Co se naučíš</p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {product.trainingFocus.map((focus) => (
+                <span key={focus} className="rounded-[14px] bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-cyan">{focus}</span>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <Info label="Termín" value={product.primaryMeta} />
           <Info label="Kapacita" value={`${product.capacityCurrent}/${product.capacityTotal} míst`} />
@@ -891,16 +901,6 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
             <p className="text-xs font-black uppercase text-slate-400">O workshopu</p>
             <p className="mt-2 text-sm font-bold leading-6 text-brand-ink-soft">{product.description}</p>
           </div>
-          {product.trainingFocus.length > 0 ? (
-            <div className="mt-4">
-              <p className="text-xs font-black uppercase text-slate-400">Co se naučíš</p>
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                {product.trainingFocus.map((focus) => (
-                  <span key={focus} className="rounded-[14px] bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-cyan">{focus}</span>
-                ))}
-              </div>
-            </div>
-          ) : null}
           {(() => {
             const videos = product.importantInfo.filter((i) => i.label === 'Video trik 1' || i.label === 'Video trik 2');
             if (videos.length === 0) return null;
