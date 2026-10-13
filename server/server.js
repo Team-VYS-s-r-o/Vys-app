@@ -695,6 +695,37 @@ function resolveTrainingDaysSelection(product, requestedDays) {
   return selected;
 }
 
+// Jedna permanentka, víc škol ve stejném městě (např. Vyškov: Purkyňova +
+// Nádražní). Rodič si při nákupu vybere, kam všude bude dítě chodit — povolené
+// jsou jen publikované kroužky stejného města a stejné organizace.
+async function resolveExtraPlacesSelection(product, requestedPlaces) {
+  if (product?.type !== 'Kroužek' || !product.place) return null;
+  const requested = [...new Set((Array.isArray(requestedPlaces) ? requestedPlaces : []).map((place) => String(place || '').trim()).filter(Boolean))];
+  if (requested.length === 0) return null;
+
+  const cityOf = (place) => String(place || '').split(' · ')[0].trim().toLowerCase();
+  const primaryCity = cityOf(product.place);
+  if (!primaryCity) return null;
+
+  const { data: courses, error } = await supabase
+    .from('products')
+    .select('place, city, type, org_id, is_published')
+    .eq('type', 'Kroužek')
+    .eq('is_published', true);
+  if (error) throw error;
+
+  const allowed = new Set(
+    (courses || [])
+      .filter((course) => !product.org_id || course.org_id === product.org_id)
+      .filter((course) => String(course.city || '').trim().toLowerCase() === primaryCity || cityOf(course.place) === primaryCity)
+      .map((course) => String(course.place || '').trim())
+      .filter((place) => place && place !== product.place),
+  );
+
+  const selected = requested.filter((place) => allowed.has(place));
+  return selected.length > 0 ? selected : null;
+}
+
 function nextMonthFirstIso(periodEndIso) {
   const [year, month] = String(periodEndIso).split('-').map(Number);
   if (!year || !month) throw new Error('Invalid payout period end date.');
@@ -1034,6 +1065,7 @@ async function finalizePaymentIntent(paymentIntent) {
 
   if (error) throw error;
   await syncPaidPurchaseSideEffects(data);
+  await applyExtraPlacesFromMetadata(data, metadata);
   if (existingPurchase?.status !== 'Zaplaceno') {
     await safelySendPaymentConfirmationEmail(data, metadata.receipt_email || paymentIntent.receipt_email);
   }
@@ -1523,6 +1555,37 @@ async function syncPaidPurchaseSideEffects(purchase) {
       .eq('id', purchase.participant_id)
       .eq('nfc_card_status', 'issued');
     if (nfcResetError) console.error('NFC countdown reset failed:', nfcResetError);
+  }
+}
+
+// Rodič si při nákupu permanentky vybral další školy ve městě — zapsat je do
+// participants.extra_courses, ať jedna permanentka (a docházka) platí i tam.
+// Merge, ne replace: ruční úpravy ze sekce Platby se nesmí ztratit. Hodnoty už
+// prošly validací v resolveExtraPlacesSelection při vytvoření payment intentu.
+async function applyExtraPlacesFromMetadata(purchase, metadata) {
+  const raw = optionalString(metadata?.extra_places);
+  if (!raw || purchase?.type !== 'Kroužek' || !purchase.participant_id) return;
+  const places = raw.split('|').map((place) => place.trim()).filter((place) => place && place !== purchase.place);
+  if (places.length === 0) return;
+
+  try {
+    const { data: participant, error } = await supabase
+      .from('participants')
+      .select('id, extra_courses')
+      .eq('id', purchase.participant_id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!participant) return;
+
+    const merged = [...new Set([...(participant.extra_courses || []), ...places])];
+    const { error: updateError } = await supabase
+      .from('participants')
+      .update({ extra_courses: merged })
+      .eq('id', participant.id);
+    if (updateError) throw updateError;
+  } catch (error) {
+    // Nákup nesmí spadnout kvůli extra školám — rodič je doplní v Platbách.
+    console.error('applyExtraPlacesFromMetadata failed:', error);
   }
 }
 
@@ -2496,6 +2559,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
   if (amount <= 0) throw new Error('Částka platby musí být větší než 0 Kč.');
 
   const trainingDays = resolveTrainingDaysSelection(product, request.body.trainingDays);
+  const extraPlaces = await resolveExtraPlacesSelection(product, request.body.extraPlaces);
   const priceLabel = [
     product.price_label,
     discount ? `sleva ${discount.percent} %` : null,
@@ -2521,6 +2585,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
     event_date: product.event_date || '',
     expires_at: product.expires_at || '',
     training_days: trainingDays ? trainingDays.join(',') : '',
+    extra_places: extraPlaces ? extraPlaces.join('|') : '',
   };
 
   const connectDestination = await connectDestinationForProduct(product);
