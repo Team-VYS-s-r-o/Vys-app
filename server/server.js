@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const express = require('express');
 const nodemailer = require('nodemailer');
+const QRCode = require('qrcode');
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -48,6 +49,8 @@ const smtpUser = envValue('SMTP_USER');
 const smtpPass = envValue('SMTP_PASS');
 const smtpFrom = envValue('SMTP_FROM') || envValue('PAYMENT_CONFIRMATION_FROM') || smtpUser;
 const anthropicApiKey = envValue('ANTHROPIC_API_KEY');
+const ticketLinkSecret = envValue('TICKET_LINK_SECRET') || stripeWebhookSecret || supabaseServiceKey || 'vys-ticket-secret';
+const serverPublicUrl = (envValue('SERVER_PUBLIC_URL') || 'https://server-psi-ochre-40.vercel.app').replace(/\/+$/, '');
 const isProduction = envValue('NODE_ENV') === 'production';
 
 const supabase = supabaseUrl && supabaseServiceKey
@@ -742,6 +745,14 @@ function paymentEmailer() {
   return paymentEmailTransporter;
 }
 
+function ticketToken(purchaseId) {
+  return crypto.createHmac('sha256', ticketLinkSecret).update(String(purchaseId)).digest('hex').slice(0, 20);
+}
+
+function ticketUrl(purchaseId) {
+  return `${serverPublicUrl}/api/ticket/${encodeURIComponent(purchaseId)}?t=${ticketToken(purchaseId)}`;
+}
+
 async function sendPaymentConfirmationEmail(purchase, fallbackEmail) {
   const to = await profileReceiptEmail(purchase.parent_profile_id, fallbackEmail);
   if (!to) return;
@@ -752,7 +763,10 @@ async function sendPaymentConfirmationEmail(purchase, fallbackEmail) {
     return;
   }
 
-  const subject = `Potvrzení platby TeamVYS - ${purchase.title}`;
+  const isWorkshop = normalizeActivityType(purchase.type) === 'Workshop';
+  const subject = isWorkshop
+    ? `Vstupenka na workshop — ${purchase.title}`
+    : `Potvrzení platby TeamVYS - ${purchase.title}`;
   const lines = [
     'Dobrý den,',
     '',
@@ -763,22 +777,36 @@ async function sendPaymentConfirmationEmail(purchase, fallbackEmail) {
     `Částka: ${purchase.price_label || `${purchase.amount} Kč`}`,
     `Místo: ${purchase.place}`,
     purchase.event_date ? `Termín: ${purchase.event_date}` : null,
+    ...(isWorkshop ? ['', `Vstupenka s QR kódem: ${ticketUrl(purchase.id)}`, 'QR kód z přílohy ukažte u vstupu — po načtení zobrazí jméno, datum narození, stav platby i podepsané dokumenty.'] : []),
     '',
     'Děkujeme, TeamVYS',
   ].filter(Boolean);
+
+  let attachments;
+  let ticketHtml = '';
+  if (isWorkshop) {
+    try {
+      const qrPng = await QRCode.toBuffer(ticketUrl(purchase.id), { width: 480, margin: 2 });
+      attachments = [{ filename: 'vstupenka-qr.png', content: qrPng, cid: 'ticket-qr' }];
+      ticketHtml = `<div style="margin:20px 0;padding:20px;border:2px solid #7C3AED;border-radius:16px;text-align:center"><p style="font-weight:800;font-size:16px;margin:0 0 12px">Vaše vstupenka</p><img src="cid:ticket-qr" alt="QR vstupenka" width="220" height="220" style="display:block;margin:0 auto"/><p style="margin:12px 0 0;font-size:13px;color:#555">QR kód ukažte u vstupu. Po načtení zobrazí jméno, datum narození, stav platby i podepsané dokumenty.<br/><a href="${ticketUrl(purchase.id)}">Otevřít vstupenku v prohlížeči</a></p></div>`;
+    } catch (error) {
+      console.error(`Ticket QR generation failed for ${purchase.id}:`, error);
+    }
+  }
 
   await emailer.sendMail({
     from: smtpFrom,
     to,
     subject,
     text: lines.join('\n'),
+    attachments,
     html: `<p>Dobrý den,</p><p>potvrzujeme přijetí platby v rodičovském portálu TeamVYS.</p><table>${[
       ['Produkt', purchase.title],
       ['Účastník', purchase.participant_name],
       ['Částka', purchase.price_label || `${purchase.amount} Kč`],
       ['Místo', purchase.place],
       purchase.event_date ? ['Termín', purchase.event_date] : null,
-    ].filter(Boolean).map(([label, value]) => `<tr><td style="padding:4px 12px 4px 0;font-weight:700">${escapeHtml(label)}</td><td style="padding:4px 0">${escapeHtml(value)}</td></tr>`).join('')}</table><p>Děkujeme,<br>TeamVYS</p>`,
+    ].filter(Boolean).map(([label, value]) => `<tr><td style="padding:4px 12px 4px 0;font-weight:700">${escapeHtml(label)}</td><td style="padding:4px 0">${escapeHtml(value)}</td></tr>`).join('')}</table>${ticketHtml}<p>Děkujeme,<br>TeamVYS</p>`,
   });
 }
 
@@ -3172,6 +3200,84 @@ app.post('/api/participants/extra-courses', asyncRoute(async (request, response)
   if (updateError) throw updateError;
 
   response.json({ ok: true, extraCourses });
+}));
+
+// Veřejná stránka vstupenky — otevírá se z QR kódu v potvrzovacím e-mailu.
+// Odkaz je podepsaný HMAC tokenem, takže nejde uhodnout cizí vstupenku.
+app.get('/api/ticket/:purchaseId', asyncRoute(async (request, response) => {
+  const purchaseId = String(request.params.purchaseId || '');
+  const token = String(request.query.t || '');
+  const expected = ticketToken(purchaseId);
+  const valid = token.length === expected.length
+    && crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+  if (!valid) {
+    response.status(403).send('<!doctype html><meta charset="utf-8"><p style="font-family:sans-serif">Neplatný odkaz na vstupenku.</p>');
+    return;
+  }
+
+  const { data: purchase, error } = await supabase
+    .from('parent_purchases')
+    .select('id,product_id,participant_id,participant_name,type,title,amount,price_label,place,status,paid_at,event_date')
+    .eq('id', purchaseId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!purchase) {
+    response.status(404).send('<!doctype html><meta charset="utf-8"><p style="font-family:sans-serif">Vstupenka nenalezena.</p>');
+    return;
+  }
+
+  const [participantRes, passRes, docsRes] = await Promise.all([
+    purchase.participant_id
+      ? supabase.from('participants').select('first_name,last_name,date_of_birth,parent_name,parent_phone').eq('id', purchase.participant_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from('digital_passes').select('total_entries,used_entries,expires_at').eq('id', `pass-${purchase.id}`).maybeSingle(),
+    purchase.participant_id
+      ? supabase.from('course_documents').select('title,kind,status,signed_at_text,parent_name').eq('participant_id', purchase.participant_id).eq('product_id', purchase.product_id)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const participant = participantRes.data;
+  const pass = passRes.data;
+  const docs = docsRes.data || [];
+  const paid = purchase.status === 'Zaplaceno';
+  const fullName = participant ? `${participant.first_name} ${participant.last_name}` : purchase.participant_name;
+
+  const row = (label, value) => value
+    ? `<div style="display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #EEE9F8"><span style="color:#6B6580;font-size:13px">${escapeHtml(label)}</span><span style="font-weight:700;text-align:right">${escapeHtml(value)}</span></div>`
+    : '';
+  const docsHtml = docs.length
+    ? docs.map((doc) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #EEE9F8"><span style="font-size:13px">${escapeHtml(doc.title)}</span><span style="font-weight:700;color:${doc.status === 'signed' || doc.signed_at_text ? '#0E9F6E' : '#D97706'};font-size:13px">${doc.status === 'signed' || doc.signed_at_text ? `Podepsáno${doc.signed_at_text ? ` · ${escapeHtml(doc.signed_at_text)}` : ''}` : 'Čeká na podpis'}</span></div>`).join('')
+    : '<p style="color:#6B6580;font-size:13px;margin:8px 0 0">Žádné dokumenty k této akci.</p>';
+
+  response.setHeader('Content-Type', 'text/html; charset=utf-8');
+  response.send(`<!doctype html>
+<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Vstupenka — ${escapeHtml(purchase.title)}</title></head>
+<body style="margin:0;background:#F6F4FB;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#1F1B2E">
+<div style="max-width:430px;margin:0 auto;padding:20px 16px 40px">
+  <div style="background:linear-gradient(135deg,#7C3AED,#C026D3);border-radius:20px;padding:20px;color:#fff">
+    <p style="margin:0;font-size:11px;letter-spacing:2px;font-weight:800;opacity:.85">TEAM VYS · VSTUPENKA</p>
+    <h1 style="margin:6px 0 4px;font-size:20px">${escapeHtml(purchase.title)}</h1>
+    <p style="margin:0;font-size:14px;opacity:.9">${escapeHtml(purchase.place)}${purchase.event_date ? ` · ${escapeHtml(purchase.event_date)}` : ''}</p>
+    <div style="margin-top:12px;display:inline-block;background:${paid ? '#0E9F6E' : '#D97706'};border-radius:999px;padding:6px 14px;font-weight:800;font-size:13px">${paid ? '✓ ZAPLACENO' : escapeHtml(purchase.status || 'Nezaplaceno')}</div>
+  </div>
+  <div style="background:#fff;border-radius:20px;padding:18px 20px;margin-top:14px;box-shadow:0 8px 24px rgba(60,30,120,.08)">
+    <h2 style="margin:0 0 4px;font-size:15px">Účastník</h2>
+    ${row('Jméno', fullName)}
+    ${row('Datum narození', participant?.date_of_birth)}
+    ${row('Rodič', participant?.parent_name)}
+    ${row('Telefon na rodiče', participant?.parent_phone)}
+    ${row('Cena', purchase.price_label || `${purchase.amount} Kč`)}
+    ${row('Zaplaceno', purchase.paid_at)}
+    ${pass ? row('Vstupy', `${Number(pass.used_entries || 0)}/${Number(pass.total_entries || 1)}`) : ''}
+  </div>
+  <div style="background:#fff;border-radius:20px;padding:18px 20px;margin-top:14px;box-shadow:0 8px 24px rgba(60,30,120,.08)">
+    <h2 style="margin:0 0 4px;font-size:15px">Dokumenty</h2>
+    ${docsHtml}
+  </div>
+  <p style="text-align:center;color:#6B6580;font-size:12px;margin-top:18px">Team VYS · teamvys.cz</p>
+</div>
+</body></html>`);
 }));
 
 app.post('/api/course-documents', asyncRoute(async (request, response) => {
