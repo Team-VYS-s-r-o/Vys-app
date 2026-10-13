@@ -27,7 +27,7 @@ const features = [
   {
     icon: CreditCard,
     title: 'Platby přes Stripe',
-    body: 'Kroužkovné, tábory a workshopy zaplatí rodič kartou online. Vy vidíte přehled v reálném čase — bez honění převodů.',
+    body: 'Kroužkovné, tábory a workshopy s youtuberem zaplatí rodič kartou online. Vy vidíte přehled v reálném čase — bez honění převodů.',
     size: 'lg' as const,
   },
   {

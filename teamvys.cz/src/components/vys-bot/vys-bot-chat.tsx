@@ -47,7 +47,7 @@ const KNOWLEDGE: KnowledgeEntry[] = [
     chip: 'Kde koupím permanentku?',
     keywords: ['koupit', 'koupim', 'nakup', 'permanentka', 'permice', 'zaplatit krouzek', 'platba za krouzek', 'prihlasit na krouzek', 'prihlaska', 'objednat', 'cena', 'kolik stoji'],
     answer: [
-      'Všechny nákupy — permanentky na kroužky, tábory i workshopy — probíhají v aplikaci Team VYS. Vybereš dítě, zvolíš kroužek podle města a zaplatíš kartou. Potvrzení přijde hned. 💳',
+      'Všechny nákupy — permanentky na kroužky, tábory i workshopy s youtuberem — probíhají v aplikaci Team VYS. Vybereš dítě, zvolíš kroužek podle města a zaplatíš kartou. Potvrzení přijde hned. 💳',
       'Permanentka má 10 nebo 15 vstupů a platí celý semestr. Na webu se neplatí — vše bezpečně v aplikaci přes platební bránu Stripe.',
     ],
     links: [
@@ -112,9 +112,9 @@ const KNOWLEDGE: KnowledgeEntry[] = [
     keywords: ['vek', 'roky', 'let', 'stary', 'stara', 'vekovy', 'maly', 'mala', 'od kolika', 'do kolika'],
     answer: [
       'Kroužky jsou pro děti 6–16 let. 🎂',
-      'Pro starší máme open jamy a workshopy — mrkni na stránku Workshopy.',
+      'Pro starší máme open jamy a workshopy s youtuberem — mrkni na stránku Workshopy s youtuberem.',
     ],
-    links: [{ href: '/workshopy', label: 'Workshopy' }],
+    links: [{ href: '/workshopy', label: 'Workshopy s youtuberem' }],
     followUps: ['beginner', 'cities'],
   },
   {
@@ -154,13 +154,13 @@ const KNOWLEDGE: KnowledgeEntry[] = [
   },
   {
     id: 'workshops',
-    chip: 'Co jsou workshopy?',
-    keywords: ['workshop', 'workshopy', 'jednorazova akce', 'open jam', 'jam'],
+    chip: 'Co jsou workshopy s youtuberem?',
+    keywords: ['workshop', 'workshopy', 'youtuber', 'jednorazova akce', 'open jam', 'jam'],
     answer: [
-      'Workshopy jsou jednorázové akce — intenzivní trénink s profíky, často na speciální téma (fliky, vaulty, freerun). 🎟️',
+      'Workshopy s youtuberem jsou jednorázové akce — intenzivní trénink s profíky, často na speciální téma (fliky, vaulty, freerun). 🎟️',
       'Vstupenku koupíš v aplikaci a dorazíš s QR ticketem. Hodí se i pro starší než 16 let.',
     ],
-    links: [{ href: '/workshopy', label: 'Aktuální workshopy' }],
+    links: [{ href: '/workshopy', label: 'Aktuální workshopy s youtuberem' }],
     followUps: ['camps', 'age'],
   },
   {

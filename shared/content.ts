@@ -55,7 +55,7 @@ export const workshops: Workshop[] = [
     price: '890 Kč',
     capacityTotal: 40,
     capacityCurrent: 26,
-    body: 'Praha Balkan workshop – Tic-tac, Kong vault, Lazy vault, Butterfly kick, Tornado kick a Macaco z růžové cesty.',
+    body: 'Praha Balkan workshop s youtuberem – Tic-tac, Kong vault, Lazy vault, Butterfly kick, Tornado kick a Macaco z růžové cesty.',
   },
 ];
 
@@ -116,7 +116,7 @@ export const testimonials: Testimonial[] = [
 export const heroBullets = [
   'Skill tree s 46 triky a barevnými náramky',
   'NFC docházka přímo na tréninku',
-  'Příměstské tábory, workshopy i open jamy',
+  'Příměstské tábory, workshopy s youtuberem i open jamy',
 ];
 
 export const contacts: Contacts = {

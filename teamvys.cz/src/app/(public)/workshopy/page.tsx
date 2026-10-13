@@ -6,23 +6,23 @@ import { SubpageCta } from '@/components/subpage-cta';
 import { FeatureCard, SectionIntro } from '@/components/subpage-feature-card';
 
 export const metadata = {
-  title: 'Parkour workshopy pro děti',
+  title: 'Workshopy s youtuberem pro děti',
   description:
-    'Jednorázové parkour workshopy pro děti — konkrétní triky, flow a bezpečný progres pod vedením trenérů Team VYS. Vstupenka s QR ticketem online.',
+    'Jednorázové workshopy s youtuberem pro děti — konkrétní triky, flow a bezpečný progres pod vedením trenérů Team VYS. Vstupenka s QR ticketem online.',
   alternates: { canonical: '/workshopy' },
   openGraph: {
-    title: 'Parkour workshopy pro děti · Team VYS',
+    title: 'Workshopy s youtuberem pro děti · Team VYS',
     description:
-      'Jednorázové parkour workshopy pro děti — konkrétní triky, flow a bezpečný progres pod vedením trenérů Team VYS.',
+      'Jednorázové workshopy s youtuberem pro děti — konkrétní triky, flow a bezpečný progres pod vedením trenérů Team VYS.',
     url: '/workshopy',
     type: 'website',
     locale: 'cs_CZ',
-    images: [{ url: '/cats/workshop.png', alt: 'Parkour workshopy — Team VYS' }],
+    images: [{ url: '/cats/workshop.png', alt: 'Workshopy s youtuberem — Team VYS' }],
   },
 };
 
 const workshopSteps = [
-  { icon: <Target size={20} />, eyebrow: '01', title: 'Konkrétní triky', body: 'Každý workshop má jasné téma a triky, které se učíte krok za krokem.' },
+  { icon: <Target size={20} />, eyebrow: '01', title: 'Konkrétní triky', body: 'Každý workshop s youtuberem má jasné téma a triky, které se učíte krok za krokem.' },
   { icon: <QrCode size={20} />, eyebrow: '02', title: 'QR ticket', body: 'Po zaplacení se rodiči zobrazí digitální ticket pro kontrolu na místě.' },
   { icon: <Sparkles size={20} />, eyebrow: '03', title: 'Navazuje na skill tree', body: 'Trenér ví, které prvky může dítě dostat do svého profilu v appce.' },
 ];
@@ -31,13 +31,13 @@ export default function WorkshopsPage() {
   return (
     <div className="bg-[#0B0B10] text-white">
       <PageHero
-        eyebrow="Workshopy a open jamy"
+        eyebrow="Workshopy s youtuberem"
         title="Jednorázové akce pro rychlý progres"
         word="workshopy"
       />
 
       <section className="section-shell py-16 md:py-24">
-        <SectionIntro eyebrow="Nejbližší akce" title="Workshopy s digitálním ticketem" />
+        <SectionIntro eyebrow="Nejbližší akce" title="Workshopy s youtuberem a digitálním ticketem" />
         <div className="mx-[calc(50%-50vw)] mt-10 bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:mx-0 md:rounded-[28px] md:p-6 lg:p-8">
           <WorkshopBrowser />
         </div>
@@ -54,7 +54,7 @@ export default function WorkshopsPage() {
 
       <SubpageCta
         eyebrow="Jednorázové akce"
-        title="Jeden workshop, viditelný posun."
+        title="Jeden workshop s youtuberem, viditelný posun."
         highlight="Vyzkoušej to."
         ctaHref="/aplikace"
         ctaLabel="Stáhnout aplikaci"

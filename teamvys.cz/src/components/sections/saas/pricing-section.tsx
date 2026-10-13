@@ -10,7 +10,7 @@ const included = [
   'Neomezený počet trenérů, skupin a dětí',
   'Mobilní aplikace pro trenéry a účastníky',
   'Webový portál pro rodiče a administraci',
-  'Online platby kroužků, táborů a workshopů',
+  'Online platby kroužků, táborů a workshopů s youtuberem',
   'NFC docházkové čipy — dodáme my',
   'Gamifikace: XP, maskoti, bedny, arény, questová mapa',
 ] as const;

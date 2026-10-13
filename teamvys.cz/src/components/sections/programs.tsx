@@ -23,7 +23,7 @@ const programs = [
   {
     href: '/workshopy' as const,
     eyebrow: 'Jednorázově',
-    title: 'Workshopy',
+    title: 'Workshopy s youtuberem',
     panel: 'bg-[linear-gradient(160deg,#ffeef8_0%,#ffd7ef_100%)]',
     motif: 'growth' as const,
   },

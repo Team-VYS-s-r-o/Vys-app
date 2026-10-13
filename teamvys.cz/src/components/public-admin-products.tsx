@@ -150,8 +150,8 @@ export function WorkshopBrowser() {
     );
   }, [workshops, weekends]);
 
-  if (loading) return <CatalogInlineState label="Načítám aktuální workshopy..." />;
-  if (error) return <CatalogInlineState label="Aktuální workshopy se nepodařilo načíst." />;
+  if (loading) return <CatalogInlineState label="Načítám aktuální workshopy s youtuberem..." />;
+  if (error) return <CatalogInlineState label="Aktuální workshopy s youtuberem se nepodařilo načíst." />;
 
   return (
     <div className="space-y-6">
@@ -274,7 +274,7 @@ export function WorkshopBrowser() {
         <div className="rounded-brand border border-brand-purple/12 bg-white p-8 text-center shadow-brand-soft">
           <CalendarDays size={32} className="mx-auto mb-3 text-brand-purple/30" />
           <p className="font-black text-brand-ink">
-            {trickSearchLower ? `Žádný workshop s trikem "${trickSearch.trim()}"` : 'Tento víkend žádný workshop'}
+            {trickSearchLower ? `Žádný workshop s trikem "${trickSearch.trim()}"` : 'Tento víkend žádný workshop s youtuberem'}
           </p>
           <p className="mt-1 text-sm font-bold text-brand-ink-soft">
             {trickSearchLower
@@ -289,7 +289,7 @@ export function WorkshopBrowser() {
               <motion.span animate={{ x: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
                 <ChevronsLeft size={16} className="text-brand-purple" />
               </motion.span>
-              Potáhni prstem pro další workshopy
+              Potáhni prstem pro další workshopy s youtuberem
               <motion.span animate={{ x: [3, -3, 3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
                 <ChevronsRight size={16} className="text-brand-purple" />
               </motion.span>
@@ -314,19 +314,19 @@ export function AdminCreatedWorkshopCards({ startDelay = 0 }: { startDelay?: num
   const workshops = products.filter((product) => product.type === 'Workshop');
 
   if (loading) {
-    return <CatalogInlineState label="Načítám aktuální workshopy..." />;
+    return <CatalogInlineState label="Načítám aktuální workshopy s youtuberem..." />;
   }
 
   if (error) {
-    return <CatalogInlineState label="Aktuální workshopy se nepodařilo načíst." />;
+    return <CatalogInlineState label="Aktuální workshopy s youtuberem se nepodařilo načíst." />;
   }
 
   if (workshops.length === 0) {
     return (
       <div className="col-span-full rounded-brand border border-brand-purple/12 bg-white p-8 shadow-brand-soft">
         <p className="text-xs font-black uppercase text-brand-pink">Brzy</p>
-        <h3 className="mt-2 text-xl font-black text-brand-ink">Žádné aktuální workshopy</h3>
-        <p className="mt-2 text-sm font-bold leading-6 text-brand-ink-soft">Nové workshopy přidáváme průběžně. Sleduj nás na sociálních sítích nebo se přihlas do portálu a dostaneš upozornění, jakmile vypíšeme termín.</p>
+        <h3 className="mt-2 text-xl font-black text-brand-ink">Žádné aktuální workshopy s youtuberem</h3>
+        <p className="mt-2 text-sm font-bold leading-6 text-brand-ink-soft">Nové workshopy s youtuberem přidáváme průběžně. Sleduj nás na sociálních sítích nebo se přihlas do portálu a dostaneš upozornění, jakmile vypíšeme termín.</p>
       </div>
     );
   }
@@ -899,7 +899,7 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
         <WorkshopCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
         <CardMoreInfo className="mt-5">
           <div className="mt-4 rounded-[20px] bg-brand-paper p-4">
-            <p className="text-xs font-black uppercase text-slate-400">O workshopu</p>
+            <p className="text-xs font-black uppercase text-slate-400">O workshopu s youtuberem</p>
             <p className="mt-2 text-sm font-bold leading-6 text-brand-ink-soft">{product.description}</p>
           </div>
           {(() => {

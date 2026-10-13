@@ -17,11 +17,11 @@ const faq = [
   },
   {
     q: 'Jaký je věkový strop?',
-    a: 'Tréninky jsou pro 6–16 let. Pro starší máme open jamy a workshopy.',
+    a: 'Tréninky jsou pro 6–16 let. Pro starší máme open jamy a workshopy s youtuberem.',
   },
   {
     q: 'Jak je to s rodičovskou částí v aplikaci?',
-    a: 'Rodič vidí všechny děti, jejich docházku, zaplacené permanentky a může objednávat tábory či workshopy. Vše v jednom místě.',
+    a: 'Rodič vidí všechny děti, jejich docházku, zaplacené permanentky a může objednávat tábory či workshopy s youtuberem. Vše v jednom místě.',
   },
 ];
 

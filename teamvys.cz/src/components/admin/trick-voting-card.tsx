@@ -42,9 +42,9 @@ export function TrickVotingCard() {
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-brand-pink text-xs font-black uppercase tracking-[0.16em]">Hlasování týdne</p>
-          <h2 className="text-xl font-black text-brand-ink mt-1">Triky na příští workshop</h2>
+          <h2 className="text-xl font-black text-brand-ink mt-1">Triky na příští workshop s youtuberem</h2>
           <p className="text-[#5C5474] text-sm leading-6 mt-1 max-w-[620px]">
-            Rodiče a účastníci každý týden hlasují, jaké triky by chtěli na workshopu. Podle pořadí
+            Rodiče a účastníci každý týden hlasují, jaké triky by chtěli na workshopu s youtuberem. Podle pořadí
             níže poskládáš náplň dalšího workshopu. {weekLabel ? <>Týden od <strong>{weekLabel}</strong>.</> : null} Každé pondělí se tabulka resetuje.
           </p>
         </div>

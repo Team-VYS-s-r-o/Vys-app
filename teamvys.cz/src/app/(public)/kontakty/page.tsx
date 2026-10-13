@@ -22,7 +22,7 @@ export const metadata = {
 const quickLinks = [
   { href: '/krouzky', title: 'Vybrat kroužek', body: 'Pravidelné tréninky podle města.' },
   { href: '/tabory', title: 'Rezervovat tábor', body: 'Turnusy, dokumenty a platba.' },
-  { href: '/workshopy', title: 'Koupit workshop', body: 'Jednorázové akce a QR ticket.' },
+  { href: '/workshopy', title: 'Koupit workshop s youtuberem', body: 'Jednorázové akce a QR ticket.' },
 ];
 
 export default function ContactsPage() {

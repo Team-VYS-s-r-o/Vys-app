@@ -287,7 +287,7 @@ function defaultPurchases(passTitle: string): ActivePurchase[] {
   return [
     { type: 'Kroužek', title: passTitle, status: 'Aktivní' },
     { type: 'Tábor', title: 'Letní tábor', status: 'Rezervováno' },
-    { type: 'Workshop', title: 'Workshop', status: 'Zamčeno' },
+    { type: 'Workshop', title: 'Workshop s youtuberem', status: 'Zamčeno' },
   ];
 }
 

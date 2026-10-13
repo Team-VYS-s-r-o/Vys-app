@@ -111,7 +111,7 @@ export function OrgStripeConnectCard() {
             <h2 className="text-xl font-black text-brand-ink mt-0.5">Peníze chodí přímo vaší organizaci</h2>
             <p className="text-[#5C5474] text-sm leading-6 mt-1 max-w-[560px]">
               {ready
-                ? 'Hotovo! Platby rodičů za vaše kroužky, tábory a workshopy chodí přímo na váš Stripe účet. Z něj pak v záložce Finance vyplácíte své trenéry.'
+                ? 'Hotovo! Platby rodičů za vaše kroužky, tábory a workshopy s youtuberem chodí přímo na váš Stripe účet. Z něj pak v záložce Finance vyplácíte své trenéry.'
                 : 'Propojte svůj Stripe účet — bezpečnou platební bránu. Peníze od rodičů pak chodí rovnou vám a z nich vyplácíte trenéry. Nastavení zabere pár minut a děláte ho jen jednou.'}
             </p>
           </div>

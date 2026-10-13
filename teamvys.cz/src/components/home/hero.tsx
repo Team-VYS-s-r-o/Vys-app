@@ -39,8 +39,8 @@ const chapters: Chapter[] = [
   {
     key: 'workshopy',
     label: 'Workshopy',
-    copy: 'Jednorázové akce s jasným tématem — konkrétní triky krok za krokem. Vstup řeší digitální QR ticket v appce.',
-    cta: { label: 'Vybrat workshop', href: '/workshopy' },
+    copy: 'Jednorázové akce s youtuberem a jasným tématem — konkrétní triky krok za krokem. Vstup řeší digitální QR ticket v appce.',
+    cta: { label: 'Vybrat workshop s youtuberem', href: '/workshopy' },
     color: 'rgba(244,114,182,0.30)',
     mascot: '/cats/apka-xp.webp',
     mascotSizeClassName: MASCOT_SIZE_WIDE,

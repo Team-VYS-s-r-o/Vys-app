@@ -19,11 +19,11 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https')
 
 export const metadata: Metadata = {
   title: {
-    default: 'Team VYS — parkour kroužky, tábory a workshopy pro děti',
+    default: 'Team VYS — parkour kroužky, tábory a workshopy s youtuberem pro děti',
     template: '%s · Team VYS',
   },
   description:
-    'Parkour kroužky pro děti, příměstské tábory a workshopy pod vedením certifikovaných trenérů. Vyškov, Prostějov, Blansko, Brandýs nad Labem, Jeseník a Praha. Přihlaste své dítě online.',
+    'Parkour kroužky pro děti, příměstské tábory a workshopy s youtuberem pod vedením certifikovaných trenérů. Vyškov, Prostějov, Blansko, Brandýs nad Labem, Jeseník a Praha. Přihlaste své dítě online.',
   metadataBase: new URL(SITE_URL),
   applicationName: 'Team VYS',
   keywords: [
@@ -33,6 +33,7 @@ export const metadata: Metadata = {
     'parkour tábor',
     'příměstský tábor parkour',
     'parkour workshop',
+    'workshop s youtuberem',
     'sportovní kroužek pro děti',
     'parkour Vyškov',
     'parkour Prostějov',
@@ -57,9 +58,9 @@ export const metadata: Metadata = {
   },
   openGraph: {
     siteName: 'Team VYS',
-    title: 'Team VYS — parkour kroužky, tábory a workshopy pro děti',
+    title: 'Team VYS — parkour kroužky, tábory a workshopy s youtuberem pro děti',
     description:
-      'Parkour kroužky, příměstské tábory a workshopy pro děti v 6 městech. Certifikovaní trenéři, bezpečný progres a appka, kde dítě vidí svůj pokrok.',
+      'Parkour kroužky, příměstské tábory a workshopy s youtuberem pro děti v 6 městech. Certifikovaní trenéři, bezpečný progres a appka, kde dítě vidí svůj pokrok.',
     type: 'website',
     url: '/',
     locale: 'cs_CZ',
@@ -74,9 +75,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Team VYS — parkour kroužky, tábory a workshopy pro děti',
+    title: 'Team VYS — parkour kroužky, tábory a workshopy s youtuberem pro děti',
     description:
-      'Parkour kroužky, příměstské tábory a workshopy pro děti v 6 městech. Certifikovaní trenéři a bezpečný progres.',
+      'Parkour kroužky, příměstské tábory a workshopy s youtuberem pro děti v 6 městech. Certifikovaní trenéři a bezpečný progres.',
     images: ['/cats/parkour.png'],
   },
   icons: {
@@ -96,7 +97,7 @@ const organizationJsonLd = {
   logo: `${SITE_URL}/vys-logo-mark.png`,
   image: `${SITE_URL}/cats/parkour.png`,
   description:
-    'Parkour kroužky pro děti, příměstské tábory a jednorázové workshopy pod vedením certifikovaných trenérů.',
+    'Parkour kroužky pro děti, příměstské tábory a jednorázové workshopy s youtuberem pod vedením certifikovaných trenérů.',
   email: 'info@teamvys.cz',
   telephone: '+420734167417',
   sport: 'Parkour',
@@ -121,7 +122,7 @@ const organizationJsonLd = {
     },
     {
       '@type': 'Offer',
-      name: 'Parkour workshopy',
+      name: 'Workshopy s youtuberem',
       url: `${SITE_URL}/workshopy`,
       category: 'Workshop',
     },

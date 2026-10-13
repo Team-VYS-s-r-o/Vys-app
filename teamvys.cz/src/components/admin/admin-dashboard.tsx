@@ -558,7 +558,7 @@ export function AdminDashboard({ finance, financeError, showSignOut, devMode, su
   async function handleAddWorkshopSlot(date: string, city: WorkshopCity) {
     await addAdminCreatedProduct({
       type: 'Workshop',
-      title: `Workshop ${city} ${formatIsoDateForDisplay(date)}`,
+      title: `Workshop s youtuberem ${city} ${formatIsoDateForDisplay(date)}`,
       city,
       venue: `${city} centrum`,
       primaryMeta: `${formatIsoDateForDisplay(date)} · 10:00 - 17:00`,
@@ -1447,9 +1447,9 @@ function WorkshopCalendarAttendancePanel({ slots, allSlots, activities, attendan
     <>
       <button type="button" onClick={() => setIsOpen(true)} className="flex w-full flex-col items-center justify-center gap-3 rounded-[22px] border border-brand-purple/10 bg-white p-6 shadow-sm transition hover:border-brand-purple/25 hover:shadow-brand-soft">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-purple/10 text-brand-purple"><CalendarDays size={22} /></span>
-        <span className="text-base font-black text-brand-ink">Workshopy</span>
+        <span className="text-base font-black text-brand-ink">Workshopy s youtuberem</span>
         <span className={`text-2xl font-black ${!hasSlots ? 'text-brand-ink-soft' : openCount > 0 ? 'text-brand-pink' : 'text-[#1FB37A]'}`}>{!hasSlots ? '–' : openCount > 0 ? openCount : '✓'}</span>
-        <span className="text-xs font-bold text-brand-ink-soft">{!hasSlots ? 'žádné workshopy' : openCount > 0 ? 'neúplných' : 'vše obsazeno'}</span>
+        <span className="text-xs font-bold text-brand-ink-soft">{!hasSlots ? 'žádné workshopy s youtuberem' : openCount > 0 ? 'neúplných' : 'vše obsazeno'}</span>
       </button>
 
       <AnimatePresence>
@@ -1466,9 +1466,9 @@ function WorkshopCalendarAttendancePanel({ slots, allSlots, activities, attendan
               <div className="flex flex-shrink-0 items-center justify-between border-b border-brand-purple/8 bg-white px-6 py-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-purple/10 text-brand-purple"><CalendarDays size={16} /></span>
-                  <span className="text-base font-black text-brand-ink">Workshopy</span>
+                  <span className="text-base font-black text-brand-ink">Workshopy s youtuberem</span>
                   <StatusPill label={`${slots.length} termínů`} tone="purple" />
-                  <StatusPill label={!hasSlots ? 'Žádné workshopy' : openCount > 0 ? `${openCount} neúplných` : 'Vše obsazeno'} tone={!hasSlots ? 'purple' : openCount > 0 ? 'pink' : 'mint'} />
+                  <StatusPill label={!hasSlots ? 'Žádné workshopy s youtuberem' : openCount > 0 ? `${openCount} neúplných` : 'Vše obsazeno'} tone={!hasSlots ? 'purple' : openCount > 0 ? 'pink' : 'mint'} />
                 </div>
                 <button type="button" onClick={closeModal} className="ml-4 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-paper text-brand-ink-soft transition hover:bg-brand-purple/10 hover:text-brand-purple">
                   <ChevronDown size={16} className="rotate-180" />
@@ -2651,9 +2651,9 @@ function WorkshopCalendarPanel({ slots, products, coaches, onAddCoach, onRemoveC
     <>
     <button type="button" onClick={() => setIsOpen(true)} className="flex w-full flex-col items-center justify-center gap-3 rounded-[22px] border border-brand-purple/10 bg-white p-6 shadow-sm transition hover:border-brand-purple/25 hover:shadow-brand-soft">
       <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-purple/10 text-brand-purple"><CalendarDays size={22} /></span>
-      <span className="text-base font-black text-brand-ink">Workshopy</span>
+      <span className="text-base font-black text-brand-ink">Workshopy s youtuberem</span>
       <span className={`text-2xl font-black ${!hasSlots ? 'text-brand-ink-soft' : openCount > 0 ? 'text-brand-pink' : 'text-[#1FB37A]'}`}>{!hasSlots ? '–' : openCount > 0 ? openCount : '✓'}</span>
-      <span className="text-xs font-bold text-brand-ink-soft">{!hasSlots ? 'žádné workshopy' : openCount > 0 ? 'neúplných' : 'vše obsazeno'}</span>
+      <span className="text-xs font-bold text-brand-ink-soft">{!hasSlots ? 'žádné workshopy s youtuberem' : openCount > 0 ? 'neúplných' : 'vše obsazeno'}</span>
     </button>
 
     <AnimatePresence>
@@ -2680,8 +2680,8 @@ function WorkshopCalendarPanel({ slots, products, coaches, onAddCoach, onRemoveC
               <div className="flex flex-wrap items-center gap-3">
                 <SectionTitle icon={<CalendarDays size={18} />} title="Sdílený kalendář workshopů" subtitle={`Brno · Praha · Ostrava · ${WORKSHOP_HOURLY_RATE} Kč/h`} />
                 <div className="flex flex-wrap gap-2">
-                  <StatusPill label={`${slots.length} workshopů`} tone="purple" />
-                  <StatusPill label={!hasSlots ? 'Žádné workshopy' : openCount > 0 ? `${openCount} neúplných` : 'Vše obsazeno'} tone={!hasSlots ? 'purple' : openCount > 0 ? 'pink' : 'mint'} />
+                  <StatusPill label={`${slots.length} workshopů s youtuberem`} tone="purple" />
+                  <StatusPill label={!hasSlots ? 'Žádné workshopy s youtuberem' : openCount > 0 ? `${openCount} neúplných` : 'Vše obsazeno'} tone={!hasSlots ? 'purple' : openCount > 0 ? 'pink' : 'mint'} />
                 </div>
               </div>
               <button type="button" onClick={closeWsModal} className="ml-4 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-paper text-brand-ink-soft transition hover:bg-brand-purple/10 hover:text-brand-purple">
@@ -2709,7 +2709,7 @@ function WorkshopCalendarPanel({ slots, products, coaches, onAddCoach, onRemoveC
             </button>
             <div className="text-center">
               <p className="text-sm font-black text-brand-purple-deep">{CZECH_MONTH_NAMES_WEB[calMonth]} {calYear}</p>
-              <p className="text-[11px] text-brand-ink-soft">klikni na datum pro správu · prázdná data = přidat workshop</p>
+              <p className="text-[11px] text-brand-ink-soft">klikni na datum pro správu · prázdná data = přidat workshop s youtuberem</p>
             </div>
             <button type="button" disabled={!canGoNext} onClick={goNext}
               className="flex h-8 w-8 items-center justify-center rounded-xl border border-brand-purple/20 bg-white text-brand-purple transition hover:bg-brand-purple/5 disabled:opacity-30">
@@ -2795,7 +2795,7 @@ function WorkshopCalendarPanel({ slots, products, coaches, onAddCoach, onRemoveC
           {/* Add slot form */}
           {addingSlotDate && (
             <div className="mt-4 rounded-2xl border border-dashed border-brand-purple/30 bg-brand-paper/60 p-4">
-              <p className="mb-3 text-xs font-black text-brand-purple-deep">Přidat workshop: {addingSlotDate}</p>
+              <p className="mb-3 text-xs font-black text-brand-purple-deep">Přidat workshop s youtuberem: {addingSlotDate}</p>
               <div className="flex flex-wrap gap-2">
                 {(['Brno', 'Praha', 'Ostrava'] as WorkshopCity[]).map((city) => (
                   <button key={city} type="button"
@@ -2905,7 +2905,7 @@ function WorkshopCalendarPanel({ slots, products, coaches, onAddCoach, onRemoveC
               )}
             </div>
           ) : !addingSlotDate && (
-            <p className="mt-4 text-center text-xs text-brand-ink-soft/50">Klikni na datum pro správu workshopu · prázdné datum = přidat nový termín.</p>
+            <p className="mt-4 text-center text-xs text-brand-ink-soft/50">Klikni na datum pro správu workshopu s youtuberem · prázdné datum = přidat nový termín.</p>
           )}
             </>
             </div>
@@ -3778,14 +3778,14 @@ function ProductsSection({ products, coaches, onAddProduct, onRemoveProduct, onU
             <Metric value={`${courseGroupCount + campCount + workshopCount}`} label="celkem" />
             <Metric value={`${courseGroupCount}`} label="kroužky" />
             <Metric value={`${campCount}`} label="tábory" />
-            <Metric value={`${workshopCount}`} label="workshopy" />
+            <Metric value={`${workshopCount}`} label="workshopy s youtuberem" />
           </div>
         </Panel>
 
         <Panel className="p-5">
           <SectionTitle icon={<ListChecks size={18} />} title="Produkty na webu" subtitle={`${activeTab === 'Krouzek' ? courseGroupCount : activeTab === 'Tabor' ? campCount : workshopCount} v kategorii`} />
           <div className="mt-4 grid grid-cols-3 gap-1.5 rounded-[16px] border border-brand-purple/10 bg-brand-paper p-1">
-            {([['Krouzek', 'Kroužky', courseGroupCount], ['Tabor', 'Tábory', campCount], ['Workshop', 'Workshopy', workshopCount]] as const)
+            {([['Krouzek', 'Kroužky', courseGroupCount], ['Tabor', 'Tábory', campCount], ['Workshop', 'Workshopy s youtuberem', workshopCount]] as const)
               .filter(([type]) => (type === 'Tabor' ? flags.trainer_camps : type === 'Workshop' ? flags.trainer_workshop_registration : true))
               .map(([type, label, count]) => (
               <button key={type} type="button" onClick={() => setActiveTab(type)} className={`flex items-center justify-center gap-1.5 rounded-[12px] px-3 py-2 text-sm font-black transition ${activeTab === type ? 'bg-brand-purple text-white shadow-brand' : 'text-brand-ink-soft hover:text-brand-ink'}`}>
@@ -3970,7 +3970,7 @@ function ProductCreateForm({ coaches, onAddProduct }: { coaches: AdminCoachSumma
     event.preventDefault();
     const effectivePrimaryMeta = type === 'Workshop' ? workshopPrimaryMeta : primaryMeta;
     if (type === 'Workshop' && !wsDate) {
-      setMessage('Vyber datum workshopu.');
+      setMessage('Vyber datum workshopu s youtuberem.');
       return;
     }
     const requiredFields = [city, venue, effectivePrimaryMeta, price, capacityTotal];

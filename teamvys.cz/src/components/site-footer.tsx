@@ -7,7 +7,7 @@ import { contacts } from '@shared/content';
 const navLinks = [
   { label: 'Kroužky', href: '/krouzky' as const },
   { label: 'Tábory', href: '/tabory' as const },
-  { label: 'Workshopy', href: '/workshopy' as const },
+  { label: 'Workshopy s youtuberem', href: '/workshopy' as const },
   { label: 'O nás', href: '/o-nas' as const },
   { label: 'Kontakty', href: '/kontakty' as const },
 ];

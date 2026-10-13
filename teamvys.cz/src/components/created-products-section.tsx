@@ -119,5 +119,5 @@ function Info({ icon, label, value }: { icon: React.ReactNode; label: string; va
 function createdProductsHeading(type: ActivityType) {
   if (type === 'Krouzek') return 'kroužky';
   if (type === 'Tabor') return 'tábory';
-  return 'workshopy';
+  return 'workshopy s youtuberem';
 }

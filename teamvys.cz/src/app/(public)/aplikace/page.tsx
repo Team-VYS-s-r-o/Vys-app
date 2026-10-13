@@ -33,7 +33,7 @@ const audiences = [
     label: 'pro rodiče',
     bullets: [
       'Přehled dětí, docházky a aktivních nákupů',
-      'Platby kroužků, táborů a workshopů online',
+      'Platby kroužků, táborů a workshopů s youtuberem online',
       'Správa organizací, profilu a hodnocení trenérů',
     ],
   },

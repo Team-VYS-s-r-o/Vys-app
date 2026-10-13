@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { label: 'Kroužky', href: '/krouzky' },
   { label: 'Tábory', href: '/tabory' },
-  { label: 'Workshopy', href: '/workshopy' },
+  { label: 'Workshopy s youtuberem', href: '/workshopy' },
   { label: 'O nás', href: '/o-nas' },
   { label: 'Kontakty', href: '/kontakty' },
   { label: 'Pomocník', href: '/pomocnik' },

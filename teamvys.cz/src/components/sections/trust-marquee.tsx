@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
 import { publicMarqueeItems } from '@/lib/public-product-summary';
 
-const coreItems = ['NFC docházka', 'Stripe platby', 'Skill tree', 'Rodičovský profil', 'QR workshopy'];
+const coreItems = ['NFC docházka', 'Stripe platby', 'Skill tree', 'Rodičovský profil', 'QR workshopy s youtuberem'];
 
 export function TrustMarquee() {
   const { products } = useAdminCreatedProducts();

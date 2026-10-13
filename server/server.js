@@ -1261,7 +1261,7 @@ async function ensureProductCapacity(productId) {
     const interestCount = await countWorkshopInterests(product.id);
     const gate = workshopPurchaseGate(product, interestCount);
     if (!gate.canPurchase) {
-      throw httpError(`Workshop zatím nejde zaplatit. Platba se otevře ${WORKSHOP_PAYMENT_OPEN_DAYS} dny před termínem nebo při ${WORKSHOP_INTEREST_THRESHOLD} zájemcích. Teď má ${interestCount} zájemců.`, 409);
+      throw httpError(`Workshop s youtuberem zatím nejde zaplatit. Platba se otevře ${WORKSHOP_PAYMENT_OPEN_DAYS} dny před termínem nebo při ${WORKSHOP_INTEREST_THRESHOLD} zájemcích. Teď má ${interestCount} zájemců.`, 409);
     }
   }
 
@@ -1629,7 +1629,7 @@ app.post('/api/workshop-interests', asyncRoute(async (request, response) => {
 
   const participantName = requiredString(request.body.participantName, 'participantName');
   const product = await getProduct(productId);
-  if (!isWorkshopProduct(product)) throw httpError('Zájem lze zapsat jen u workshopu.', 400);
+  if (!isWorkshopProduct(product)) throw httpError('Zájem lze zapsat jen u workshopu s youtuberem.', 400);
 
   const row = {
     id: `workshop-interest-${product.id}-${participantId}`,
@@ -1661,7 +1661,7 @@ app.post('/api/workshop-interests', asyncRoute(async (request, response) => {
       .select('parent_profile_id')
       .eq('product_id', product.id);
     const parentIds = (interestRows || []).map((r) => r.parent_profile_id);
-    const title = 'Workshop se otevřel k platbě';
+    const title = 'Workshop s youtuberem se otevřel k platbě';
     const body = `${product.title} má dost zájemců — teď ho můžeš zaplatit a rezervovat místo.`;
     void sendExpoPushToProfiles(parentIds, title, body);
   }
@@ -2619,7 +2619,7 @@ const VYS_CONFIRMATION_ISSUER = {
 const CONFIRMATION_ACTIVITY_LABELS = {
   'Kroužek': 'sportovní kroužek — pravidelná pohybová aktivita dětí',
   'Tábor': 'sportovní (příměstský) tábor',
-  'Workshop': 'sportovní workshop',
+  'Workshop': 'sportovní workshop s youtuberem',
 };
 
 function confirmationSignature(purchaseId, expires) {
@@ -3462,7 +3462,7 @@ function validateDocumentSlotActivity(activityType, orgId) {
   }
   // Workshops are a VYS-only activity.
   if (activityType === 'Workshop' && orgId !== VYS_ORG_ID) {
-    throw httpError('Workshopy může spravovat pouze organizace TeamVYS.', 403);
+    throw httpError('Workshopy s youtuberem může spravovat pouze organizace TeamVYS.', 403);
   }
 }
 
