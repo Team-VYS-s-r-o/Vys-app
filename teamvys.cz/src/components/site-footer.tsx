@@ -10,6 +10,7 @@ const navLinks = [
   { label: 'Workshopy s youtuberem', href: '/workshopy' as const },
   { label: 'O nás', href: '/o-nas' as const },
   { label: 'Kontakty', href: '/kontakty' as const },
+  { label: 'Ochrana osobních údajů', href: '/ochrana-osobnich-udaju' as const },
 ];
 
 export function SiteFooter() {
