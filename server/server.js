@@ -4754,6 +4754,104 @@ app.delete('/api/admin/products/:id', asyncRoute(async (request, response) => {
 }));
 
 // ============================================================================
+// Interní info k produktu (jen pro admina): kontakt na tělocvičnu + smlouvy.
+// Tabulka product_admin_info má RLS bez policies — klienti ji nikdy nečtou
+// přímo (products má public-read policy, proto data NESMÍ být ve products).
+// ============================================================================
+
+const PRODUCT_CONTRACTS_BUCKET = 'product-contracts';
+
+function sanitizeProductContracts(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({
+      name: optionalString(item.name) || 'smlouva.pdf',
+      path: optionalString(item.path) || '',
+      uploadedAt: optionalString(item.uploadedAt) || new Date().toISOString(),
+    }))
+    .filter((item) => item.path.length > 0);
+}
+
+app.get('/api/admin/products/:id/admin-info', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const productId = requiredString(request.params.id, 'product id');
+
+  const { data, error } = await supabase
+    .from('product_admin_info')
+    .select('product_id,contact_name,contact_role,contact_phone,contact_email,notes,contracts,updated_at')
+    .eq('product_id', productId)
+    .eq('org_id', orgId)
+    .maybeSingle();
+
+  if (error) throw error;
+  response.json({ info: data || null });
+}));
+
+app.post('/api/admin/products/:id/admin-info', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const productId = requiredString(request.params.id, 'product id');
+
+  // Produkt musí existovat a patřit do stejné organizace.
+  const { data: product, error: productError } = await supabase
+    .from('products')
+    .select('id,org_id')
+    .eq('id', productId)
+    .maybeSingle();
+  if (productError) throw productError;
+  if (!product) throw httpError('Produkt nenalezen.', 404);
+  if (product.org_id && product.org_id !== orgId) throw httpError('Tento produkt patří jiné organizaci.', 403);
+
+  const info = request.body.info || {};
+  const row = {
+    product_id: productId,
+    org_id: orgId,
+    contact_name: optionalString(info.contactName) || null,
+    contact_role: optionalString(info.contactRole) || null,
+    contact_phone: optionalString(info.contactPhone) || null,
+    contact_email: optionalString(info.contactEmail) || null,
+    notes: optionalString(info.notes) || null,
+    contracts: sanitizeProductContracts(info.contracts),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('product_admin_info')
+    .upsert(row, { onConflict: 'product_id' })
+    .select('product_id,contact_name,contact_role,contact_phone,contact_email,notes,contracts,updated_at')
+    .single();
+
+  if (error) throw error;
+  response.json({ info: data });
+}));
+
+app.post('/api/admin/products/contract-upload-url', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireAdmin(request);
+
+  const filename = optionalString(request.body.filename) || 'smlouva.pdf';
+  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${Date.now()}_${safeName}`;
+  const { data, error } = await supabase.storage.from(PRODUCT_CONTRACTS_BUCKET).createSignedUploadUrl(path);
+  if (error) throw error;
+  response.json({ signedUrl: data.signedUrl, path: data.path });
+}));
+
+app.get('/api/admin/products/contract-url', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireAdmin(request);
+
+  const path = requiredString(request.query.path, 'path');
+  const { data, error } = await supabase.storage.from(PRODUCT_CONTRACTS_BUCKET).createSignedUrl(path, 300);
+  if (error) throw error;
+  response.json({ signedUrl: data.signedUrl });
+}));
+
+// ============================================================================
 // Krajští koordinátoři: region-scoped stats + coach assignment + product
 // proposals (prices approved by admin) + tasks + invoices + % commission.
 // ============================================================================
