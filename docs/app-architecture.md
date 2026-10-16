@@ -266,6 +266,16 @@ git -c credential.helper= -c "http.https://github.com/.extraheader=Authorization
 
 ## 8. Známé nesrovnalosti (k 16. 10. 2026)
 
+- **Značka se píše „Team VYS" S MEZEROU.** Nikdy `TeamVYS`. Sjednoceno 16. 10. 2026 napříč všemi
+  třemi repy (předměty e-mailů v `server/server.js`, Stripe `description`, PDF potvrzení,
+  obchodní podmínky, GDPR, store listing) i ve 3 řádcích `participants.last_name`.
+  **Výjimka, která zůstat musí: `"slug": "TeamVYS"` v `vys-aplikace/app.json`** — identifikátor
+  Expo/EAS projektu, změna rozbije buildy. Historické migrace se nepřepisují.
+- **Šablony Supabase Auth e-mailů pořád říkají „TeamVYS".** Předmět „Obnova hesla TeamVYS" nejde
+  z kódu — žije v Supabase dashboardu (Authentication → Emails). Opravit ručně.
+- **Fallback příjmení při registraci bez příjmení je název firmy.** Trigger
+  `handle_new_user` dosazuje `last_name = 'Team VYS'` → v DB jsou děti „Mytlepek Team VYS",
+  „Deniel Team VYS", „Matyáš Team VYS". Chtělo by to doplnit skutečná příjmení a změnit fallback.
 - **Supabase běží na FREE plánu a NEMÁ ŽÁDNÉ ZÁLOHY.** Org `rnmnlhlauakvsfypxbmt`
   („kropadave's Org"), plán `free`, compute NANO, region eu-west-1, Postgres 17.6.
   Free plán neumí PITR ani denní zálohy → v DB je 170 dětí, 132 rodičů a 85 reálných plateb
