@@ -266,11 +266,25 @@ git -c credential.helper= -c "http.https://github.com/.extraheader=Authorization
 
 ## 8. Známé nesrovnalosti (k 16. 10. 2026)
 
+- **Supabase běží na FREE plánu a NEMÁ ŽÁDNÉ ZÁLOHY.** Org `rnmnlhlauakvsfypxbmt`
+  („kropadave's Org"), plán `free`, compute NANO, region eu-west-1, Postgres 17.6.
+  Free plán neumí PITR ani denní zálohy → v DB je 170 dětí, 132 rodičů a 85 reálných plateb
+  bez možnosti obnovy. **Největší otevřené riziko celé platformy.**
+- **Security advisors (16. 10. 2026):** 1× ERROR `security_definer_view` na
+  `public.camp_medical_overview`; 6× tabulka s RLS bez policies (`coordinator_*`,
+  `product_admin_info`, `product_interests` — záměr: service-role only); 40 `SECURITY DEFINER`
+  RPC volatelných rolí `anon`; `teamvys_coach_session_is_workshop` a `teamvys_touch_document_slot`
+  mají mutable `search_path`; vypnutá ochrana proti uniklým heslům v Auth.
 - **Kontaktní e-mail je rozdvojený.** `LEGAL_ENTITY` v obchodních podmínkách, `shared/content.ts`
   i `vys-aplikace/lib/public-content.ts` uvádějí **`ahoj@teamvys.cz`**, zatímco Stripe účtenky
-  a Google Play mají **`info@teamvys.cz`**. Sjednotit.
+  a Google Play mají **`info@teamvys.cz`**.
+  **Rozhodnutí Davida (16. 10. 2026):** `ahoj@` je skutečná schránka, `info@` je skupina,
+  ale navenek se má všude používat **`info@teamvys.cz`** → nahrazovat `ahoj@` za `info@`.
 - **Telefon je rozdvojený.** V kódu a DB `734 167 417`, na plakátech a v náboru `602 120 115`.
 - **Na webu není Meta Pixel ani GA4** → konverze z reklam se neměří.
 - **Zastaralý duplikát repa** v `~/Desktop/VYSE-vše/Vys-app` (poslední commit 24. 9. 2026)
   a vedle něj `Vys-app (kopie)`. Celkem **24 GB**. Needitovat — pracovní kopie je v
   `~/Documents/GitHub/Vys-app`.
+- **POZOR: „VYSE" není „VYS".** Složka `~/Desktop/VYSE-vše/` a Vercel projekty `vyse` / `vyse-app`
+  patří k **úplně jinému, staršímu Davidovu projektu** (appka na online coaching) a s Team VYS
+  nemají nic společného. Nemíchat je dohromady.
