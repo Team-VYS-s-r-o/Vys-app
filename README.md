@@ -1,4 +1,4 @@
-# TeamVYS
+# Team VYS
 
 Parkourová komunita s mobilní aplikací (Expo) a webem (Next.js). Jedna sdílená Supabase databáze.
 

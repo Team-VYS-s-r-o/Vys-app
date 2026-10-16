@@ -152,7 +152,7 @@ Deno.serve(async (request) => {
     params.set('amount', String(amount * 100));
     params.set('currency', currency);
     params.set('destination', stripeAccountId);
-    params.set('description', `TeamVYS výplata ${coachName} ${periodKey}`);
+    params.set('description', `Team VYS výplata ${coachName} ${periodKey}`);
     params.set('metadata[coach_id]', coachId);
     params.set('metadata[coach_name]', coachName);
     params.set('metadata[period_key]', periodKey);

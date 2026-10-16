@@ -31,7 +31,7 @@ Email verification and sender setup:
 	- `https://vys-web.vercel.app/*`
 	- local dev URLs when needed, for example `http://localhost:8081/*` and `http://localhost:3000/*`
 3. In Authentication -> Emails/SMTP enable custom SMTP so mails are sent from your domain instead of the default Supabase sender.
-4. Fill SMTP host, port, username, password/API key, sender email, and sender name. Recommended sender: `TeamVYS <noreply@your-domain.cz>`.
+4. Fill SMTP host, port, username, password/API key, sender email, and sender name. Recommended sender: `Team VYS <noreply@your-domain.cz>`.
 5. Add the DNS records required by your mail provider: SPF, DKIM, and DMARC. Without these records, confirmation emails may land in spam.
 
 Stripe test setup:

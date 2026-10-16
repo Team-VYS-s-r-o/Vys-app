@@ -2,7 +2,7 @@
   "name": "vys-app",
   "version": "1.0.0",
   "private": true,
-  "description": "TeamVYS — web s platbami + backend (mobilní aplikace je samostatný projekt vys-aplikace)",
+  "description": "Team VYS — web s platbami + backend (mobilní aplikace je samostatný projekt vys-aplikace)",
   "scripts": {
     "web": "cd teamvys.cz && npm run dev",
     "web:build": "cd teamvys.cz && npm run build",

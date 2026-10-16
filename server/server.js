@@ -570,7 +570,7 @@ function assertCheckoutSessionAccessible(actor, session) {
 async function requireStaff(request) {
   const profile = await requireAuthenticatedProfile(request);
   if (profile.role === 'admin') return profile;
-  if (profile.role !== 'coach') throw httpError('Tahle operace je pouze pro tým TeamVYS.', 403);
+  if (profile.role !== 'coach') throw httpError('Tahle operace je pouze pro tým Team VYS.', 403);
 
   const { data: coach, error } = await supabase
     .from('coach_profiles')
@@ -797,11 +797,11 @@ async function sendPaymentConfirmationEmail(purchase, fallbackEmail) {
   const isWorkshop = normalizeActivityType(purchase.type) === 'Workshop';
   const subject = isWorkshop
     ? `Vstupenka na workshop — ${purchase.title}`
-    : `Potvrzení platby TeamVYS - ${purchase.title}`;
+    : `Potvrzení platby Team VYS - ${purchase.title}`;
   const lines = [
     'Dobrý den,',
     '',
-    'potvrzujeme přijetí platby v rodičovském portálu TeamVYS.',
+    'potvrzujeme přijetí platby v rodičovském portálu Team VYS.',
     '',
     `Produkt: ${purchase.title}`,
     `Účastník: ${purchase.participant_name}`,
@@ -810,7 +810,7 @@ async function sendPaymentConfirmationEmail(purchase, fallbackEmail) {
     purchase.event_date ? `Termín: ${purchase.event_date}` : null,
     ...(isWorkshop ? ['', `Vstupenka s QR kódem: ${ticketUrl(purchase.id)}`, 'QR kód z přílohy ukažte u vstupu — po načtení zobrazí jméno, datum narození, stav platby i podepsané dokumenty.'] : []),
     '',
-    'Děkujeme, TeamVYS',
+    'Děkujeme, Team VYS',
   ].filter(Boolean);
 
   let attachments;
@@ -831,13 +831,13 @@ async function sendPaymentConfirmationEmail(purchase, fallbackEmail) {
     subject,
     text: lines.join('\n'),
     attachments,
-    html: `<p>Dobrý den,</p><p>potvrzujeme přijetí platby v rodičovském portálu TeamVYS.</p><table>${[
+    html: `<p>Dobrý den,</p><p>potvrzujeme přijetí platby v rodičovském portálu Team VYS.</p><table>${[
       ['Produkt', purchase.title],
       ['Účastník', purchase.participant_name],
       ['Částka', purchase.price_label || `${purchase.amount} Kč`],
       ['Místo', purchase.place],
       purchase.event_date ? ['Termín', purchase.event_date] : null,
-    ].filter(Boolean).map(([label, value]) => `<tr><td style="padding:4px 12px 4px 0;font-weight:700">${escapeHtml(label)}</td><td style="padding:4px 0">${escapeHtml(value)}</td></tr>`).join('')}</table>${ticketHtml}<p>Děkujeme,<br>TeamVYS</p>`,
+    ].filter(Boolean).map(([label, value]) => `<tr><td style="padding:4px 12px 4px 0;font-weight:700">${escapeHtml(label)}</td><td style="padding:4px 0">${escapeHtml(value)}</td></tr>`).join('')}</table>${ticketHtml}<p>Děkujeme,<br>Team VYS</p>`,
   });
 }
 
@@ -858,7 +858,7 @@ async function sendCoachApprovalEmail(to, coachName, orgName) {
     return;
   }
 
-  const org = orgName || 'TeamVYS';
+  const org = orgName || 'Team VYS';
   const subject = `Trenérský účet schválen — ${org}`;
   const lines = [
     `Dobrý den${coachName ? ` ${coachName}` : ''},`,
@@ -866,7 +866,7 @@ async function sendCoachApprovalEmail(to, coachName, orgName) {
     `váš trenérský účet u organizace ${org} byl schválen.`,
     'Nyní se můžete přihlásit do aplikace a začít trénovat.',
     '',
-    'Přihlášení: otevřete aplikaci TeamVYS a přihlaste se svým e-mailem a heslem.',
+    'Přihlášení: otevřete aplikaci Team VYS a přihlaste se svým e-mailem a heslem.',
     '',
     `Děkujeme, ${org}`,
   ];
@@ -878,7 +878,7 @@ async function sendCoachApprovalEmail(to, coachName, orgName) {
     text: lines.join('\n'),
     html: `<p>Dobrý den${coachName ? ` ${escapeHtml(coachName)}` : ''},</p>`
       + `<p>váš trenérský účet u organizace <strong>${escapeHtml(org)}</strong> byl schválen.</p>`
-      + `<p>Nyní se můžete přihlásit do aplikace a začít trénovat — otevřete aplikaci TeamVYS a přihlaste se svým e-mailem a heslem.</p>`
+      + `<p>Nyní se můžete přihlásit do aplikace a začít trénovat — otevřete aplikaci Team VYS a přihlaste se svým e-mailem a heslem.</p>`
       + `<p>Děkujeme,<br>${escapeHtml(org)}</p>`,
   });
 }
@@ -902,7 +902,7 @@ async function sendCoachStripeOnboardingEmail(to, coachName, orgName) {
     return;
   }
 
-  const org = orgName || 'TeamVYS';
+  const org = orgName || 'Team VYS';
   const subject = `Nastavte si výplaty — ${org}`;
   const lines = [
     `Dobrý den${coachName ? ` ${coachName}` : ''},`,
@@ -910,7 +910,7 @@ async function sendCoachStripeOnboardingEmail(to, coachName, orgName) {
     `abychom vám mohli posílat výplaty, potřebujeme od vás propojení s platební bránou Stripe.`,
     '',
     'Co udělat (zabere to pár minut):',
-    '1. Otevřete aplikaci TeamVYS a přihlaste se.',
+    '1. Otevřete aplikaci Team VYS a přihlaste se.',
     '2. Dole vpravo klepněte na Profil.',
     '3. Najděte kartu „Výplaty přes Stripe" a klepněte na „Nastavit výplaty".',
     '4. Otevře se stránka Stripe — vyplňte své údaje a číslo bankovního účtu.',
@@ -929,7 +929,7 @@ async function sendCoachStripeOnboardingEmail(to, coachName, orgName) {
     html: `<p>Dobrý den${coachName ? ` ${escapeHtml(coachName)}` : ''},</p>`
       + `<p>abychom vám mohli posílat výplaty, potřebujeme od vás propojení s platební bránou <strong>Stripe</strong>.</p>`
       + `<p><strong>Co udělat</strong> (zabere to pár minut):</p>`
-      + `<ol><li>Otevřete aplikaci TeamVYS a přihlaste se.</li>`
+      + `<ol><li>Otevřete aplikaci Team VYS a přihlaste se.</li>`
       + `<li>Dole vpravo klepněte na <strong>Profil</strong>.</li>`
       + `<li>Najděte kartu <strong>„Výplaty přes Stripe"</strong> a klepněte na <strong>„Nastavit výplaty"</strong>.</li>`
       + `<li>Otevře se stránka Stripe — vyplňte své údaje a číslo bankovního účtu.</li></ol>`
@@ -2055,7 +2055,7 @@ app.get('/api/public/coaches', asyncRoute(async (_request, response) => {
     .filter((r) => !isDemoAdminRecord(r.id))
     .map((r) => ({
       id: r.id,
-      name: profileMap.get(r.id) || 'Trenér TeamVYS',
+      name: profileMap.get(r.id) || 'Trenér Team VYS',
       photoUrl: r.profile_photo_url || '/vys-logo-mark.png',
       locations: Array.isArray(r.assigned_courses) ? r.assigned_courses : [],
     }));
@@ -2593,7 +2593,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
   const paymentIntent = await piOrgStripe.paymentIntents.create({
     amount: amount * 100,
     currency: 'czk',
-    description: `TeamVYS · ${product.title} · ${participantName}`,
+    description: `Team VYS · ${product.title} · ${participantName}`,
     receipt_email: receiptEmail || undefined,
     metadata,
     automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
@@ -2900,7 +2900,7 @@ app.get('/api/parent/purchases/:id/confirmation.pdf', asyncRoute(async (request,
 
   doc.moveDown(1.6);
   doc.font('regular').fontSize(9).fillColor('#64748b').text(
-    `Vystaveno elektronicky systémem TeamVYS dne ${issuedLabel}. Potvrzení je platné bez podpisu a razítka.`,
+    `Vystaveno elektronicky systémem Team VYS dne ${issuedLabel}. Potvrzení je platné bez podpisu a razítka.`,
     labelX,
     doc.y,
   );
@@ -3633,7 +3633,7 @@ function validateDocumentSlotActivity(activityType, orgId) {
   }
   // Workshops are a VYS-only activity.
   if (activityType === 'Workshop' && orgId !== VYS_ORG_ID) {
-    throw httpError('Workshopy s youtuberem může spravovat pouze organizace TeamVYS.', 403);
+    throw httpError('Workshopy s youtuberem může spravovat pouze organizace Team VYS.', 403);
   }
 }
 
@@ -5949,21 +5949,21 @@ const ORG_PLANS = {
     label: 'Měsíční',
     priceCzk: 790,
     recurring: { interval: 'month', interval_count: 1 },
-    productName: 'TeamVYS platforma — měsíční předplatné',
+    productName: 'Team VYS platforma — měsíční předplatné',
     periodNote: '790 Kč měsíčně',
   },
   halfyear: {
     label: 'Půlroční',
     priceCzk: 4620, // 6× 790 = 4740, sleva 120 Kč
     recurring: { interval: 'month', interval_count: 6 },
-    productName: 'TeamVYS platforma — půlroční předplatné',
+    productName: 'Team VYS platforma — půlroční předplatné',
     periodNote: '4 620 Kč / 6 měsíců (sleva 120 Kč)',
   },
   yearly: {
     label: 'Roční',
     priceCzk: 9000, // 12× 790 = 9480, sleva 480 Kč
     recurring: { interval: 'year', interval_count: 1 },
-    productName: 'TeamVYS platforma — roční předplatné',
+    productName: 'Team VYS platforma — roční předplatné',
     periodNote: '9 000 Kč / rok (sleva 480 Kč)',
   },
 };
@@ -6058,7 +6058,7 @@ async function upsertPendingOrgAdminUser(email, password, adminName) {
   const existing = await findAuthUserByEmail(email);
   const isOurOrphan = existing && existing.user_metadata?.org_registration_pending === 'true';
   if (!existing || !isOurOrphan) {
-    throw httpError('Tento e-mail už má účet na TeamVYS. Přihlaste se, nebo použijte jiný e-mail.', 409);
+    throw httpError('Tento e-mail už má účet na Team VYS. Přihlaste se, nebo použijte jiný e-mail.', 409);
   }
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(existing.id, {
@@ -6242,7 +6242,7 @@ async function sendOrgOnboardingEmail(org, adminName, trialEndsAt) {
   const lines = [
     `Dobrý den, ${adminName},`,
     '',
-    `vaše organizace ${org.name} byla schválena a je aktivní. Vítejte na platformě TeamVYS!`,
+    `vaše organizace ${org.name} byla schválena a je aktivní. Vítejte na platformě Team VYS!`,
     '',
     `Zkušební období zdarma běží do ${trialEndDate}. Poté se účtuje ${ORG_MONTHLY_PRICE_CZK} Kč měsíčně.`,
     '',
@@ -6251,13 +6251,13 @@ async function sendOrgOnboardingEmail(org, adminName, trialEndsAt) {
     '',
     'První kroky: nahrajte logo, pozvěte prvního trenéra a založte první kroužek.',
     '',
-    'Děkujeme, TeamVYS',
+    'Děkujeme, Team VYS',
   ];
 
   await emailer.sendMail({
     from: smtpFrom,
     to: org.contact_email,
-    subject: `Organizace ${org.name} byla schválena — TeamVYS`,
+    subject: `Organizace ${org.name} byla schválena — Team VYS`,
     text: lines.join('\n'),
   });
 }
@@ -6274,8 +6274,8 @@ async function sendOrgTrialEndingEmail(subscription) {
   await emailer.sendMail({
     from: smtpFrom,
     to: org.contact_email,
-    subject: `TeamVYS — zkušební období organizace ${org.name} brzy končí`,
-    text: `Dobrý den,\n\nzkušební období organizace ${org.name} končí ${trialEnd}. Poté bude automaticky účtováno ${ORG_MONTHLY_PRICE_CZK} Kč měsíčně.\n\nDěkujeme, TeamVYS`,
+    subject: `Team VYS — zkušební období organizace ${org.name} brzy končí`,
+    text: `Dobrý den,\n\nzkušební období organizace ${org.name} končí ${trialEnd}. Poté bude automaticky účtováno ${ORG_MONTHLY_PRICE_CZK} Kč měsíčně.\n\nDěkujeme, Team VYS`,
   });
 }
 
@@ -6325,7 +6325,7 @@ async function safelySendOrgPendingApprovalEmail(org, adminName) {
         '',
         `Schvalte nebo zamítněte ji v dashboardu: ${WEB_APP_URL}/admin/organizace`,
         '',
-        'TeamVYS platforma',
+        'Team VYS platforma',
       ].join('\n'),
     });
   } catch (error) {
@@ -6343,16 +6343,16 @@ async function sendOrgRejectionEmail(org) {
   await emailer.sendMail({
     from: smtpFrom,
     to: org.contact_email,
-    subject: `TeamVYS — registrace organizace ${org.name} nebyla schválena`,
+    subject: `Team VYS — registrace organizace ${org.name} nebyla schválena`,
     text: [
       'Dobrý den,',
       '',
-      `registrace organizace ${org.name} na platformě TeamVYS bohužel nebyla schválena.`,
+      `registrace organizace ${org.name} na platformě Team VYS bohužel nebyla schválena.`,
       '',
       'Případné platby spojené s registrací nebudou účtovány — předplatné bylo zrušeno.',
       'Pokud si myslíte, že jde o omyl, odpovězte prosím na tento e-mail.',
       '',
-      'Děkujeme, TeamVYS',
+      'Děkujeme, Team VYS',
     ].join('\n'),
   });
 }
@@ -6585,7 +6585,7 @@ async function requireOrgAdminWithOrg(request) {
   if (error) throw error;
 
   const orgId = profileRow?.org_id || VYS_ORG_ID;
-  if (orgId === VYS_ORG_ID) throw httpError('Platformní organizace TeamVYS přijímá platby přímo — Stripe Connect není potřeba.', 400);
+  if (orgId === VYS_ORG_ID) throw httpError('Platformní organizace Team VYS přijímá platby přímo — Stripe Connect není potřeba.', 400);
 
   const { data: org, error: orgError } = await supabase
     .from('organizations')
@@ -6925,7 +6925,7 @@ app.post('/api/auth/phone-register', asyncRoute(async (request, response) => {
 
   const phoneRaw = requiredString(request.body.phone, 'phone');
   const password = requiredString(request.body.password, 'password');
-  const fullName = optionalString(request.body.fullName) || 'Účastník TeamVYS';
+  const fullName = optionalString(request.body.fullName) || 'Účastník Team VYS';
   const orgId = optionalString(request.body.orgId);
   const legalVersion = requiredString(request.body.legalVersion, 'legalVersion');
   if (request.body.acceptedTerms !== true) throw httpError('Musíte souhlasit se zpracováním osobních údajů a obchodními podmínkami.', 400);
@@ -7013,7 +7013,7 @@ app.post('/api/auth/coach-register', asyncRoute(async (request, response) => {
 
   const email = requiredString(request.body.email, 'email').trim().toLowerCase();
   const password = requiredString(request.body.password, 'password');
-  const fullName = optionalString(request.body.fullName) || 'Trenér TeamVYS';
+  const fullName = optionalString(request.body.fullName) || 'Trenér Team VYS';
   const phone = optionalString(request.body.phone) || null;
   const orgId = optionalString(request.body.orgId) || null;
   const coachMessage = optionalString(request.body.coachMessage) || null;
@@ -7347,7 +7347,7 @@ app.use((error, _request, response, _next) => {
 
 if (require.main === module) {
   app.listen(port, () => {
-    console.log(`TeamVYS API listening on http://localhost:${port}`);
+    console.log(`Team VYS API listening on http://localhost:${port}`);
   });
 }
 

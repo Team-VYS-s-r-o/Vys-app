@@ -61,7 +61,7 @@ export const workshops: Workshop[] = [
 
 export const campIncludes: string[] = [
   'Obědy a svačiny po celý den, zdravá strava i pitný režim.',
-  'Designové tričko z nové letní kolekce TeamVYS.',
+  'Designové tričko z nové letní kolekce Team VYS.',
   'Certifikovaní trenéři a animátoři, kteří děti opravdu baví.',
   'Bohatý program: trénink, hry, překážková dráha i kreativní výzvy.',
 ];
@@ -74,7 +74,7 @@ export const campSchedule = [
 ];
 
 export const aboutText =
-  'TeamVYS je největší parkourová komunita v regionu. Učíme děti i teenagery hýbat se s odvahou, hlavou a kamarády po boku – v bezpečí, krok za krokem, na nejlepších tréninkových místech.';
+  'Team VYS je největší parkourová komunita v regionu. Učíme děti i teenagery hýbat se s odvahou, hlavou a kamarády po boku – v bezpečí, krok za krokem, na nejlepších tréninkových místech.';
 
 export const aboutPillars: AboutPillar[] = [
   {
