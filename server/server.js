@@ -788,6 +788,30 @@ function ticketUrl(purchaseId) {
   return `${serverPublicUrl}/api/ticket/${encodeURIComponent(purchaseId)}?t=${ticketToken(purchaseId)}`;
 }
 
+// Jednotný profesionální vzhled transakčních e-mailů Team VYS (platby, refundace).
+// heading/intro/outro jsou naše texty (ne uživatelský vstup), rows se escapují.
+function brandEmailHtml({ heading, intro, rows = [], extraHtml = '', outro = 'Děkujeme, že jste s námi.' }) {
+  const rowsHtml = rows
+    .filter(Boolean)
+    .map(([label, value]) => `<tr><td style="padding:6px 16px 6px 0;font-weight:700;color:#140E26;white-space:nowrap;vertical-align:top">${escapeHtml(label)}</td><td style="padding:6px 0;color:#3F3A52">${escapeHtml(String(value))}</td></tr>`)
+    .join('');
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#F6F4FB;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 16px">
+    <div style="background:#140E26;border-radius:18px 18px 0 0;padding:22px 28px">
+      <span style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:0.02em">Team VYS</span>
+      <span style="color:#F12BB3;font-size:18px;font-weight:800"> ·</span>
+    </div>
+    <div style="background:#ffffff;border-radius:0 0 18px 18px;padding:28px;border:1px solid rgba(20,14,38,0.08);border-top:none">
+      <h1 style="margin:0 0 12px;font-size:20px;line-height:1.3;color:#140E26">${heading}</h1>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3F3A52">${intro}</p>
+      ${rowsHtml ? `<table style="border-collapse:collapse;font-size:14px;margin:4px 0 16px;width:100%">${rowsHtml}</table>` : ''}
+      ${extraHtml}
+      <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#3F3A52">${outro}<br/><b>Team VYS</b></p>
+    </div>
+    <p style="text-align:center;color:#8B86A0;font-size:12px;line-height:1.6;margin:16px 0 0">Team VYS s.r.o. · <a href="mailto:info@teamvys.cz" style="color:#8B86A0">info@teamvys.cz</a> · <a href="https://teamvys.cz" style="color:#8B86A0">teamvys.cz</a></p>
+  </div></body></html>`;
+}
+
 async function sendPaymentConfirmationEmail(purchase, fallbackEmail) {
   const to = await profileReceiptEmail(purchase.parent_profile_id, fallbackEmail);
   if (!to) return;
@@ -835,13 +859,18 @@ async function sendPaymentConfirmationEmail(purchase, fallbackEmail) {
     subject,
     text: lines.join('\n'),
     attachments,
-    html: `<p>Dobrý den,</p><p>potvrzujeme přijetí platby v rodičovském portálu Team VYS.</p><table>${[
-      ['Produkt', purchase.title],
-      ['Účastník', purchase.participant_name],
-      ['Částka', purchase.price_label || `${purchase.amount} Kč`],
-      ['Místo', purchase.place],
-      purchase.event_date ? ['Termín', purchase.event_date] : null,
-    ].filter(Boolean).map(([label, value]) => `<tr><td style="padding:4px 12px 4px 0;font-weight:700">${escapeHtml(label)}</td><td style="padding:4px 0">${escapeHtml(value)}</td></tr>`).join('')}</table>${ticketHtml}<p>Děkujeme,<br>Team VYS</p>`,
+    html: brandEmailHtml({
+      heading: isWorkshop ? 'Vstupenka na workshop 🎟️' : 'Platba přijata ✅',
+      intro: 'potvrzujeme přijetí platby v rodičovském portálu Team VYS. Níže posíláme rekapitulaci.',
+      rows: [
+        ['Produkt', purchase.title],
+        ['Účastník', purchase.participant_name],
+        ['Částka', purchase.price_label || `${purchase.amount} Kč`],
+        ['Místo', purchase.place],
+        purchase.event_date ? ['Termín', purchase.event_date] : null,
+      ],
+      extraHtml: ticketHtml,
+    }),
   });
 }
 
@@ -850,6 +879,59 @@ async function safelySendPaymentConfirmationEmail(purchase, fallbackEmail) {
     await sendPaymentConfirmationEmail(purchase, fallbackEmail);
   } catch (error) {
     console.error(`Payment confirmation email failed for ${purchase?.id || 'unknown purchase'}:`, error);
+  }
+}
+
+// Potvrzení o vrácení platby — posílá se jak při samoobslužném stornu v aplikaci,
+// tak při ruční refundaci ve Stripe dashboardu (přes webhook charge.refunded).
+async function sendRefundConfirmationEmail(purchase, fallbackEmail) {
+  const to = await profileReceiptEmail(purchase.parent_profile_id, fallbackEmail);
+  if (!to) return;
+
+  const emailer = paymentEmailer();
+  if (!emailer) {
+    console.info(`Refund confirmation email skipped for ${purchase.id}: SMTP is not configured.`);
+    return;
+  }
+
+  const amountLabel = purchase.price_label || (purchase.amount ? `${purchase.amount} Kč` : null);
+  const rows = [
+    ['Produkt', purchase.title],
+    purchase.participant_name ? ['Účastník', purchase.participant_name] : null,
+    amountLabel ? ['Vrácená částka', amountLabel] : null,
+    purchase.place ? ['Místo', purchase.place] : null,
+  ];
+  const lines = [
+    'Dobrý den,',
+    '',
+    'potvrzujeme vrácení platby. Peníze odešly zpět na kartu, kterou jste platili — na výpisu se objeví obvykle do 5–10 pracovních dnů.',
+    '',
+    ...rows.filter(Boolean).map(([label, value]) => `${label}: ${value}`),
+    '',
+    'Pokud máte jakýkoli dotaz, napište nám na info@teamvys.cz.',
+    '',
+    'Děkujeme, Team VYS',
+  ];
+
+  await emailer.sendMail({
+    from: smtpFrom,
+    to,
+    subject: `Potvrzení o vrácení platby — ${purchase.title}`,
+    text: lines.join('\n'),
+    html: brandEmailHtml({
+      heading: 'Platba vrácena ↩️',
+      intro: 'potvrzujeme vrácení platby. Peníze odešly zpět na kartu, kterou jste platili — na výpisu se objeví obvykle do 5–10 pracovních dnů.',
+      rows,
+      extraHtml: '<p style="margin:0;font-size:14px;line-height:1.6;color:#3F3A52">Pokud máte jakýkoli dotaz, napište nám na <a href="mailto:info@teamvys.cz" style="color:#F12BB3;font-weight:700">info@teamvys.cz</a>.</p>',
+    }),
+  });
+}
+
+async function safelySendRefundConfirmationEmail(purchase, fallbackEmail) {
+  try {
+    await sendRefundConfirmationEmail(purchase, fallbackEmail);
+  } catch (error) {
+    console.error(`Refund confirmation email failed for ${purchase?.id || 'unknown purchase'}:`, error);
   }
 }
 
@@ -1103,7 +1185,7 @@ async function handleChargeRefunded(charge) {
 
   const { data: purchase, error } = await supabase
     .from('parent_purchases')
-    .select('id,status')
+    .select('id,status,parent_profile_id,title,participant_name,amount,price_label,place,type')
     .eq('stripe_payment_intent_id', paymentIntentId)
     .maybeSingle();
   if (error) throw error;
@@ -1116,6 +1198,7 @@ async function handleChargeRefunded(charge) {
   await supabase.from('parent_purchases').update({ status: 'Stornováno', paid_at: 'Stornováno' }).eq('id', purchase.id);
   await supabase.from('digital_passes').delete().eq('purchase_id', purchase.id);
   await supabase.from('parent_payments').update({ status: 'refunded' }).ilike('id', `%${paymentIntentId}%`);
+  await safelySendRefundConfirmationEmail(purchase, charge.billing_details?.email || charge.receipt_email || undefined);
   console.info(`charge.refunded ${charge.id}: purchase ${purchase.id} marked Stornováno.`);
 }
 
@@ -2725,6 +2808,7 @@ app.post('/api/parent/purchases/:id/cancel', asyncRoute(async (request, response
   await supabase.from('parent_purchases').update({ status: 'Stornováno', paid_at: 'Stornováno' }).eq('id', purchase.id);
   await supabase.from('digital_passes').delete().eq('purchase_id', purchase.id);
   await supabase.from('parent_payments').update({ status: 'refunded' }).ilike('id', `%${purchase.stripe_payment_intent_id}%`);
+  await safelySendRefundConfirmationEmail(purchase);
 
   response.json({ ok: true, refunded: Number(purchase.amount || 0), refundId: refund?.id || null });
 }));
