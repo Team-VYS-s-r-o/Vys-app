@@ -124,6 +124,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     await markPaymentIntentFailed(event.data.object);
   }
 
+  if (event.type === 'charge.refunded') {
+    await handleChargeRefunded(event.data.object);
+  }
+
   // Org subscription lifecycle — only relevant for VYS platform webhook.
   if (!isOrgWebhook) {
     if (event.type === 'checkout.session.completed' && event.data.object.mode === 'subscription'
@@ -1081,6 +1085,38 @@ async function markPaymentIntentFailed(paymentIntent) {
     .eq('stripe_payment_intent_id', paymentIntent.id);
 
   if (error) throw error;
+}
+
+// Refundace provedená ručně ve Stripe dashboardu (admin) se musí propsat do DB,
+// jinak nákup zůstane "Zaplaceno" a permanentka dál platí. Řeší jen PLNOU
+// refundaci — částečnou vratku necháváme na ručním posouzení.
+async function handleChargeRefunded(charge) {
+  requireServices();
+
+  const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+  if (!paymentIntentId) return;
+  const fullyRefunded = Number(charge.amount_refunded || 0) >= Number(charge.amount || 0);
+  if (!fullyRefunded) {
+    console.info(`charge.refunded ${charge.id}: partial refund (${charge.amount_refunded}/${charge.amount}), leaving purchase untouched.`);
+    return;
+  }
+
+  const { data: purchase, error } = await supabase
+    .from('parent_purchases')
+    .select('id,status')
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!purchase) {
+    console.info(`charge.refunded ${charge.id}: no purchase for ${paymentIntentId}, nothing to sync.`);
+    return;
+  }
+  if (purchase.status === 'Stornováno') return; // už synchronizováno (např. app storno)
+
+  await supabase.from('parent_purchases').update({ status: 'Stornováno', paid_at: 'Stornováno' }).eq('id', purchase.id);
+  await supabase.from('digital_passes').delete().eq('purchase_id', purchase.id);
+  await supabase.from('parent_payments').update({ status: 'refunded' }).ilike('id', `%${paymentIntentId}%`);
+  console.info(`charge.refunded ${charge.id}: purchase ${purchase.id} marked Stornováno.`);
 }
 
 // --- NFC card deposit ---------------------------------------------------------
