@@ -113,7 +113,12 @@ NFC kartičky (10/2026).
 
 `brand.ts` (barvy), `types.ts` (AppRole, Course, Camp…), `content.ts` (statická data kroužků),
 `feature-flags.ts` — `VYS_FEATURE_FLAGS` (vše zapnuté) vs `EXTERNAL_FEATURE_FLAGS`
-(cizí organizace nemají gamifikaci dětí).
+(cizí organizace nemají gamifikaci dětí). Kopie žijí i v `aplikacevys.cz/shared/`
+a `vys-aplikace/lib/feature-flags.ts` — **měnit všechny tři najednou**.
+Per-org přepínatelný flag `coordinator_forgotten_attendance` (default zapnuto):
+koordinátor smí zapsat trenérům zapomenutou docházku (`POST /api/coordinator/attendance`,
+status „Zapsáno koordinátorem"); admin to vypíná/zapíná přes `PATCH /api/admin/feature-flags`
+(whitelist klíčů na serveru), toggle v admin webu v sekci Koordinátoři.
 
 ---
 
