@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Metodický katalog parkouru — Team VYS</title>
+<style>
+:root {
+  --ink: #15151a;
+  --muted: #5d5d6b;
+  --accent: #f0a023;
+  --accent-ink: #8a5600;
+  --panel: #ffffff;
+  --bg: #f4f3f0;
+  --line: #e4e2dc;
+  --dark: #171219;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+.hero { background: var(--dark); color: #fff; padding: 44px 20px 36px; }
+.hero-inner, main, footer .inner { max-width: 980px; margin: 0 auto; }
+.brand { font-size: 13px; letter-spacing: 3px; font-weight: 900; text-transform: uppercase; }
+.brand b { color: var(--accent); }
+.hero h1 { margin: 10px 0 6px; font-size: clamp(26px, 5vw, 40px); line-height: 1.1; }
+.hero p { margin: 0; color: #cfc9d4; max-width: 640px; }
+.credit { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px;
+  background: rgba(240,160,35,.14); border: 1px solid rgba(240,160,35,.45);
+  color: #ffd79a; border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 700; }
+.toc { position: sticky; top: 0; z-index: 5; background: #fffdf8; border-bottom: 1px solid var(--line);
+  padding: 10px 20px; }
+.toc .inner { max-width: 980px; margin: 0 auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.toc a { text-decoration: none; color: var(--ink); font-weight: 800; font-size: 13px;
+  border: 1.5px solid var(--line); background: var(--panel); border-radius: 999px; padding: 6px 14px; }
+.toc a:hover { border-color: var(--accent); color: var(--accent-ink); }
+main { padding: 28px 20px 60px; }
+.part { margin-bottom: 56px; }
+.part-kicker { color: var(--accent-ink); font-size: 12px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
+.part-head h1 { margin: 6px 0 6px; font-size: clamp(22px, 4vw, 30px); line-height: 1.15; }
+.part-sub { color: var(--muted); margin: 0 0 14px; max-width: 760px; }
+h2.section { margin: 36px 0 6px; font-size: 20px; border-left: 5px solid var(--accent); padding-left: 12px; }
+h3.group { margin: 24px 0 10px; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent-ink); }
+.cards { display: grid; gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px;
+  break-inside: avoid; box-shadow: 0 1px 3px rgba(20, 16, 28, .05); }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  border-bottom: 1px dashed var(--line); padding-bottom: 8px; margin-bottom: 10px; }
+.card-head h4 { margin: 0; font-size: 17px; }
+.badge { background: #fff3dd; color: var(--accent-ink); border: 1px solid #f1d9a8;
+  font-size: 12px; font-weight: 800; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+dl { margin: 0; display: grid; gap: 8px; }
+.field { display: grid; grid-template-columns: 180px 1fr; gap: 10px; }
+.field dt { font-size: 12.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.field dd { margin: 0; }
+.note { display: flex; gap: 10px; align-items: flex-start; background: #fffdf4; border: 1px solid #f1e3bd;
+  border-radius: 12px; padding: 12px 14px; margin: 14px 0; }
+.note.gold { background: #fff7e4; border-color: #ecd49a; }
+.note p { margin: 0; font-weight: 600; }
+.note-ico { color: var(--accent); font-size: 15px; margin-top: 1px; }
+.loose { color: var(--muted); }
+footer { background: var(--dark); color: #cfc9d4; padding: 26px 20px; font-size: 13.5px; }
+footer b { color: #fff; }
+@media (max-width: 640px) { .field { grid-template-columns: 1fr; gap: 2px; } }
+@media print {
+  .toc { display: none; }
+  body { background: #fff; }
+  .card { box-shadow: none; page-break-inside: avoid; }
+  .hero, footer { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="hero-inner">
+    <div class="brand">Team <b>VYS</b></div>
+    <h1>Metodický katalog parkouru</h1>
+    <p>Kompletní tréninková metodika pro kroužky Team VYS — katalog technik s nácvikovými řadami, systém rozcvičky a trenérské postupy pro děti 6–14 let.</p>
+    <span class="credit">Vytvořeno trenérem z Team VYS — Pavel Novák</span>
+  </div>
+</header>
+<nav class="toc"><div class="inner"><a href="#katalog">Katalog technik</a><a href="#rozcvicka">Rozcvička a příprava</a><a href="#postupy">Trenérské postupy</a></div></nav>
+<main>
+<section class="part" id="katalog">
+<div class="part-head"><span class="part-kicker">Metodika Team VYS</span><h1>METODICKÝ KATALOG PARKOUROVÝCH A FREERUNNINGOVÝCH TECHNIK</h1>
+<p class="part-sub">Ucelená metodika nácviku, biomechanické principy, dopomoc (spotting), nejčastější chyby a bezpečnostní protokoly pro trénink dětí a mládeže</p>
+</div>
+<div class="note gold"><span class="note-ico">★</span><p>Zlaté pravidlo metodiky: 100% technická jistota na žíněnce PŘED přechodem na pevné nářadí • Bezpečný spotting trenéra u každé nové progrese</p></div>
+<h2 class="section">1. KATEGORIE: ZÁKLADNÍ DOPADY, PÁDY A ZÁCHRANNÉ TECHNIKY (LANDINGS &amp; FALL SAFETY)</h2>
+<h3 class="group">1. Dopady a záchrana</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Základní doskok (Stick Landing)</h4>
+<span class="badge">Základní • 6+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Dopad na přední bříška chodidel, paty mírně nad zemí. Pokrčení v kolenou a kyčlích max. do 90°, trup v lehkém předklonu, paže vyvažují před tělem. Hlava vzpřímená.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Pérování na špičkách, dřepy s výskokem, výdrže v nízkém podřepu, chůze po špičkách.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Pérování na zemi z místa; 2. Seskok z 20 cm do žíněnky; 3. Seskok ze 40 cm na pevnou zem; 4. Skok do dálky s fixací na hranu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí z boku cvičence, pohotovostní ruka pod lopatkou pro zamezení přepadnutí vzad, druhá připravena u břicha.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: dopad na celé paty (otřes páteře), kolena se sbíhají k sobě (valgozita). Oprava: nácvik tichého dopadu bez zvuku.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Čistý, neklouzavý povrch. Začínat na tenké žíněnce (ne moc měkké, aby se nebortily kotníky), pak pevná podlaha.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Zastavení z výšky 60 cm bez jakéhokoli poskoku či pohybu chodidel po dobu 3 sekund. Tichý dopad.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Parkourový parakotoul (Parkour Roll)</h4>
+<span class="badge">Základní • 6+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Šikmé převedení lineární dopadové energie do rotační. Ruce tvoří trojúhelník, kontakt od ramene diagonálně přes lopatku k protilehlému boku. Hlava schovaná k hrudníku.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Kolébka na zádech, diagonální kolébka přes rameno ze sedu, plynulý přechod z kleku přes rameno bez dotyku hlavy.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Diagonální roll z kleku na molitanové žíněnce; 2. Roll z nízkého podřepu; 3. Roll z mírného běhu; 4. Roll po seskoku z výšky 80 cm.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Klek vedle cvičence, trenér jednou rukou jemně tlačí hlavu k hrudníku a druhou rukou vede pánev do šikmé rotace.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: náraz ramenem/loktem, kotoul přes krk/páteř, vykopávání nohou. Oprava: dráha pomocí pásky na zádech, měkký válec.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Dostatečně dlouhá zóna s duchnou a dopadovými žíněnkami. Odstranit všechny předměty v dosahu 2 metrů.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulé postavení ze země do běhu bez použití rukou k odrazu od země, nulový náraz do kostních výčnělků.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Záchyt na stěně (Cat Leap Landing)</h4>
+<span class="badge">Střední • 8+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Absorpce kinetické energie skoku proti vertikální ploše. Chodidla absorbují náraz pokrčením nohou (tlumiče), ruce nahoře drží hranu v mírném pokrčení loktů.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Odpružení o stěnu z kliku ve stoji, visy na hrazdě s vyvěšením, výdrže v kočičím závěsu s nohama opřenýma o zeď.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Přístav ze země s položením nohou a rukou na bednu; 2. Odraz z 50 cm do cat leapu; 3. Skok z výšky na stěnu s tlumením.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí přímo pod stěnou, jednou rukou podpírá hrudník a druhou pánev, aby zabránil nárazu hrudníku do zdi.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: nohy nestihnou absorbovat náraz a hrudník udeří do zdi; propnuté lokty. Oprava: cvičení nášlapu na stěnu z chůze.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Stabilní pevná hrana stěny nebo švédské bedny, neklouzavý povrch pro boty, pod stěnou dopadová žíněnka.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Absorpce skoku z 1,5 metru s nulovým kontaktem těla o zeď mimo chodidla a dlaně, jistý úchop hrany.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Záchranné pády (Ukemi / Breakfall)</h4>
+<span class="badge">Základní • 7+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Bezpečné rozložení nárazu těla při neočekávaném uklouznutí nebo zakopnutí. Pád vpřed: absorbce dlaněmi a předloktími; pád vzad: brada na prsa, úder paží o zem pod úhlem 45°.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Pád ze sedu vzad s úderem paží o podložku, pád z kleku vpřed s dosednutím na předloktí bez nárazu břichem a obličejem.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Statické polohy na zádech a břiše; 2. Pád vzad z dřepu; 3. Pád vpřed z kleku na žíněnku; 4. Pád po zakopnutí v pomalém běhu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér klečí vedle svěřence, jistí temeno hlavy a krční páteř, aby zabránil kontaktu zátylku s podložkou.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: opření o propnuté zápěstí a loket (riziko zlomeniny), záklon hlavy. Oprava: fixace bradla na prsa míčkem pod bradou.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Cvičit výhradně na gymnastických žíněnkách nebo tatami. Pravidelně kontrolovat zpevnění středu těla.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Zvládnutí reflexního zabalení hlavy a tlumícího úderu paží při nečekaném podtržení podložky trenérem.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Přesný doskok (Precision Jump)</h4>
+<span class="badge">Střední • 8+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Odraz snožmo nebo z jedné nohy, let s fixací zraku na dopadovou hranu, přednožení nohou těsně před kontaktem a absorbce kinetické energie na přední třetinu chodidel. Kolena max 90°, paže vyvažují, trup vzpřímený.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Skoky do vyznačených čar na zemi, fixace stick landingu ze stoje, skoky z nízké lavičky na terč, pérování na špičkách.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Přeskoky mezi čarami na zemi (1 m); 2. Skok z nízké bedny na lavičku; 3. Skok ze švédské bedny na úzkou překážku (vzdálenost 1,2–1,5 m).</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí v těsné blízkosti cílové překážky s rukama připravenýma u trupu svěřence pro zachycení při přepadnutí vpřed i vzad.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: dopad na paty (hrozí podklouznutí), propad kolen dovnitř, vrávorání po dopadu. Oprava: zkrátit vzdálenost, vizuální "zamrznutí" 3 s.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Zajistit stabilní překážku bez viklání a s čistou dopadovou hranou. Žíněnka pod a mezi překážkami.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>5 čistých přesných doskoků za sebou na úzkou plochu (10 cm) s okamžitou stabilizací těla bez pohnutí chodidel na 3 sekundy.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Záchranný parakotoul vzad (Backward Roll)</h4>
+<span class="badge">Střední • 8+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Absorpce energie při neočekávaném pohybu či pádu vzad. Hluboký dřep, brada pevně na hrudník, převalení diagonálně přes záda z jednoho boku přes rameno s aktivním odtlačením paže.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Kolébky na zádech se zabalením, převaly vzad přes rameno ze sedu, nácvik mostů a flexe šíje na měkké podložce.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Šikmý kotoul vzad ze sedu na molitanu; 2. Z nízkého dřepu na nakloněné rovině dolů; 3. Po došlapu vzad z mírné výšky.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Klek z boku cvičence, jedna ruka kontroluje hlavu na hrudníku (chrání krční páteř), druhá vede boky do šikmé rotace.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: přímý kotoul přes krk a temeno hlavy, dopad koleny na obličej. Oprava: navádět pohled do strany, chránit šíji rukou.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Trénovat výhradně na měkkých gymnastických žíněnkách; zákaz nácviku na tvrdé podlaze bez dokonalé techniky.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulé provedení z dřepu po nečekaném vychýlení vzad s postavením na nohy bez tlaku do krční páteře a bez bolesti ramen.</dd></div>
+</dl></article>
+</div>
+<h2 class="section">2. KATEGORIE: PŘESKOKY PŘEKÁŽEK (VAULTS &amp; UNDERBARS)</h2>
+<h3 class="group">2. Přeskoky překážek</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Step Vault (Safety Vault)</h4>
+<span class="badge">Základní • 6+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Opora o ruku na překážce a protilehlou nohu na hraně. Volná (spodní) noha prochází prostorem mezi překážkou a tělem vpřed. Plynulý došlap do běhu.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Vzpory na lavičce, kroky přes lavičku s oporou křížem, zvedání nohy v bočním vzporu.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Nácvik z místa na nízké lavičce; 2. Z chůze přes 1 díl bedny; 3. Z mírného rozběhu; 4. Zvýšení na výšku pasu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí z boku překážky u opěrné ruky, jistí rameno a ruku pro stabilitu opory.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: opření stejnostranné nohy a ruky (nestabilita), zastavení běhu. Oprava: označit opěrná místa barevnou páskou.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Pevná nehybná překážka (švédská bedna zatížená nebo ukotvená), za překážkou volný doběh.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>10 plynulých překonání z plného běhu na obě strany (levá i pravá ruka) bez zakolísání.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Speed Vault</h4>
+<span class="badge">Střední • 9+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Odraz z jedné nohy v běhu, tělo letí vodorovně vedle překážky. Jedna ruka se krátce a dynamicky opře o střed překážky pro odtlak těla. Došlap do běhu.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Výskoky do bočního vzporu, šikmé přehazování nohou přes bednu, silové odtlačování od stěny.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Step vault bez došlapu nohy na překážku; 2. Nácvik přes molitanovou kostku; 3. Z rozběhu přes 2 díly bedny.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí za překážkou, drží paži opěrné ruky a vede boky svěřence ve vodorovné rovině.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: pánev pod úrovní bedny (riziko nárazu bokem), slabý odtlak ruky. Oprava: zvýšení vertikální složky odrazu.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Měkká dopadová plocha za překážkou, hladký povrch horní desky bez vyčnívajících hran.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čisté přeletění překážky ve výši boků bez dotyku nohou s plynulým navázáním do sprintu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Lazy Vault</h4>
+<span class="badge">Základní • 7+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Přístup k překážce pod šikmým úhlem. První ruka se opře, nohy přelétnou překážku roznožmo/odnožmo, druhá ruka se opře za tělem a odtlačí trup vpřed.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Přehazování nohou přes lavičku v sedu, sedy na bednu a odtlak rukama za zády.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Z chůze pod úhlem 45° k lavičce; 2. Postupné pokládání rukou (jedna-druhá); 3. Přelet přes 2 díly bedny.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí na doskokové straně, jistí druhou opěrnou paži a udržuje trup ve vzpřímené poloze.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: doskok na paty za překážkou, vynechání druhé opěrné ruky. Oprava: rytmické počítání „ruka-nohy-ruka-zem“.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Dostatečný prostor po stranách překážky pro šikmý nájezdový úhel minimálně 3 metry.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulý přechod přes překážku z klusu bez dotyku zadní části stehen o hranu překážky.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Kong Vault (Monkey Vault)</h4>
+<span class="badge">Pokročilý • 10+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Silný odraz snožmo před překážkou, ruce se položí na horní desku, ramena se vytlačí nahoru, kolena se přitáhnou těsně k hrudníku a projdou mezi pažemi.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Výskoky do vzporu dřepmo na bednu (Monkey mount), zpevňovací kolébky, žabáky s odtlakem rukama.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Monkey mount na bednu; 2. Monkey mount a seskok; 3. Kong do duchny položené za bednou; 4. Plný Kong.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Dva trenéři (nebo jeden z boku), drží cvičence obouruč za nadloktí a nadnášejí tělo nad překážku.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: zavadění špičkami o hranu bedny, slabý odtlak ramen, záklon hlavy. Oprava: zvedat pánev nad úroveň ramen.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Povinně měkká duchna za bednou, pečení bedny stahovacími popruhy proti posunutí.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Suverénní přenesení nohou přes 90cm překážku bez jakéhokoli kontaktu nohou s horní deskou.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Double Kong (Dvojitý Kong Vault)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Dvojitý odtlak rukama přes dlouhou překážku. Silný odraz snožmo do dálky, první kontakt rukou na začátku překážky (nadnesení boků), let těla v horizontále, druhý odtlak na konci překážky s protažením nohou pod sebou.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Dlouhý Kong vault (Dive Kong), skoky letmo do molitanové jámy, kliky s odrazem rukou, zpevňovací vzpory.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Nácvik dvou za sebou postavených beden s měkkým meziprostorem; 2. Kong na první bednu + okamžitý odtlak z druhé do duchny; 3. Plný Double Kong přes podélnou bednu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Dva trenéři po obou stranách konce překážky jistí paže a trup, připraveni podepřít hrudník při zavadění nohou.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: nedostatečný tah boků vzhůru, vynechání druhého odtlaku rukama (pád na břicho). Oprava: zkrátit překážku, nácvik Dive Kongu.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Dlouhá stabilní sestava švédských beden spojená popruhy, měkká duchna za překážkou, protiskluzový povrch na odrazu.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čisté překonání překážky o délce min. 2 metry s jasným dvoudobým odtlakem rukama a hladkým dopadem do běhu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Dash Vault</h4>
+<span class="badge">Pokročilý • 11+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Odraz z jedné nohy před překážkou, nohy letí vpřed nad překážku jako první. V momentě přeletu se ruce položí na překážku za tělem a dynamicky odtlačí trup.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Přeskakování nízkých překážek snožmo vpřed do sedu, odtlaky na bradlech z přednožení.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Výskok do sedu na bednu s nohama vpřed a odtlak; 2. Dash do molitanové jámy/duchny; 3. Dash přes 1 díl bedny.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí vedle překážky v místě odtlaku rukou, jistí bedra a zadní stranu stehen proti pádu na záda.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: nedostatečný výkop nohou vpřed, dosednutí na překážku, pozdní položení rukou. Oprava: cvičit výkop z trampolínky.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Velká a silná doskoková duchna za překážkou pro případ zachycení patami o hranu.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čistý přelet s nohama propnutýma vpřed a energickým odtlakem dlaní do kontrolovaného doskoku.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Kash Vault (Kong to Dash)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Kombinace: začíná jako Kong vault (přílet rukama na překážku, kolena k tělu), ale nad překážkou se nohy prudce propnou vpřed a ruce se znovu opřou za tělem pro odtlak.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Zvládnutý perfektní Kong i Dash vault, dynamické přednožování ve visu, kliky na bradlech.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Kong s propnutím nohou do duchny; 2. Kash na široké bedně; 3. Kash přes podélnou švédskou bednu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér jistí na úrovni doskoku za rameno a hrudník, připraven k okamžitému zachycení.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: ztráta tempa nad překážkou, nedostatečná výška boků. Oprava: posílení břišního svalstva a odtlaku.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Používat výhradně v tělocvičně na stabilní bedně s protiskluzem a širokou dopadovou plochou.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulé spojení obou fází bez zaváhání na bedně a měkké dopadnutí do stick landingu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Reverse Vault (360° otočka)</h4>
+<span class="badge">Pokročilý • 10+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Překonání překážky s rotací těla o 360° podél podélné osy. Odraz z jedné nohy, první ruka na překážku, rotace boků zády k překážce, druhá ruka dokončuje odtlak.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Otočky na zemi ve vzporu, rotace na nízkém zábradlí ze stoje, přetáčení na lavičce.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Nácvik rotace na zemi; 2. Reverse vault ze stoje na nízké lavičce; 3. Z mírného rozběhu přes 2 díly bedny.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí na výstupní straně překážky, oběma rukama jistí rotující trup a usměrňuje rotaci k zemi.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: rotace příliš nízko (náraz bokem do bedny), ztráta orientace v prostoru. Oprava: fixace zraku na dopadový bod.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Dopadová žíněnka o tloušťce min. 10 cm, zaoblené hrany překážky.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulá rotace bez zadrhnutí těla o překážku a jistý dopad čelem k původnímu směru běhu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Underbar (Podlez zábradlí)</h4>
+<span class="badge">Střední • 8+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Překonání úzkého otvoru pod zábradlím nebo tyčí v plné rychlosti. Skok nohama napřed, ruce chytají horní tyč nadhmatem, tělo se prohne do luku a proklouzne pod tyčí.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Přednožování ve visu na hrazdě, prolézání pod lavičkami v rychlosti, mosty a prohnutí vzad.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Podlez z místa s oporou nohou na zemi; 2. Podlez z pomalého rozběhu s nízkou tyčí; 3. Podlez v plném běhu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí u sloupku zábradlí, jistí hlavu a záda svěřence před možným nárazem do horní tyče.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: náraz hlavou nebo koleny do tyče, předčasné puštění úchopu rukou. Oprava: nácvik s elastickou gumou místo tyče.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Při nácviku nahradit pevnou tyč molitanovou tyčí nebo napnutou gumou, aby se předešlo úrazu hlavy.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Průlet pod překážkou v rychlosti běhu bez zpomalení a bez dotyku těla o překážku.</dd></div>
+</dl></article>
+</div>
+<p class="loose">Trenérské pravidlo pro vaulty: Vždy začínat s nízkou překážkou (do výše pasu) a z chůze. Rychlost rozběhu zvyšovat až po 5 čistých opakováních bez zavadění nohou o překážku!</p>
+<h2 class="section">3. KATEGORIE: TECHNIKY NA ZDI A HRAZDÁCH (WALL TECHNIQUES &amp; BAR FLOW)</h2>
+<h3 class="group">3. Zdi a hrazdy</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Wall Run (Výšlap na stěnu)</h4>
+<span class="badge">Střední • 8+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Převod horizontální rychlosti rozběhu na vertikální. Poslední krok se zkrátí, odrazová noha vyšlápne na zeď ve výšce kyčlí se sklopenou špičkou dolů pro tření, švih volné nohy vzhůru.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Výskoky na vyvýšenou bednu, došlapy na šikmou lavičku, shyby ve visu na desce.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Došlap na zeď a odraz zpět na žíněnku; 2. Výšlap s dotykem mety rukou; 3. Výšlap s úchopem horní hrany stěny (výška 2,2 m).</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí pod stěnou vedle rozběhové dráhy, jistí pánev zespodu a brání pádu vzad při podklouznutí.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: došlap moc vysoko (noha sjede dolů), trup se opře o zeď. Oprava: došlap max. ve výšce pasu, tlačit od stěny.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Čistá zeď bez mastnoty, čistá neklouzavá podrážka sálové obuvi, pod stěnou žíněnka.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Jistý výšlap na stěnu 2,4 m s obouručním úchopem hrany bez podklouznutí podrážky.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Tic-Tac (Odraz od stěny)</h4>
+<span class="badge">Střední • 8+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Využití vertikální plochy ke změně směru nebo nabrání výšky. Šikmý rozběh ke zdi, dynamický došlap nohou do stěny shora dolů a odraz do nového směru pod úhlem 90°.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Výskoky ze strany na bednu, odrazy od šikmé trampolíny, balanční odrazy na jedné noze.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Došlap na zeď z chůze; 2. Odraz od zdi přes překážku na zemi; 3. Tic-tac na vyvýšenou plochu či zábradlí.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí z vnější strany odrazové dráhy, připraven chytit trup cvičence při podklouznutí nohy.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: příliš tupý úhel nájezdu, náraz ramenem do zdi, slabé tření podrážky. Oprava: nájezd pod úhlem 30–45°.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Dostatečně drsný povrch stěny, bezpečný dopadový prostor bez výčnělků a hran.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulý odraz od zdi s překonáním překážky vysoké 80 cm a doskokem do stick landingu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Cat Leap (Skok do závěsu)</h4>
+<span class="badge">Pokročilý • 10+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Skok z překážky nebo země s cílem zachytit se na protilehlé stěně. Tělo letí mírně v předklonu, chodidla se opřou o stěnu zlomek vteřiny před dlaněmi a absorbují hybnost.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Výskoky snožmo do dálky, nácvik tichého cat landingu z malé výšky, shyby s úzkým úchopem.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Přískok ze země z 1 metru; 2. Skok z nízké bedny na vzdálenost 1,5 m; 3. Skok z výšky na rovnou zeď.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí mezi překážkami pod trajektorií letu, jistí hrudník a bedra pro případ sklouznutí prstů.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: ruce chytí hranu dřív než nohy absorbují náraz (vytržení prstů), náraz koleny do zdi. Oprava: synchronizace.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Bezpečná hrana bez třísek a ostrých hran, žíněnka pokrývající celou mezeru mezi překážkami.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Skok přes mezeru 1,8 metru s čistým ztlumením nohama a stabilním závěsem po dobu 5 sekund.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Climb-Up (Výlez na hranu)</h4>
+<span class="badge">Pokročilý • 11+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Rychlý přechod z visu na stěně do vzporu na horní ploše. Současný záběr paží (přítah) a vyšlápnutí nohy do stěny, přetočení loktů nad hranu a dynamický vzpor.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Shyby nadhmatem, kliky na bradlech, přítahy k hraně stolu, výstupy do vzporu z bedny.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Výlez s odrazem nohou ze země; 2. Výlez z visu s dopomocí gumového expandéru; 3. Čistý Climb-up bez kmitu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí pod svěřencem, podpírá chodidlo nebo pánev pro odlehčení v kritické fázi přetočení loktů.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: pokládání jednoho lokte po druhém (přetížení ramene), kopání nohama do vzduchu. Oprava: posílení shybů.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Zaoblená horní hrana zdi, neklouzavý povrch pro špičky nohou, pod stěnou žíněnka.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulý výlez z plného visu do vzporu oběma pažemi současně během 2 sekund.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Lache (Přelet z hrazdy)</h4>
+<span class="badge">Pokročilý • 10+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Využití kyvadlového pohybu na hrazdě pro přelet na jinou hrazdu nebo na doskok. Švih tělem z ramenního kloubu (hollow/arch pozice), uvolnění úchopu v nejvyšším bodě švihu.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Kmihy ve visu na hrazdě (hollow body to arch), seskoky z mírného švihu do duchny, visy na jedné ruce.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Kmitání na hrazdě bez puštění; 2. Švih a seskok na měkkou duchnu; 3. Lache na protilehlou hrazdu (1,2 m).</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí pod hrazdou z boku, jistí záda a hrudník v momentě puštění hrazdy.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: puštění hrazdy příliš brzy (pád pod sebe) nebo příliš pozdě (rotace na záda). Oprava: nácvik rytmu švihu.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Gymnastická doskoková duchna pod hrazdami, kontrola dotažení hrazd a jejich nosnosti.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Přelet mezi hrazdami vzdálenými 1,5 metru s čistým opětovným úchopem a plynulým dokmitnutím.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Muscle-Up na hrazdě</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Silově-dynamický tah z visu do vzporu nad hrazdou. Výbušný přítah k hrudníku, bleskové přetočení zápěstí a loktů nad tyč a vytlačení do propnutých paží.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Výbušné shyby k pasu, kliky na hrazdě ve vzporu, negativní spouštění z horní pozice.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Nácvik s expandérem pod nohama; 2. Muscle-up z nízké hrazdy s mírným odrazem ze země; 3. Striktní Muscle-up.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér jistí zespodu pod nohama/pánví, pomáhá překonat mrtvý bod rotace loktů nad tyč.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: asymetrický výmyk přes jednu ruku (poškození ramenního kloubu). Oprava: zákaz jednostranného tahu!</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Pevná ocelová hrazda ošetřená magneziem proti klouzání dlaní, pod hrazdou tlumící podložka.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čistý obouruční Muscle-up bez trhání nohou a bez zvedání jednoho lokte napřed.</dd></div>
+</dl></article>
+</div>
+<h2 class="section">4. KATEGORIE: FREERUNNING, AKROBACIE A FLOW (FLIPS, TRICKS &amp; FLOW LINES)</h2>
+<h3 class="group">4. Freerunning &amp; akro</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Sideflip (Salto stranou)</h4>
+<span class="badge">Pokročilý • 10+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Rotace v sagitální/frontální rovině. Naskočení z rozběhu (gather step), švih paží a hrudníku stranou vzhůru, bleskové sbalení nohou pod hrudník. Otevření před dopadem.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Hvězdy, skoky s rotací o 180° a 360° do duchny, přemety stranou přes zvýšenou bednu.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Salto přes molitanovou bednu do duchny; 2. Z minitrampolíny na duchnu; 3. Z vyvýšené roviny do měkké žíněnky.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí těsně u odrazu, jednou rukou drží za opasek/bok a druhou podepírá lopatku, pomáhá rotaci.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: rotace hlavou dolů naslepo, nedostatečná výška odrazu, rozbalení těla příliš brzy. Oprava: fixace očí na bod.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Vysoká dopadová duchna min. 30 cm, odraz z pevné neklouzavé plochy, volný prostor kolem dokola.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Ustáté salto s měkkým stick landingem do žíněnky 10krát za sebou bez dotyku rukou země.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Frontflip (Salto vpřed)</h4>
+<span class="badge">Pokročilý • 10+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Převedení rozběhu do vysokého odrazu snožmo. Švih paží vzhůru a vpřed, zablokování těla, bleskové přitažení kolen k hrudníku (tuck), otevření a dopad na špičky.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Kotouly letmo na duchnu, výskoky s přitažením kolen na trampolíně, odrazy z bedny.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Kotoul letmo přes překážku; 2. Z trampolínky do molitanové jámy; 3. Ze země na velkou duchnu; 4. Na tenkou žíněnku.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí na boku v dopadové zóně, jednou rukou vede rotaci břicha a druhou jistí záda před přetočením.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: skok do dálky místo do výšky, předčasné sbalení s bradou dole, dopad na paty. Oprava: cvičit výskok na vysokou bednu.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Masivní molitanová doskoková plocha, přísný zákaz nácviku na tvrdé podlaze bez předchozí licence trenéra.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čisté dotočení s bezpečným dopadem do podřepu s koleny od sebe bez přepadnutí vpřed.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Backflip (Salto vzad)</h4>
+<span class="badge">Pokročilý • 11+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Vertikální odraz ze stoje/podřepu. Mohutný švih paží nahoru k uším, pohled směřuje před sebe (nezaklánět hlavu!), vytažení kolen k hrudníku a rotace těla vzad.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Výskoky do výšky s vytažením paží, kotouly vzad přes rameno, záklony do mostu, skoky do jámy na záda.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Výskok zády na vyvýšenou duchnu (úroveň ramen); 2. Salto na trampolíně s dvojitým jištěním; 3. Ze země se spottingem.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Dva trenéři drží cvičence po stranách za triko/pás a zespodu podepírají záda a stehna po celou dobu rotace.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: záklon hlavy při odrazu (ztráta výšky), nedostatečné přitažení nohou. Oprava: fixovat pohled na stěnu před sebou.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Bezpečnostní pás (lona) nebo 2 zkušení trenéři, tlustá gymnastická žíněnka, čistý prostor bez překážek.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Naprostá jistota rotace se spottingem a následně bez asistence s bezpečným doskokem do stick landingu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Aerial (Hvězda bez rukou)</h4>
+<span class="badge">Pokročilý • 11+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Dynamický přemet stranou bez dotyku rukou země. Mohutný zášvih zadní nohy, silný odraz přední nohy, trup klesá k zemi a rotuje v přímé linii, nohy v plném roznožení.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Rychlé přemety stranou (hvězdy), hvězdy s odrazem z jedné ruky, výkopy nohou do výšky (káča).</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Hvězda z vyvýšené lavičky; 2. Jednoruční hvězda s pozdním položením ruky; 3. Aerial z mírného rozběhu do duchny.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí za zády svěřence, oběma rukama drží v bocích a pomáhá udržet tělo ve vzduchu bez dotyku rukou.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: pokrčená odrazová noha, zborcení trupu do rotace, předčasný dopad. Oprava: zvýšení síly odrazové nohy.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Rovný, neklouzavý povrch s tlumící podložkou pro dopad nohou.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čisté provedení v přímé ose s nohama nad hlavou a stabilním dopadem bez dotyku rukou podložky.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Macaco (Šikmý přemet vzad)</h4>
+<span class="badge">Střední • 8+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Nízká záchranná a estetická rotace vzad vycházející z hlubokého dřepu. Jedna ruka se opře za tělem, pánev se vymrští vzhůru, oči sledují opěrnou ruku a nohy přelétnou šikmo vzad.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Mosty ze země, vzpory vzad, kopy nohama přes hlavu z nízkého sedu, capoeira průprava.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Pomalý přechod přes ruku na kolena; 2. Zvýšení dynamiky odrazu nohou; 3. Macaco přímo ze stoje do stoje.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér klečí z boku u opěrné ruky, jednou rukou nadnáší bedra a druhou usměrňuje trajektorii nohou.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: záklon hlavy naslepo do neznáma, slabý odtlak z nohou. Oprava: neustálý oční kontakt s opěrnou dlaní.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Měkká žíněnka nebo tatami, kontrola prohřátí a mobility zápěstí a ramen před cvičením.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulý přechod z dřepu do stoje s čistým přenesením váhy a bezpečnými doskokovými chodidly.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Wall Flip (Salto od stěny)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Salto vzad s pomocným odrazem chodidla od kolmé stěny. Rozběh ke zdi, výšlap jedné nohy do výšky pasu, odraz vzhůru a vzad, švih paží a prohnutí těla do rotace vzad.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Zvládnutý Wall Run, Backflip na rovině, výskoky z jedné nohy ze stěny s dopadem na záda do duchny.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Odraz ze zdi do duchny na záda; 2. Wall flip s asistencí trenéra na popruzích; 3. Wall flip na žíněnku.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí těsně pod stěnou, jednou rukou jistí bedra a druhou vede rotaci ramen, brání nárazu hlavou do zdi.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: došlap moc vysoko na stěnu (noha podklouzne), odraz příliš daleko od stěny. Oprava: přesná značka na zdi.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Pevná, neklouzavá stěna bez nerovností, silná gymnastická duchna přímo u paty stěny.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Bezpečné provedení s čistým odrazem ze stěny, dotočením rotace a jistým postavením na nohy.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Webster (Salto z jedné nohy)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Salto vpřed začínající odrazem z jedné nohy a mohutným zášvihem druhé nohy vzad a vzhůru. Paže pomáhají švihem, tělo rotuje vpřed a otevírá se do doskoku.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Vykopávání nohy vzad v předklonu, arabské skoky, Frontflip na rovině.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Zášvih nohy z vyvýšené bedny do molitanové jámy; 2. Webster z trampolínky; 3. Webster ze země do duchny.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér běží souběžně se svěřencem, jistí trup a boky v letové fázi pro případ nedotočení.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: slabý zášvih nohy (nedostatek rotační energie), skok příliš nízko nad zemí. Oprava: posílení zadní strany stehen.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Pouze na certifikované dopadové ploše s dostatečným tlumením, otevřený prostor bez překážek.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulý odraz z běhu s vysokou trajektorií letu a stabilním doskokem do obou nohou.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Wall Spin (Otočka na zdi)</h4>
+<span class="badge">Pokročilý • 11+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Rotace těla o 360° podél předozadní osy s oporou dlaní o vertikální zeď. Šikmý rozběh, naskočení s vytočením boků, první dlaň směřuje prsty dolů/stranou, druhá stabilizuje, silný švih nohou šikmo vzhůru a rotace těla kolem opěrného bodu.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Hvězda s oporou rukou o šikmou plochu/bednu, nácvik rotace na zemi ve vzporu, odrazy ze zdi do stoje.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Wall spin přes šikmou švédskou bednu; 2. Wall spin na nízké zdi s dopadem do měkké žíněnky; 3. Wall spin na rovné stěně v plné rychlosti.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí pod stěnou z vnitřní strany rotace, drží svěřence obouruč za boky/pás a navádí rotaci těla, chrání před pádem na hlavu.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: špatné postavení rukou (prsty nahoru místo dolů), nedostatečný švih nohou, pád zády do zdi. Oprava: fixace správné polohy dlaně křídou na zdi.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Hladká, ale neklouzavá stěna, velká gymnastická duchna pod odrazovým místem, volný prostor min. 2 metry do všech stran.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulá rotace o 360° s oběma rukama na zdi a čistým dopadem do podřepu na obě chodidla bez kontaktu těla se zdí.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Palm Flip (Přemet od stěny)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Salto vzad iniciované odtlakem dlaní od vertikální stěny. Rozběh kolmo ke zdi, výskok s vytažením rukou, položení dlaní na stěnu ve výšce hlavy, prudký odtlak paží kombinovaný se švihem kolen k hrudníku do rotace vzad.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Záklony z kleku s odrazem rukou od stěny, Backflip na zemi do duchny, odtlačení od stěny z výskoku.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Odtlak dlaněmi od stěny do dopadu na záda do vysoké duchny; 2. Palm flip s dvojitým spottingem; 3. Samostatný Palm flip do žíněnky.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Dva trenéři po stranách; jeden pevně jistí ramena a šíji, druhý podepírá bedra a točí pánev přes hlavu cvičence.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: slabý odtlak rukou (hrozí náraz hlavou do zdi), pozdní sbalení nohou. Oprava: izolovaný trénink výbušného odtlaku z kliku.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Extrémní nárok na pevnost a stabilitu stěny, silná dopadová duchna přímo u zdi, použití bezpečnostních pásů při prvních pokusech.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Bezpečné provedení s dynamickým odtlačením těla od stěny min. 1 metr do dálky a jistým dopadem na nohy bez přepadnutí.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Gainer (Salto vzad s pohybem vpřed)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Rotace vzad (backflip) prováděná při pohybu těla vpřed z odrazu jedné nohy. Poslední krok se zablokuje (J-step), švihová noha prudce vykopává vzhůru a vzad k uchu, paže táhnou nahoru, hlava se nezaklání předčasně.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Kopy do výšky z rozběhu (slap kicks), Backflip z vyvýšeného místa do jámy, švihy nohou na hrazdě, Macaco.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Vykopnutí do molitanové jámy na záda z běhu; 2. Gainer z vyvýšené bedny do duchny s jištěním; 3. Gainer na rovině s trenérem; 4. Samostatně.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér běží souběžně z boku odrazové nohy, jedna ruka podpírá spodní záda/bedra, druhá táhne za rameno a jistí rotaci.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: slabý výkop švihové nohy (nedotočení), skok do dálky místo do výšky, náraz odrazové nohy o zem. Oprava: cvičit výkop na terč.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Výhradně na silné doskokové duchně nebo v gymnastické jámě. Přísný zákaz zkoušení na pevném povrchu pro začátečníky.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čisté dotočení rotace s vysokou parabolou letu a kontrolovaným doskokem do stick landingu na obě nohy 5krát po sobě.</dd></div>
+</dl></article>
+</div>
+<h3 class="group">5. Flow a linie</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Parkourová linie (Flow Combo)</h4>
+<span class="badge">Všechny úrovně</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Plynulé spojení 3 až 6 technik za sebou bez přerušení pohybu, zbytečných kroků nebo ztráty kinetické energie. Využití hybnosti z předchozího prvku do odrazu dalšího.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Kombinace dvou prvků (např. vault + roll, precision + cat leap), kruhové dráhy na zemi.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Pomalé projití dráhy krokem; 2. Spojení na 50 % rychlosti; 3. Plná rychlost s důrazem na plynulost a tichost.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér se pohybuje podél dráhy a střeží nejrizikovější překážku v řetězci.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: zbytečné brzdění a váhání před překážkami, ztráta rovnováhy po doskoku. Oprava: zjednodušení kombinace.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Jasně vyznačená jednosměrná trasa, minimálně 2 metry bezpečný odstup mezi jednotlivými cvičenci.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Absolvování celé trasy bez jediného zaváhání, s tichými dopady a dokonalou návazností všech prvků.</dd></div>
+</dl></article>
+</div>
+<div class="note gold"><span class="note-ico">★</span><p>Pravidlo akrobatické bezpečnosti: Žádná salta na pevnou podlahu bez minimálně 50 čistých dopadů do molitanové duchny! Trénink rotací hlavy dolů probíhá VŽDY za přímého fyzického jištění trenérem.</p></div>
+<h2 class="section">5. KATEGORIE: TRICKING A AKROBATICKÉ KOPY (TRICKING KICKS &amp; COMBOS)</h2>
+<h3 class="group">5. Tricking &amp; kopy</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Roundhouse Kick (Obloukový kop)</h4>
+<span class="badge">Základní • 7+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Základní rotační kop nártem či bříškem chodidla. Vytočení stojné nohy patou k cíli (otevření kyčle), komorování kolene, švih bércem v horizontální rovině a rychlé stažení zpět.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Kroužení v kyčlích u zdi, výdrže v poloze kopu s oporou o zábradlí, kopy do pěnového lapače.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Nácvik u zdi v pomalém tempu; 2. Kop na lapač držený trenérem z místa; 3. Kop z kroku a otočky.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér drží pěnový lapač v optimální výšce pasu, navádí úhel vytočení stojné nohy a stabilitu těla.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: nevytočená stojná noha (přetížení kolene), kop s pokrčenou nohou bez vytažení. Oprava: kontrola paty k cíli.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Hladký, neklouzavý povrch, dostatečné rozestupy mezi dětmi min. 2 metry, zákaz tvrdých cílů.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>10 čistých rychlých kopů na obě nohy ve výši pásu s okamžitým návratem do stabilního postoje.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Tornado Kick (360° Roundhouse)</h4>
+<span class="badge">Střední • 9+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Skokový kop s rotací o 360°. Odraz ze stojné nohy, švih opačného kolene vzhůru a do rotace, přešvihnutí ve vzduchu a dynamický kop kopací nohou s dopadem na kopající nohu.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Otočky o 360° snožmo, zvedání kolene s otočkou (inside crescent), nácvik naskočeného nápřahu.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Nácvik rotace na zemi bez výskoku; 2. Falešný krok + skok s otočkou do žíněnky; 3. Zásah lapače ve vzduchu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí v ose dopadu a drží lapač, druhou rukou připraven zachytit trup cvičence při ztrátě rovnováhy.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: nízký výskok, nedostatečné vytažení prvního kolene (ztráta výšky). Oprava: cvičit výskok na vyvýšenou bednu.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Trénink na tatami nebo tenké žíněnce, kontrola čistoty podrážek.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulý odraz z rozběhu s plnou rotací o 360°, zasažení lapače v úrovni hrudníku a stabilní doskok.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Butterfly Kick (B-Kick / Motýlek)</h4>
+<span class="badge">Střední • 9+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Horizontální rotační prvek bez rotace hlavy dolů. Hluboký nášlap do podřepu, švih trupu dolů a do oblouku, současné vykopnutí obou nohou za sebe do vodorovné roviny, tělo plachtí horizontálně.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Úklony a kroužení trupu (U-dip), výkopy nohou vzad v předklonu, hvězdy s nízkým trupem.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Nácvik náběhové křivky a ponoření trupu; 2. B-kick přes nízkou molitanovou překážku; 3. B-kick na rovině.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí z vnější strany oblouku, oběma rukama drží svěřence za pás a nadnáší trup v horizontále.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: trup zůstává vzpřímený (nohy nejdou nahoru), pokrčená kolena. Oprava: důraz na hluboké ponoření trupu (dip).</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Měkký gymnastický koberec nebo tatami, volný prostor v okruhu 3 metrů.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čistý horizontální let těla s nohama v úrovni trupu a kontrolovaný dopad na nohy bez ztráty rovnováhy.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>540 Kick (Cheat 540)</h4>
+<span class="badge">Pokročilý • 11+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Skokový kop s rotací o 540°, kde kopající noha je zároveň nohou dopadovou. Mohutný švih neopěrného kolene, výbušný odraz, kop nártem ve vzduchu a rychlé zasunutí druhé nohy pod sebe pro samostatný doskok.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Perfektní Tornado kick, nácvik dopadu na kopací nohu z malé výšky, izolované posilování rotátorů kyčle.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Tornado kick s dopadem na obě nohy; 2. Tornado kick s nuceným dopadem na kopající nohu do duchny; 3. Plný 540 kick.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér drží cíl a pohotovostní rukou jistí rameno svěřence pro kontrolu rotace trupu při doskoku.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: dopad na obě nohy (zůstane jen Tornado), nebezpečný došlap na propnuté koleno. Oprava: absorbce dopadu do pokrčení.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Dopad výhradně do tlumící žíněnky nebo na pružnou podlahu; zákaz tvrdých dopadů na patu.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Dynamický kop nad úrovní pasu s jednoznačným a kontrolovaným doskokem na stejnou nohu s výdrží 2 sekundy.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Cheat 720 Kick</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Rotace o 720° v horizontální rovině zakončená obloukovým kopem. Rychlý nášlap z cheat setupu, rotace těla o 360° ještě před odrazem/během vzletu, vytažení vertikální osy a bleskový kop v druhé rotaci.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>540 kick, rychlé piruety o 360° a 540° na zemi, kopy z rotace na gymnastické trampolíně.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Rychlá rotace 540 bez kopu; 2. Nácvik na trampolíně s dopadem do žíněnky; 3. Cheat 720 na rovině s lapačem.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí v bezpečné vzdálenosti s lapačem na teleskopické tyči, sleduje stabilitu osy rotace svěřence.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: rozpad tělesné osy během rotace, vynechání kopu (pouhý skok s otočkou). Oprava: zpevnění středu těla (tight core).</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Prostorná tělocvična, gymnastické tatami, absolutní zákaz překážek v dosahu 3 metrů.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Dotočení plných dvou rotací ve vzduchu s jasným kopnutím nad úrovní břicha a stabilním postavením.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Cheat 1080 Kick</h4>
+<span class="badge">Expert • 13+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Třírotacový trikový kop (1080° rotace). Extrémní úhlová rychlost, tělo v dokonalém zpevnění rotuje třikrát kolem vertikály s bleskovým vykopnutím kopací nohy v závěrečné fázi před dopadem.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Mistrovský Cheat 720, vícečetné rotace na trampolíně, specifický trénink vestibulárního aparátu.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Rotace 720 s okamžitým navázáním na zemi; 2. 1080 na trampolíně do molitanové jámy; 3. Pokusy na pružné podlaze.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Vzhledem k rychlosti rotace trenér nekontaktuje tělo ve vzduchu, ale hlídá volnou dopadovou zónu a okamžitě jistí po doskoku.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: ztráta orientace (závrať), předčasné otevření paží z rotace. Oprava: trénink fixace zraku a postupné navyšování otáček.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Pouze pro elitní cvičence na speciálním odpruženém gymnastickém koberci s dohledem zkušeného akrobatického trenéra.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plné dokončení tří rotací ve vzduchu s patrným kopem a měkkým doskokem bez pádu na zem.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Jackknife (Kop s dvojitým zásahem)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Pokročilá variace 540 kicku: cvičenec ve vzduchu provede bleskový první kop (hook kick) a okamžitě tou samou nohou nebo druhou nohou zasadí druhý kop (roundhouse) před dopadem.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>540 kick, rychlé kombinace kopy na zemi (hook + round), flexibilita hamstringů a kyčlí.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Dvojitý kop na zemi bez výskoku; 2. Jackknife z minitrampolíny do duchny na dva lapače; 3. Jackknife na podlaze.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér (nebo dva trenéři) drží dva lapače v trajektorii kopů, vizuálně koriguje timing druhého švihu.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: druhý kop je pouze naznačený, cvičenec nestihne dopad na nohy. Oprava: zrychlení prvního kopu, zvýšení odrazu.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Kvalitní gymnastická podlaha, měkká dopadová obuv nebo bosé nohy na tatami.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Dva zřetelné akustické zásahy do lapačů během jednoho výskoku a kontrolované přistání na dopadovou nohu.</dd></div>
+</dl></article>
+</div>
+<div class="note gold"><span class="note-ico">★</span><p>Pravidlo bezpečnosti pro trickingové kopy: Před každým tréninkem kopů věnovat min. 10 minut dynamické mobilitě kyčlí a adduktorů! Nikdy nekopat přes bolest v tříslech či kolenou.</p></div>
+<h2 class="section">6. KATEGORIE: POKROČILÁ SALTA A VRUTY (ADVANCED FLIPS &amp; TWISTS)</h2>
+<h3 class="group">6. Salta a vruty</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Cartwheel (Přemet stranou / Hvězda)</h4>
+<span class="badge">Základní • 6+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Základní rotační gymnastický přemet v čelní rovině. Ruka-ruka-noha-noha v jedné přímce. Zpevněný střed těla, propnuté lokty a kolena, dynamické překlopení těla přes hlavu s pohledem mezi ruce.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Přeskakování lavičky ze vzporu snožmo i střídnonož, výdrže ve stojce u stěny, zpevňovací kolébky.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Hvězda přes šikmou molitanovou kostku; 2. Hvězda po vyznačené čáře na podlaze; 3. Hvězda z mírného poskoku s dopadem do běhu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí za zády cvičence, oběma rukama drží v bocích/pase a pomáhá vést vertikální dráhu těla.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: vybočení z přímé osy (tzv. placatá hvězda), pokrčené ruce v loktech, prohnutí v bedrech. Oprava: cvičení podél stěny.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Rovný gymnastický pás nebo neklouzavá podlaha, volný prostor min. 2 metry před i za.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>5 čistých přemetů po rovné čáře v obou směrech (vlevo i vpravo) s plným propnutím paží i nohou.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Cartwheel Full (Přemet stranou do vrutu)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Dynamická akrobatická návaznost: rychlý Cartwheel (přemet stranou) převedený okamžitě z odrazu do vertikálního salta vzad s plným vrutem o 360° (Full twist). Využití lineární hybnosti z hvězdy do rotace.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Rychlý přemet stranou zakončený snožmo (Round-off), Full twist z trampolíny, nácvik bloku odrazu.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Round-off s odrazem na zvýšenou duchnu; 2. Cartwheel do vrutu z trampolínky; 3. Cartwheel Full na pružné podlaze s jištěním.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Dva trenéři v dopadové zóně, jistí ramena a boky při dokončení vrutu, zabraňují podtočení.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: ztráta rychlosti v přechodu mezi hvězdou a odrazem, šikmá osa vrutu. Oprava: izolovaný trénink zrychlení přemetu.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Vysoká gymnastická duchna nebo odpružená akrobatická plocha; bezpečné bezpečnostní rozestupy.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulý přechod z přemetu přímo do odrazu s plným 360° vrutem a čistým postavením na nohy.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Flashkick (Salto vzad s prokopnutím)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Salto vzad, kde cvičenec v nejvyšším bodě rotace nesbalí kolena k hrudníku, nýbrž prudce vykopne jednu nebo obě nohy vpřed/vzhůru do estetického kopu, tělo se prohne v luku a následně se připraví na doskok.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Výbušný Backflip s vysokou parabolou letu, kopy nohama ve visu na hrazdě, mosty a flexe páteře.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Flashkick z trampolíny do molitanové jámy; 2. Z vyvýšené bedny do měkké duchny; 3. Na pružném gymnastickém koberci.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí v těsné blízkosti odrazu, jednou rukou nadnáší bedra/spodní záda a druhou jistí rameno.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: předčasné prokopnutí nohama (zastaví rotaci těla), nízká výška letu. Oprava: kop provést až v mrtvém bodě výšky.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Výhradně s měkkou tlumící dopadovou plochou, dokonalé zvládnutí klasického backflipu podmínkou!</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Vysoké salto s výrazným dynamickým kopem nad úroveň hlavy a stabilním doskokem na obě nohy.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Full Twist (Salto vzad s vrutem 360°)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Kombinace vertikálního salta vzad a plné podélné rotace o 360°. Odraz vzhůru se švihem paží, po dosažení vrcholu zablokování těla, jedna paže se přitáhne k hrudníku a druhá křížem k opačnému rameni pro roztočení vrutu.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Salta vzad do jámy, poloviční vruty (Arabian / Barani), rotace o 360° na trampolíně ve stoje.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Backflip s otočkou o 180° do jámy; 2. Full twist z trampolíny; 3. Full twist z bedny na duchnu; 4. Na podlaze.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Dva trenéři na lonži (akrobatickém bezpečnostním lanu) nebo u žíněnky jistí boky a záda svěřence.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: zahájení vrutu již na zemi před odrazem (ztráta výšky), nekontrolovaný dopad. Oprava: striktní povel "nejdřív nahoru, pak toč".</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Akrobatické lano (lonža) při prvních pokusech, tlustá gymnastická duchna min. 30 cm.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulý vrut o 360° bez ztráty výšky a bezpečný dopad do stick landingu na měkké podložce.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Double Full (Salto vzad s dvojitým vrutem 720°)</h4>
+<span class="badge">Expert • 13+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Vysoce náročný akrobatický prvek: salto vzad s dvěma kompletními podélnými rotacemi (720°). Extrémně silný výtah těla, bleskové přitažení paží k tělu (maximální moment setrvačnosti) a včasné rozevření těla před dopadem.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Suverénní Full twist, vícenásobné vruty na velké trampolíně do molitanové jámy, zpevňovací balanční cvičení.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. 1,5 vrutu do měkké jámy; 2. Plný Double Full na trampolíně; 3. Z trampolínky/airtracku do duchny.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Fyzické jištění na lonži s dvojitým kladkovým systémem; trenér na zemi střeží doskokovou plochu.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: pomalé dotažení paží, nedotočení druhé otočky (dopad bokem/obličejem). Oprava: trénink úhlové rychlosti rotace.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Speciální akrobatická hala s molitanovou jámou nebo profesionální airtrack, dohled certifikovaného trenéra.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Dokončení obou vrutů ve vzduchu s vizuálním vyhledáním dopadové plochy a stabilním doskokem do duchny.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Double Backflip (Dvojné salto vzad)</h4>
+<span class="badge">Expert • 13+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Dvojnásobná rotace vzad v sagitální rovině kolem příčné osy (720° salto). Maximální vertikální výtah těla, extrémně těsné sbalení kolen k hrudníku (tuck) s držením holení a bleskové rozbalení po druhém protočení.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Výbušný jednonásobný backflip s přesahem výšky 1,5 metru, dvojnásobná salta na trampolíně do jámy, posilování flexorů břicha.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Dvojné salto z velké trampolíny do molitanové jámy; 2. Z vyvýšeného rozběhu/airtracku na obří duchnu s jištěním.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Dva trenéři drží akrobatickou lonžu pevně uchycenou ve stropní konstrukci, vizuálně počítají rotace.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: předčasné rozbalení (hrozí pád na záda/hlavu), záklon hlavy při odrazu. Oprava: automatizace rytmu sbalení.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Přísný zákaz zkoušení bez lonže a bez molitanové jámy! Prvek vyhrazen pouze pro pokročilé závodníky a lektory.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čisté dokončení obou rotací v bezpečné výšce s měkkým a kontrolovaným doskokem do doskočiště.</dd></div>
+</dl></article>
+</div>
+<div class="note gold"><span class="note-ico">★</span><p>Pravidlo bezpečnosti pro salta a vruty: Při nácviku vícenásobných rotací a vrutů je povinné používání bezpečnostní lonže a molitanové jámy! Žádný pokus bez souhlasu hlavního trenéra.</p></div>
+<h2 class="section">7. KATEGORIE: POKROČILÝ TRICKING A MIMOOSÉ ROTACE (OFF-AXIS ROTATIONS &amp; TRICKING)</h2>
+<h3 class="group">7. Tricking &amp; mimoosé vruty</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Raiz</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Základní trickingový mimoosý přechodový prvek vycházející ze šikmého nášlapu. Švih nohy vzad a vzhůru, tělo se prohýbá v zádech v poloze břichem k nebi (arch), rotace probíhá bez dotyku rukou země s dopadem na švihovou nohu.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Macaco, jednoruční mosty z chůze, švihy nohou do záklonu, Tornado kick.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Nízké Macaco s minimálním kontaktem ruky; 2. Raiz z vyvýšené lavičky na měkkou žíněnku; 3. Raiz na zemi ze standardního cheat setupu.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí na straně odrazové nohy, jistí bedra a usměrňuje rotaci těla břichem vzhůru.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: rotace hlavou dolů (zvrhne se do špatného Gaineru), nedostatečné prohnutí v luku. Oprava: fixovat pohled do země pod sebe.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Pružná dopadová plocha, elastický povrch pro odraz, důraz na mobilitu ramen a bederní páteře.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Plynulý přechod z rozběhu do bleskového švihu bez kontaktu rukou země s měkkým dopadem do postoje pro další trik.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Touchdown Raiz (TDR)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Klíčový trickingový akcelerátor: variace Raizu, kde cvičenec během rotace těla břichem k obloze kontrolovaně položí jednu ruku (nebo obě) na zem pod své těžiště, absorbuje rotaci a bleskově se odrazí do dalšího triku (např. Cork).</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Klasický Raiz, Macaco ve vysoké rychlosti, zpevnění ramenního kloubu a zápěstí.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Macaco s rychlým průletem; 2. Nácvik dotyku ruky do duchny z rozběhu; 3. Plynulý TDR na tatami.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér klečí u místa kontaktu ruky, jistí stabilitu opěrného ramene a rychlost přetočení nohou.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: dopad na propnutou paži celou vahou těla (riziko hyperextenze lokte), ztráta švihu nohou. Oprava: mírně pokrčený loket.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Pružná žíněnka, dokonalé prohřátí zápěstí a rotátorových manžet ramen.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Rychlý polo-přemet s čistým jednoručním dotykem a okamžitým převodem hybnosti do vertikálního postoje.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Butterfly Twist (B-Twist / 360°)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Horizontální rotace těla o 360° vycházející z Butterfly kicku. Po ponoření trupu (dip) a vykopnutí nohou vzhůru se tělo ve vodorovné poloze zpevní, paže se přitáhnou k hrudníku a tělo se protočí podél podélné osy.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Vysoký Butterfly kick s nohama nad trupem, horizontální rotace na trampolíně, zpevňovací prkna (plank) s rotací.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. B-kick s dopadem na břicho/záda do vysoké duchny; 2. B-twist z vyvýšené lavičky do jámy; 3. B-twist na žíněnku.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí v ose letu, oběma rukama drží svěřence za trup/pánev a pomáhá dokončit horizontální protočení.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: zvednutí hlavy příliš brzy (přepadnutí do svislé polohy), nedostatečné přitažení paží. Oprava: držet tělo v jedné přímce.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Široká gymnastická duchna, zákaz tvrdých podlah při nácviku rotace.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Kompletní 360° horizontální vrut zakončený tichým dopadem na nohy v ose původního náběhu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Double B-Twist (720° horizontální vrut)</h4>
+<span class="badge">Expert • 14+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Dvojnásobný horizontální vrut (720°) v rovině rovnoběžné se zemí. Vyžaduje obrovskou výšku odrazu z ponoření trupu a extrémně rychlé stažení paží k tělu pro maximalizaci rotační rychlosti.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Perfektní B-twist, dvojité vruty na trampolíně, silové cvičení středu těla a flexorů.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. 1,5 B-twist do molitanové jámy; 2. Double B-twist z minitrampolíny na airtrack; 3. Na odpružené akrobatické ploše.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Dva trenéři u doskočiště střeží dopadovou zónu a jistí cvičence před nekontrolovaným pádem po rotaci.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: předčasné rozevření paží (podtočení), ztráta horizontální polohy (pád po hlavě). Oprava: trénink na velké trampolíně.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Výhradně v akrobatickém centru s certifikovaným doskočištěm nebo molitanovou jámou.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Čisté dokončení dvou plných rotací ve vodorovné ose a stabilní postavení na nohy bez pádu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Shuriken Twist (B-Twist se seknutím)</h4>
+<span class="badge">Expert • 13+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Estetická variace B-twistu: během dokončování 360° rotace cvičenec prudce vykopne a roztáhne jednu nohu do dynamického horizontálního kopu (shuriken/crescent), čímž demonstruje dokonalou kontrolu těla ve vzduchu.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>B-twist s otevřením nohou, vícenásobné kopy ve vzduchu, flexibilita kyčlí a hamstringů.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. B-twist s dopadem do roznožení na duchnu; 2. B-twist s lehkým vykopnutím do jámy; 3. Plný Shuriken twist na tatami.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér jistí na úrovni doskoku, zaměřuje se na stabilizaci stoje při dopadu po vykopnutí.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: vykopnutí zastaví rotaci dříve než dojde k dotočení, pád na bok. Oprava: zrychlení úvodního vrutu.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Dostatečný prostor bez cizích osob (kop má velký dosah), měkká podlaha.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Jasně viditelný plný kop nohou v závěru vrutu a jisté přistání do vzpřímeného postoje.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Corkscrew (Cork / Šikmý vrut z jedné nohy)</h4>
+<span class="badge">Expert • 12+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Ikonický trickingový prvek: šikmé salto vzad (Gainer) zkombinované s podélným vrutem o 360° z odrazu jedné nohy. Švihová noha vykopává šikmo vzhůru, tělo se natáčí a paže se přitahují pro rotaci.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Gainer do molitanové jámy, Full twist, B-twist, Cheat setup nášlapy (J-step, Pivot step).</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Gainer s otočkou o 180° do jámy; 2. Corkscrew z odrazového můstku do měkké duchny; 3. Corkscrew na rovině s trenérem.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér stojí na straně odrazu, vede rotaci boků a jistí rameno při dotočení.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: skok do dálky místo vzhůru, vytočení těla ještě před odrazem (ztráta výšky). Oprava: důraz na vysoký švih nohy.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Výhradně na měkké gymnastické duchně min. 20 cm nebo na odpruženém koberci.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Suverénní dotočení šikmého vrutu o 360° s lehkým dopadem na jednu nebo obě nohy bez ztráty rovnováhy.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Double Cork (Dvojitý šikmý vrut 720°)</h4>
+<span class="badge">Expert • 14+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Elitní trickingový prvek: šikmé salto vzad z jedné nohy se dvěma kompletními vruty (720°). Vyžaduje masivní vertikální švih, dokonalé zpevnění těla do tzv. "tužky" a precizní vnímání prostoru ve vzduchu.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Naprosto stabilní jednonásobný Cork, Double Full na trampolíně, specifický vestibulární trénink.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Cork s dotočením 1,5 do molitanové jámy; 2. Double Cork z airtracku do duchny; 3. Samostatně na pružné podlaze.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Dva trenéři v dopadovém poli střeží bezpečnost a okamžitě tlumí cvičence v případě nedotočení.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: pomalé stažení paží k hrudníku, vyosení rotace. Oprava: rozvoj rotační rychlosti na trampolíně.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Určeno pouze pro pokročilé a dospělé akrobaty; molitanová jáma nebo specializovaný odpružený floor.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Dokončení obou 360° rotací ve vzduchu s bezpečným doskokem do měkkého povrchu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Snapuswipe (Swipe do 540 kopu)</h4>
+<span class="badge">Expert • 13+ let</span>
+</header>
+<dl>
+<div class="field"><dt>Biomechanika a provedení</dt><dd>Vysoce dynamická trickingová fúze: rotace typu Swipe (horizontální přetočení s odrazem a dopadem na nohy) zakončená bleskovým švihovým kopem (540 / swipe twist) před dopadem na zem.</dd></div>
+<div class="field"><dt>Průpravná cvičení</dt><dd>Klasický Swipe, 540 kick, Butterfly twist, posílení adduktorů a středu těla.</dd></div>
+<div class="field"><dt>Metodická řada nácviku</dt><dd>1. Nácvik klasického Swipe na molitanu; 2. Swipe s náznakem kopu do jámy; 3. Snapuswipe na rovném gymnastickém tatami.</dd></div>
+<div class="field"><dt>Dopomoc trenéra (Spotting)</dt><dd>Trenér jistí boky svěřence v momentě rotace a koriguje výšku těžiště.</dd></div>
+<div class="field"><dt>Nejčastější chyby a jejich oprava</dt><dd>Chyba: příliš nízké těžiště, kop nestihne vyjít před kontaktem nohou se zemí. Oprava: agresivnější švih první nohy vzhůru.</dd></div>
+<div class="field"><dt>Bezpečnost a prostředí</dt><dd>Čistá podlaha s tlumícím povrchem, bezpečný rádius 3 metry.</dd></div>
+<div class="field"><dt>Kritérium zvládnutí (Mastery)</dt><dd>Dynamický průlet těla horizontálou s čistým kopem ve vzduchu a stabilním doskokem na dopadovou nohu.</dd></div>
+</dl></article>
+</div>
+<div class="note gold"><span class="note-ico">★</span><p>Pravidlo bezpečnosti pro tricking a mimoosé rotace: Mimoosé vruty a pokročilé trickingové přechody vyžadují precizní prostorovou orientaci a maximální zpevnění těla! Postupovat vždy od měkké molitanové jámy k pevnému povrchu.</p></div>
+</section>
+<section class="part" id="rozcvicka">
+<div class="part-head"><span class="part-kicker">Metodika Team VYS</span><h1>METODICKÝ SYSTÉM ROZCVIČKY, MOBILITY A PRŮPRAVNÝCH CVIČENÍ PRO PARKOUR</h1>
+<p class="part-sub">Komplexní systém dynamického zahřátí, kloubní prevence zranění, pohybových forem Animal Flow a kompenzačního zklidnění pro děti a mládež (6–14 let)</p>
+</div>
+<div class="note gold"><span class="note-ico">★</span><p>Zlaté pravidlo rozcvičky: Zápěstí a kotníky dostávají v parkouru extrémní rázové zatížení – minimálně 10 minut mobility a přípravy kloubů před jakýmkoliv skákáním je povinnost!</p></div>
+<h2 class="section">1. BLOK: DYNAMICKÉ ZAHŘÁTÍ A AKTIVAČNÍ POHYBOVÉ HRY (WARM-UP &amp; CNS ACTIVATION)</h2>
+<h3 class="group">1. Dynamické zahřátí</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Parkourová zónová babka</h4>
+<span class="badge">4–5 minut</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Kardio &amp; prostorová orientace</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Vymezený prostor s bezpečnými nízkými překážkami (lavičky, žíněnky). 1–2 chytači. Záchrana před chycením je provedení nízkého dřepu nebo opičí polohy (Ape position) po dobu max. 3 sekund.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Hlava nahoře, sleduj prostor kolem sebe, měkké dopady na špičky!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Srážky v běhu, dupání na paty. Oprava: Zpomalit na klus, zavést pravidlo jednosměrného pohybu nebo zvětšit zónu.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Žádné ostré hrany v dráze. Pro mladší děti (6–8 let) omezit rychlost na rychlou chůzi či zvířecí pohyby.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Zrcadlový stín ve dvojicích</h4>
+<span class="badge">3 minuty (střídání po 45 s)</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Reakční rychlost &amp; koordinace</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Dvojice stojí čelem proti sobě na vzdálenost 2 metrů. Vůdce provádí plynulé úkroky, změny směru, dřepy, dotyky země, vyskakování a obraty; partner ho okamžitě zrcadlí.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Nízké těžiště, neustále na špičkách, reaguj celým tělem, ne jen očima!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Příliš pomalé reakce, zbrklé nekoordinované pohyby. Oprava: Vůdce začíná pomalejším tempem a plynulými přechody.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Udržovat bezpečný odstup 2 metry mezi dvojicemi, aby nedocházelo k bočním kolizím.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Běžecká abeceda v parkourové modifikaci</h4>
+<span class="badge">2 série × 15 metrů</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Kotníky, achilovky, dynamika</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Liftink (práce kotníků), skipping (vysoká kolena s důrazem na vertikální odraz ze špičky), zakopávání pod hýždě, cval stranou s přetáčením boků a plynulé zrychlení do stick landing doskoku.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Odraz pružně ze špiček jako z trampolíny, trup vzpřímený, paže pracují v ose běhu!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Dopad na celá chodidla (paty), záklon trupu, pasivní paže. Oprava: Zkrátit krok, zvýšit frekvenci, zvuková kontrola tichého došlapu.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Běhat pouze jedním směrem s volným doběhem, nebrzdit prudce do stěny tělocvičny.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Reakční starty ze země</h4>
+<span class="badge">6–8 startů (5–8 metrů)</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Výbušná síla &amp; akcelerace</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Různé výchozí polohy na žíněnce: leh na břiše, sed na patách, turecký sed, vzpor vzad. Na tlesknutí trenéra bleskový přechod do sprintu na 6 metrů a zakončení tichým doskokem do podřepu.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Bleskový odraz, nezvedej se pomalu, využij energii odrazu přímo do běhu!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Zvedání přes kolena, nekoordinované vrávorání při vstávání. Oprava: Použít oporu dlaní a explozivní přitažení chodidel pod těžiště.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Startovat ze vzdálenosti min. 1,5 m od sebe. Měkký povrch (tatami nebo tenká žíněnka).</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Spiderman &amp; housenka přes překážky</h4>
+<span class="badge">3 série × 10 metrů</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Zahřátí velkých svalových skupin</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Přechod z vysokého prkna přískoky rukama vpřed a přitahováním nohou s propnutými koleny (Inchworm) s následným přelezením lavičky v nízkém lezení jako ještěrka/spiderman.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Břicho pevné jako skála, nepropadej v bedrech, kolena těsně nad podlahou!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Prohýbání v kříži, zvedání zadku příliš vysoko. Oprava: Zpomalit pohyb, soustředit se na zpevněné jádro.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Vhodné pro všechny věkové skupiny; pro děti s nižší silou povolit mírné pokrčení kolen.</dd></div>
+</dl></article>
+</div>
+<h2 class="section">2. BLOK: CÍLENÁ KLOUBNÍ MOBILITA A ŠLACHOVÁ PŘÍPRAVA (JOINT MOBILITY &amp; PREHAB)</h2>
+<h3 class="group">2. Kloubní mobilita</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Zápěstí – čtyřbodová tlaková matrice</h4>
+<span class="badge">2–3 minuty (10 op. každý směr)</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Zápěstní klouby, šlachy předloktí</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>V kleku na všech čtyřech. Dlaně prsty vpřed, prsty do stran, prsty k sobě a prsty vzad ke kolenům. Přenášení váhy těla krouživými pohyby nad zápěstí v plném rozsahu.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Dlaně přilepené k zemi, prsty doširoka roztažené, jemný a kontrolovaný tlak bez bolesti!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Odlepování dlaní od země, trhavé pohyby. Oprava: Snížit váhu přenesením těžiště více dozadu na paty.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Zásadní prevence distorzí při vaultech. Při bolesti okamžitě snížit zátěž.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Hřbety rukou a pěstní rolování</h4>
+<span class="badge">2 série × 10 opakování</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Extenzory zápěstí &amp; šlachová pouzdra</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Klek na kolenou, položení hřbetů rukou na podložku prsty k sobě. Mírný tlak a postupné svírání dlaní v pěst a zpětné rozevírání prstů s propnutými lokty.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Lokty propnuté, ramena stažená od uší, tlak dávkuj postupně a s citem!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Pokrčené lokty, přetěžování kloubu prudkým dosednutím. Oprava: Odlehčit váhu posunem boků vzad.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Provádět výhradně na měkké podložce (tatami/žíněnka), nikdy ne na holém betonu či parketách.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Kotníkový nášlap v hlubokém dřepu</h4>
+<span class="badge">45 s každá noha (2 série)</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Dorzální flexe kotníku &amp; achilovka</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Výpad vkleče nebo hluboký dřep. Tlak kolene vpřed přes špičku bez odlepení paty od země. Využití váhy hrudníku opřeného o koleno pro zvětšení rozsahu.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Pata zůstává zabetonovaná v zemi! Koleno směřuje přímo ve směru druhého prstu nohy.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Zvedání paty z podlahy, vtáčení kolene dovnitř. Oprava: Podložit patu 1cm destičkou nebo zmenšit rozsah.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Klíčové pro bezpečný stick landing a ochranu kolenních vazů při dopadech z výšky.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Ramenní průchodky s tyčí / gumou</h4>
+<span class="badge">2 série × 12 opakování</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Ramenní pletenec, rotátory, prsní svaly</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Široký úchop gymnastické tyče nebo expandéru před tělem. S propnutými pažemi plynulý převod tyče nad hlavou až za záda k bedrům a zpět.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Paže po celou dobu propnuté, neprohýbat se v bedrech, pohyb vychází čistě z ramen!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Pokrčování jedné paže (asymetrický průchod), velký záklon v zádech. Oprava: Rozšířit úchop na tyči.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Nepoužívat závaží, jde o kloubní mobilitu. Umožňuje bezpečné provádění Cat Leapu a Lache bez poranění ramene.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Kyčelní 90/90 rotace v sedu</h4>
+<span class="badge">10 rotací na každou stranu</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Vnitřní a vnější rotace kyčlí</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>V sedu na zemi obě nohy pokrčené v úhlu 90° v kolenou i kyčlích. Plynulé přetáčení kolen ze strany na stranu bez použití rukou s udržením vzpřímeného trupu.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Trup vzpřímený, hrudník tlačit vpřed, kontrolovaný přechod z jedné strany na druhou.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Hrbění zad, zvedání pánve do vzduchu. Oprava: Opřít se zpočátku dlaněmi za zády pro odlehčení.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Zlepšuje pohyblivost pro Kong Vault a záchyt na stěně (Cat Leap), uvolňuje bedrokyčelní svalstvo.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Kroužení krční páteře a hrudní rotace</h4>
+<span class="badge">1–2 minuty plynule</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Krční páteř &amp; hrudní mobilita</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Pomalé půlkruhy hlavou od ramene k rameni (ne záklony vzad!). Následně v kleku na všech čtyřech jedna ruka za hlavou a rotace lokte pod tělo a vzhůru ke stropu.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Otevři hrudník k nebi, pohled směřuje za loktem, nepospíchej a dýchej zhluboka.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Trhavé kroužení hlavou v plném záklonu, rotace pánví místo hrudníku. Oprava: Fixovat pánev na patách.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Zajišťuje bezpečné provedení parakotoulů (Parkour Roll) a chrání krční páteř při nečekaných pádech.</dd></div>
+</dl></article>
+</div>
+<h2 class="section">3. BLOK: PRŮPRAVNÁ CVIČENÍ, ANIMAL FLOW A CORE (SPECIFIC CONDITIONING &amp; GROUND FLOW)</h2>
+<h3 class="group">3. Animal Flow &amp; Core</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Medvědí chůze (Bear Crawl)</h4>
+<span class="badge">3 série × 10 metrů</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Křížová koordinace, ramena, jádro</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Pozice na čtyřech, kolena 3–5 cm nad zemí pod kyčlemi, dlaně pod rameny. Diagonální koordinace (současně pravá ruka + levá noha a naopak). Chůze vpřed i vzad.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Pánev v jedné rovině se zády, kolena nízko u země, žádné kolébání do stran!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Zadek vysoko ve vzduchu, stejnostranný pohyb (pravá ruka + pravá noha). Oprava: Položit na záda pěnový kužel nebo míček.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Základní průprava pro Kong Vault a absorbci pádů na všechny čtyři. Měkký povrch pro špičky nohou.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Krabí chůze a dosah (Crab Walk &amp; Reach)</h4>
+<span class="badge">2 série × 10 m + 6 dosahů</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Zadní svalový řetězec, hýždě, ramena</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Vzpor vzad na dlaních a chodidlech, prsty směřují vzad nebo mírně ven. Pánev vysoko. Při dosahu (Crab Reach) zvednutí jedné ruky s rotací trupu a pohledem na opěrnou ruku.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Zatni hýždě, vytlač pánev nahoru, opěrné rameno pevné a aktivní od ucha!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Propadlá pánev u země, propadlé rameno opěrné ruky. Oprava: Aktivní vytlačení ze země a zpevnění středu.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Vynikající kompenzace proti shrbenému sezení ve škole, posiluje rotátory a ramenní klouby pro Lache.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Opičí skluz (Ape Slide / Monkey Walk)</h4>
+<span class="badge">3 série × 8 metrů do stran</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Laterální mobilita, kyčle, odtlak paží</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Hluboký dřep s koleny doširoka. Přenesení obou dlaní do strany, odtlak z paží a dynamický přískok nohou s udržením nízkého těžiště. Nácvik na obě strany.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Dlaně celou plochou na zem, odtlak rameny, lehký a neslyšný dopad nohou!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Zvedání do stoje mezi přemístěními, doskok na paty. Oprava: Udržet celou dobu nízkou silovou polohu dřepu.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Přímá průprava pro Step Vault, Speed Vault a Sideflip. Začínat na gymnastickém koberci.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Žabí skoky s fixací (Frogger to Stick)</h4>
+<span class="badge">3 série × 6 skoků</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Výbušná síla nohou &amp; tichý dopad</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Z nízkého dřepu explozivní odraz snožmo vpřed. Ve vzduchu sbalení, dopad měkce na bříška chodidel do dřepu se zmrazením pohybu na 2 sekundy (Stick landing).</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Skákej výbušně, dopadej tiše jako ninja! Fixuj pozici bez sebemenšího pohybu.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Hlasitý dopad, padání kolen k sobě (valgozita), přepadávání vpřed. Oprava: Zkrátit délku skoku, zaměřit se na kvalitu absorpce.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Zákaz provádění na kluzkém povrchu. Děti se učí absorbovat dopadovou energii bez přetěžování kloubů.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Pozice Beast to Loaded Beast</h4>
+<span class="badge">3 série × 6 přechodů (3 s výdrž)</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Izometrická síla ramen, jádro, kotníky</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Ze statické pozice Beast (kolena 3 cm nad zemí) plynulé zasunutí pánve vzad k patám s natažením paží vpřed (Loaded Beast) a dynamický návrat s aktivací ramen.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Tlač dlaněmi do podlahy, kolena stále těsně nad zemí, hlava v prodloužení páteře!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Pokládání kolen na zem, povolení břišní stěny. Oprava: Zkrátit dobu výdrže na 2 sekundy, přidat pauzu v kleku.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Klíčová průprava pro explozivní odraz z rukou při Kong Vaultu a Dash Vaultu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Dutá poloha a kolébka (Hollow Body Rock)</h4>
+<span class="badge">3 série × 20–30 sekund</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Přední svalový korzet, břišní stěna</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Leh na zádech, bedra pevně přitisknutá k podložce. Nohy mírně nad zemí, paže natažené za hlavou podél uší. Mírné kolébání v uceleném luku bez zlomení v bedrech.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Bedra nesmí mít pod sebou ani milimetr mezery! Tělo je jako pevná banánová lodička.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Odlepení bederní páteře od podložky (prohnutí v kříži). Oprava: Pokrčit kolena k hrudníku nebo dát paže podél těla.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Základní gymnastická pozice nezbytná pro salta (Frontflip, Backflip), Lache a dopadovou stabilitu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Oslí výkopy na dlaních (Donkey Kicks)</h4>
+<span class="badge">3 série × 8 opakování</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Ramena, stabilita ve stoji na rukou</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Z polohy v hlubokém předklonu položení celých dlaní na zem. Mírný odraz oběma nohama vzhůru s cílem dostat pánev nad ramena a kontrolovaný tichý dopad zpět.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Pevné propnuté lokty, odtlačuj se od podlahy, zvedej boky nad úroveň hlavy!“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Pokrčování loktů (riziko pádu na hlavu), nekontrolovaný přepad vzad. Oprava: Začínat malými poskoky, trenér jistí z boku.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Provádět výhradně na tlumící žíněnce. Připravuje tělo na přenesení váhy při Kong Vaultu a stojce.</dd></div>
+</dl></article>
+</div>
+<h2 class="section">4. BLOK: ZÁVĚREČNÝ STREČINK, KOMPENZACE A ZKLIDNĚNÍ (COOL-DOWN &amp; MOBILITY RESTORATION)</h2>
+<h3 class="group">4. Závěrečný strečink</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Protažení flexorů kyčlí a iliopsoasu</h4>
+<span class="badge">45 s na každou stranu</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Hluboké ohybače kyčle &amp; stehna</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Hluboký výpad s kolenem zadní nohy na měkké podložce. Podsazení pánve (zatnutí hýždě), trup vzpřímený, mírný posun pánve vpřed až do pocitu tahu v přední straně stehna.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Nezakláněj se v bedrech! Podsaď pánev, stáhni zadek a dýchej do břicha.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Velké prohnutí v bedrech, koleno přední nohy padá dovnitř. Oprava: Narovnat trup, zpevnit břicho.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Zásadní po skákání a běhu, kdy jsou flexory kyčlí zkrácené z absorbování dopadů.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Závěs v pasivním visu na hrazdě</h4>
+<span class="badge">2–3 série × 30 sekund</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Dekomprese páteře &amp; uvolnění ramen</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Úchop hrazdy nadhmatem na šířku ramen, úplné uvolnění těla, vyvěšení z ramen a hluboké klidné dýchání s prověšením beder.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Zavři oči, úplně uvolni nohy a břicho, nechej gravitaci prodloužit páteř.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Napětí v těle, pokrčené lokty, houpání se na hrazdě. Oprava: Zklidnit dech, nohy mohou mít lehký dotyk se zemí.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Uvolňuje tlak v meziobratlových ploténkách po těžkých dopadech a skocích z výšky.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Protažení lýtek a plantární fascie</h4>
+<span class="badge">40 s na každou nohu</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Lýtkový sval, achilovka, klenba nohy</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Opora rukama o stěnu, zadní noha propnutá v koleni s patou pevně zatlačenou do země. Následně mírné pokrčení kolene zadní nohy pro zacílení na hluboký šikmý sval (soleus).</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Pata pevně na zemi, špička směřuje rovně vpřed ke stěně, jemný tah bez bolesti.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Vytočení špičky do strany, odlepení paty při pokrčení kolene. Oprava: Korigovat směr chodidla rovnoběžně.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Chrání před záněty achilovek (achillodynií) a záněty okostice typickými pro začínající skokany.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Otevření ramen u stěny / bedny (Puppy Pose)</h4>
+<span class="badge">60 sekund klidná výdrž</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Prsní svaly, široký sval zádový</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Vkleče opora dlaněmi nebo lokty o hranu švédské bedny či stěnu. Propadnutí hrudníku k zemi s udržením pánve nad koleny, hluboké uvolnění do výdechu.</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Hrudník klesá k podlaze jako těžké závaží, hlava volně mezi pažemi, dýchej do žeber.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Prohýbání v bedrech místo otevření v hrudním koši. Oprava: Mírně stáhnout žebra dolů k pánvi.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Kompenzuje svalový tonus po tréninku shybů, lezení po zdech (Climb-up) a dopadů na stěnu.</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Zklidnění dechu v pozici dítěte (Child's Pose)</h4>
+<span class="badge">90–120 sekund</span>
+</header>
+<dl>
+<div class="field"><dt>Cílové zaměření</dt><dd>Parasympatikus, regenerace, dekomprese</dd></div>
+<div class="field"><dt>Metodický postup a biomechanické provedení</dt><dd>Sed na patách, kolena doširoka od sebe, čelo opřené o podložku, paže uvolněné podél těla nebo natažené vpřed. Pomalý nádech nosem do břicha (4 s) a dlouhý výdech ústy (6 s).</dd></div>
+<div class="field"><dt>Klíčový trenérský pokyn (Cues)</dt><dd>„Zklidni tep, uvolni obličej a ramena, soustřeď se na svůj dlouhý hluboký dech.“</dd></div>
+<div class="field"><dt>Nejčastější chyby dětí a oprava</dt><dd>Chyba: Neklid, otáčení hlavy ze strany na stranu. Oprava: Vytvořit v tělocvičně klidnou atmosféru, ztlumit hudbu.</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; regrese</dt><dd>Přechod těla z tréninkového stresu do regeneračního režimu; mentální zhodnocení tréninku trenérem.</dd></div>
+</dl></article>
+</div>
+<p class="loose">Trenérské pravidlo regenerace: Statický strečink provádějte VÝHRADNĚ na konci tréninku po uklidnění tepu. Nikdy neprovádějte dlouhé statické výdrže před skákáním – snižují výbušnou sílu a svalovou reaktivitu šlach!</p>
+</section>
+<section class="part" id="postupy">
+<div class="part-head"><span class="part-kicker">Metodika Team VYS</span><h1>METODICKÝ MANUÁL A TRENÉRSKÉ POSTUPY PRO PARKOUROVÝ KROUŽEK (6–14 LET)</h1>
+<p class="part-sub">Komplexní metodika tréninkových jednotek, věková progrese, nácvikové řady a bezpečnostní standardy</p>
+</div>
+<h2 class="section">1. STRUKTURA 60MINUTOVÉ TRÉNINKOVÉ JEDNOTKY</h2>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>1. Zahřátí a mobilita</h4>
+<span class="badge">10</span>
+</header>
+<dl>
+<div class="field"><dt>Časové okno</dt><dd>00:00 – 10:00</dd></div>
+<div class="field"><dt>Cíl a zaměření fáze</dt><dd>Aktivace organismu, kloubní mobilita a dynamická příprava svalů</dd></div>
+<div class="field"><dt>Klíčová cvičení a obsah</dt><dd>Běžecká abeceda, zvířecí pohyby (quadrupedal), kroužení kloubů (zápěstí, kotníky)</dd></div>
+<div class="field"><dt>Metodický postup trenéra</dt><dd>Vedení ve svižném tempu a hravou formou; vizuální kontrola zapojení všech dětí</dd></div>
+<div class="field"><dt>Specifika: Přípravka (6–9 let)</dt><dd>Honičky, opičí dráhy na zemi, imitace zvířat (medvěd, krab, žába)</dd></div>
+<div class="field"><dt>Specifika: Pokročilí (10–14 let)</dt><dd>Cílená mobilita zápěstí, ramen a kyčlí, dynamický strečink středu těla</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; spotting</dt><dd>Neklouzavý povrch, zákaz jakýchkoli skoků před dokončením zahřátí</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>2. Průprava a kondice</h4>
+<span class="badge">10</span>
+</header>
+<dl>
+<div class="field"><dt>Časové okno</dt><dd>10:00 – 20:00</dd></div>
+<div class="field"><dt>Cíl a zaměření fáze</dt><dd>Rozvoj síly s vlastní vahou (kalistenika), stabilita středu těla (core)</dd></div>
+<div class="field"><dt>Klíčová cvičení a obsah</dt><dd>Zpevňovací kolébky, vzpory (plank), hluboké dřepy, kliky, visy a přízemní přítahy</dd></div>
+<div class="field"><dt>Metodický postup trenéra</dt><dd>Kruhový či stanovištní trénink; striktní důraz na kvalitu před počtem opakování</dd></div>
+<div class="field"><dt>Specifika: Přípravka (6–9 let)</dt><dd>Hravé výzvy, kratší intervaly (15–20 s), odlehčené varianty se zvýšenou oporou</dd></div>
+<div class="field"><dt>Specifika: Pokročilí (10–14 let)</dt><dd>Poctivá technika základních shybů, kliků a vzporů, výdrže na překážkách</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; spotting</dt><dd>Zákaz externích zátěží; trenér hlídá neprohýbání beder a kontrolu trupu</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>3. Hlavní metodická část</h4>
+<span class="badge">25</span>
+</header>
+<dl>
+<div class="field"><dt>Časové okno</dt><dd>20:00 – 45:00</dd></div>
+<div class="field"><dt>Cíl a zaměření fáze</dt><dd>Nácvik a zdokonalování parkourových prvků (dopady, vaulty, balanc, flow)</dd></div>
+<div class="field"><dt>Klíčová cvičení a obsah</dt><dd>Rotace na 3 stanovištích: A) Dopady a záchranný parakotoul, B) Vaulty, C) Flow dráha</dd></div>
+<div class="field"><dt>Metodický postup trenéra</dt><dd>Postup od země přes měkké bloky k pevnému nářadí; trenér u nejrizikovějšího bodu</dd></div>
+<div class="field"><dt>Specifika: Přípravka (6–9 let)</dt><dd>Nízké překážky do pasu, měkké dopadové plochy, jednokrokové vaulty (Step)</dd></div>
+<div class="field"><dt>Specifika: Pokročilí (10–14 let)</dt><dd>Složitější kombinace, plynulé navazování překážek (flow), Kong vault, Dash</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; spotting</dt><dd>Aktivní dopomoc (spotting) u rizikových fází, rozestupy min. 2 metry mezi dětmi</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>4. Zklidnění a strečink</h4>
+<span class="badge">10</span>
+</header>
+<dl>
+<div class="field"><dt>Časové okno</dt><dd>45:00 – 55:00</dd></div>
+<div class="field"><dt>Cíl a zaměření fáze</dt><dd>Zklidnění kardiovaskulárního systému, kompenzace a obnova elasticity svalů</dd></div>
+<div class="field"><dt>Klíčová cvičení a obsah</dt><dd>Statický strečink flexorů kyčlí, hamstringů, lýtek, ramen a předloktí, prodýchání</dd></div>
+<div class="field"><dt>Metodický postup trenéra</dt><dd>Klidná atmosféra, trenér slovně vede dechový rytmus a koriguje správné pozice</dd></div>
+<div class="field"><dt>Specifika: Přípravka (6–9 let)</dt><dd>Jednoduché uvolňovací polohy formou klidné hry („zamrznutí ninja“)</dd></div>
+<div class="field"><dt>Specifika: Pokročilí (10–14 let)</dt><dd>Prohloubený strečink zkracujících se partií, kompenzace jednostranného zatížení</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; spotting</dt><dd>Pozice držet bez trhání a švihů, vyvarovat se bolesti přes mezní rozsahy</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>5. Reflexe a úklid nářadí</h4>
+<span class="badge">5</span>
+</header>
+<dl>
+<div class="field"><dt>Časové okno</dt><dd>55:00 – 60:00</dd></div>
+<div class="field"><dt>Cíl a zaměření fáze</dt><dd>Zpětná vazba, posílení respektu a odpovědnosti, bezpečný úklid tělocvičny</dd></div>
+<div class="field"><dt>Klíčová cvičení a obsah</dt><dd>Slovní zhodnocení výkonu dětí, pochvala za odvahu a respekt, společný úklid nářadí</dd></div>
+<div class="field"><dt>Metodický postup trenéra</dt><dd>Individuální pochvala každého svěřence, kontrola bezpečného uložení vybavení</dd></div>
+<div class="field"><dt>Specifika: Přípravka (6–9 let)</dt><dd>Zapojení do nošení lehkých žíněnek a kuželů, budování týmové spolupráce</dd></div>
+<div class="field"><dt>Specifika: Pokročilí (10–14 let)</dt><dd>Asistence při manipulaci s těžšími bednami ve dvojicích, sebereflexe techniky</dd></div>
+<div class="field"><dt>Bezpečnostní pokyny &amp; spotting</dt><dd>Pozor na prsty při manipulaci s bednami; zákaz běhání a přeskakování při úklidu</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>CELKOVÝ ČAS TRÉNINKOVÉ JEDNOTKY</h4>
+<span class="badge">60</span>
+</header>
+<dl>
+<div class="field"><dt>Časové okno</dt><dd>60 minut</dd></div>
+<div class="field"><dt>Cíl a zaměření fáze</dt><dd>Vyvážený časový harmonogram pro optimální rozvoj a bezpečnost dětí</dd></div>
+</dl></article>
+</div>
+<h2 class="section">2. METODICKÁ MATICE PARKOUROVÝCH DOVEDNOSTÍ A VĚKOVÁ PROGRESE</h2>
+<h3 class="group">1. Doskoky a záchrana</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Základní doskok (Stick landing)</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Pérování ve dřepu na zemi, seskoky ze švédské lavičky</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Výška do 40 cm, důraz na tichý „kočičí“ dopad do měkké žíněnky</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Výška 60–100 cm, dopad na hranu překážky (Precision)</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Dopad na přední bříška chodidel, kolena 90°, trup mírně vpřed!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Dopad na paty, kolena propadají k sobě, dřep hlubší než 90°</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Postoj z boku, ruka připravená pod lopatkou pro případ pádu vzad</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Tichý dopad s výdrží 2 s bez jakéhokoli vrávorání či došlapu</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Parkourový parakotoul (Roll)</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Kolébka na zádech, diagonální kotoul z kleku přes rameno</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Z nízkého podřepu přes molitanový válec na měkkou duchnu</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Absorpce energie po doskoku z výšky přímo do plynulého běhu</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Trojúhelník z dlaní, brada na hrudník, rolovat šikmo přes záda!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Náraz hlavou o podložku, přímý kotoul po páteři, tvrdý loket</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Klek z boku, jedna ruka kryje šíji, druhá navádí bok do rotace</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Plynulý roll bez nárazu do kostí a okamžité postavení do běhu</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Záchyt na zdi (Cat leap landing)</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Vzpory ležmo z kolen s odpružením o zeď, visy na žebřinách</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Přískok na bednu z 50 cm, tlumení chodidly s oporou rukou nahoře</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Skok na stěnu ze vzdálenosti 1–1,5 m, aktivní absorbce nohama</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Nohy absorbují náraz jako tlumiče dřív, než zaberou ruce!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Náraz koleny či hrudníkem do stěny, propnuté ztuhlé paže</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Trenér stojí pod překážkou, ruka pod hrudníkem a pánví dítěte</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Ztlumení hybnosti bez kontaktu trupu se zdí, 100% jistý úchop</dd></div>
+</dl></article>
+</div>
+<h3 class="group">2. Překonání překážek</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Step Vault (Safety Vault)</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Kroky přes lavičku s oporou jedné ruky a opačné nohy</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Z chůze přes 1–2 díly švédské bedny, pomalý plynulý průchod</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Z rozběhu v plné rychlosti, protažení spodní nohy bez zadrhnutí</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Opora o pevnou dlaň, protilehlá noha na hranu, spodní letí skrz!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Stejnostranná noha a ruka (ztráta rovnováhy), nízké těžiště</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Postoj z boku překážky u odrazové nohy, jištění paže a ramen</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Plynulý přechod přes bednu v jedné fázi bez ztráty tempa běhu</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Monkey Vault (Kong Vault)</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Výskoky do vzporu dřepmo na bednu ze země, odraz snožmo</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Nácvik Monkey mount (výskok oběma nohama do dřepu na bednu)</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Plný Kong přes bednu – nohy protlačeny mezi pažemi dopředu</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Silný odraz snožmo, ruce odtlačí překážku, kolena pevně k bradě!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Zavadění špičkami o překážku, slabý odtlak rukou, záklon hlavy</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Trenér stojí za překážkou v doskoku, drží oběma rukama za paže</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Čistý přenos nohou přes překážku s bezpečným odtlakem a dopadem</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Speed Vault / Lazy Vault</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Šikmé přehazování nohou přes nízkou lavičku ve vzporu</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Lazy vault – postupné položení rukou a přenesení nohou bokem</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Speed vault – odraz z jedné nohy v plném běhu, horizontální tělo</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Jedna ruka odtlačuje tělo, nohy letí vodorovně vedle překážky!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Nízká pánev pod úrovní bedny, rotace těla do nekontrolovaného pádu</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Asistence z boku překážky za paži opěrné ruky, vedení pánve</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Přeletění překážky v ose běhu bez dotyku nohou o horní hranu</dd></div>
+</dl></article>
+</div>
+<h3 class="group">3. Rovnováha a přesnost</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Precision Jump</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Skoky po vyznačených liniích a kruzích na zemi s fixací dopadu</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Skok na švédskou lavičku z 60–80 cm s důrazem na zastavení</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Skoky na úzké zábradlí/hranu z 120–160 cm, rotace ve vzduchu</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Švih pažemi vpřed, oči fixují cíl, dopad na špičky a zmrznout!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Přepadnutí dopředu nebo sesmeknutí vzad, dopad na paty</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Trenér stojí přímo u cílové překážky připraven chytit trup svěřence</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Stabilní ustátí na úzké ploše minimálně po dobu 3 sekund</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Cat Walk &amp; Balance Walk</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Chůze po obrácené lavičce, nízké lezení po čtyřech (quadrupedal)</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Chůze a lezení po úzké lavičce vpřed, vzad a plynulý obrat</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Běh po zábradlí, rychlý obrat o 180°, seskok do kotoule</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Těžiště nízko, ruce vyvažují do stran, pohled 2 metry před sebe!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Zbrklý pohyb, těkání očima pod nohy, propnutá ztuhlá kolena</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Doprovod trenéra krok za krokem podél překážky s pohotovostníma rukama</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Projití 4metrového úzkého profilu plynule a bez dotyku země</dd></div>
+</dl></article>
+</div>
+<h3 class="group">4. Zdi a vertikální pohyb</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Tic-Tac (Odraz od stěny)</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Došlapy na nakloněnou rovinu v běhu s odrazem do strany</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Došlap na zeď ve výšce 40 cm a odraz do měkkého dopadu na žíněnku</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Odraz od svislé stěny ve výši pasu s překonáním překážky o 90°</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Došlap na zeď shora dolů pro maximální tření, silný odraz těla!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Sklouznutí boty kvůli nízkému úhlu došlapu, náraz ramenem do zdi</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Jištění odrazového prostoru z boku pro případ podklouznutí podrážky</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Pevný záběr nohy bez podklouznutí a přesměrování dráhy pohybu</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Wall Run &amp; Climb-up</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Výskoky na vyvýšenou bednu, shyby s oporou nohou, vis na hraně</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Vyšlápnutí na bednu 120 cm s položením hrudníku na horní desku</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Výšlap na stěnu 2–2,5 m, zachycení hrany a dynamický výlez nahoru</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Zkrátit poslední krok před zdí, odrazit se vzhůru, silný tah paží!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Odraz příliš daleko od zdi, plochý náraz trupem, slabý přítah loktů</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Trenér zespodu zvedá za pánev/stehno a jistí nahoře na hraně</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Plynulý výlez do vzporu na platformě bez kopání nohama do zdi</dd></div>
+</dl></article>
+</div>
+<h3 class="group">5. Akrobacie a rotace</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Přemet stranou (Hvězda)</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Přeskakování lavičky ze vzporu, vzpory stranou, odrazy přes linii</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Hvězda přes šikmou molitanovou kostku s pokrčenýma nohama</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Přímá hvězda po jedné linii, jednoruční varianta, dopad do běhu</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Ruka – ruka – noha – noha v jedné přímce, zpevněný střed těla!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Zalomení v bedrech, pokrčené lokty, vybočení z přímé osy pohybu</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Trenér stojí za zády svěřence a drží oběma rukama v pase/bocích</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Čistá rotace v ose s kontrolovaným dopadem na obě chodidla</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Macaco (Nízký šikmý přemet vzad)</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Záklony v kleku na měkké matraci, most ze země, opora o dlaň</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Šikmý přechod z dřepu přes jednu ruku na vyvýšenou duchnu</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Dynamické Macaco ze dřepu na zemi s přistáním do vzpřímení</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Jedna ruka pevně vzad, pánev nahoru, oči sledují opěrnou ruku!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Záklon hlavy naslepo bez vizuálního kontaktu se zemí, slabý odraz</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Jedna ruka trenéra podpírá bedra/pánvi, druhá vede rotaci nohou</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Bezpečný přechod přes rameno s vizuální kontrolou celého pohybu</dd></div>
+</dl></article>
+</div>
+<h3 class="group">6. Flow a návaznost</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Pohybová parkourová linie</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Spojování dvou prvků na zemi (např. doskok + kotoul + výskok)</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Jednoduchá 3bodová dráha (podlez překážky, step vault, doskok)</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Komplexní linie 4–5 překážek (vault -&gt; precision -&gt; cat leap -&gt; roll)</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Nezastavuj mezi překážkami, využívej kinetickou energii a setrvačnost!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Zbytečné brzdící mezikroky, ztuhlost při dopadu před dalším odrazem</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Trenér se přesouvá podél dráhy u technicky nejnáročnějšího prvku</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Plynulý průchod celou linií bez zastavení a s čistou technikou</dd></div>
+</dl></article>
+</div>
+<h3 class="group">7. Věková didaktika</h3>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Metodický přístup 6–9 let</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Rozvoj obratnosti a přirozené pohyblivosti formou pohybových her</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Důraz na prožitek, radost z pohybu, fantazii a základní motoriku</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Tréninkové bloky max. 10 minut, časté střídání aktivit a her</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Hrajeme si na opice, ninji a zvířata; učíme se tělo vnímat a chránit!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Rychlá ztráta pozornosti při dlouhém vysvětlování; mluvit stručně</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Neustálý oční kontakt, trenér je přímo u dětí a fyzicky asistuje</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Dítě má zájem, aktivně se zapojuje a osvojuje si návyk bezpečného dopadu</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Metodický přístup 10–14 let</h4>
+</header>
+<dl>
+<div class="field"><dt>Přípravné cvičení (průprava)</dt><dd>Systematický silový a technický rozvoj, disciplína a sebekontrola</dd></div>
+<div class="field"><dt>Progrese pro 6–9 let (Přípravka)</dt><dd>Cílený nácvik technických detailů, rozvoj vytrvalosti a síly středu</dd></div>
+<div class="field"><dt>Progrese pro 10–14 let (Pokročilí)</dt><dd>Autonomní trénink na stanovištích s jasně stanovenou metodikou</dd></div>
+<div class="field"><dt>Metodická nápověda &amp; klíčový pokyn</dt><dd>„Respekt k vlastnímu tělu, žádné bezhlavé hecování ani frajeřinky!“</dd></div>
+<div class="field"><dt>Nejčastější chyby svěřenců</dt><dd>Přeceňování vlastních schopností, napodobování videí ze sociálních sítí</dd></div>
+<div class="field"><dt>Způsob dopomoci trenéra (Spotting)</dt><dd>Trenér působí jako mentor a garant přísných bezpečnostních mantinelů</dd></div>
+<div class="field"><dt>Kritérium pro zvládnutí (Mastery check)</dt><dd>Svěřenec chápe rizika, sám provádí bezpečnostní kontrolu a sebereflexi</dd></div>
+</dl></article>
+</div>
+<div class="note"><span class="note-ico">✦</span><p><strong>METODICKÉ ZLATÉ PRAVIDLO</strong> — Pravidlo 5 čistých opakování — Bezpečnost a čistá biomechanika mají vždy absolutní přednost před výškou a efektem!</p></div>
+<h2 class="section">3. BEZPEČNOSTNÍ PROTOKOL, ZÁSADY DOPOMOCI (SPOTTING) A KONTROLA NÁŘADÍ</h2>
+<div class="cards">
+<article class="card">
+<header class="card-head">
+<h4>Kontrola prostoru a tělocvičny</h4>
+<span class="badge">Před začátkem každé lekce</span>
+</header>
+<dl>
+<div class="field"><dt>Standard a bezpečnostní norma</dt><dd>Suchý, čistý, neklouzavý povrch, volné únikové zóny min. 2 m kolem překážek</dd></div>
+<div class="field"><dt>Konkrétní metodický postup trenéra</dt><dd>Vizuální kontrola palubovky/tatami, vyvětrání sálu, odstranění cizích předmětů</dd></div>
+<div class="field"><dt>Kritická riziková místa</dt><dd>Kluzký prach na parketách, vlhká místa, ostré rohy a radiátory bez krytů</dd></div>
+<div class="field"><dt>Požadované vybavení a pomůcky</dt><dd>Mop na setření prachu, kontrolní checklist stavu nářadí a sálu</dd></div>
+<div class="field"><dt>Pravidlo chování pro děti</dt><dd>Zákaz vstupu do tělocvičny bez svolení trenéra a bez čisté obuvi</dd></div>
+<div class="field"><dt>Postup při chybě / Záchrana</dt><dd>Okamžité přerušení cvičení při zjištění kluzkého místa a vytření dosucha</dd></div>
+<div class="field"><dt>Záznam a řešení incidentu</dt><dd>Zápis do provozního deníku tělocvičny při zjištění technické závady</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Kontrola překážek a nářadí</h4>
+<span class="badge">Před zahájením a při přestavbě</span>
+</header>
+<dl>
+<div class="field"><dt>Standard a bezpečnostní norma</dt><dd>Stabilita všech švédských beden, laviček, doskokových duchien a konstrukcí</dd></div>
+<div class="field"><dt>Konkrétní metodický postup trenéra</dt><dd>Test stability zatížením trenérem, kontrola zámků, čepů a dotažení šroubů</dd></div>
+<div class="field"><dt>Kritická riziková místa</dt><dd>Vyviklaná bedna, uvolněné spojovací díly, nezaaretovaná bradla</dd></div>
+<div class="field"><dt>Požadované vybavení a pomůcky</dt><dd>Stahovací bezpečnostní pásy na bedny, protiskluzové podložky</dd></div>
+<div class="field"><dt>Pravidlo chování pro děti</dt><dd>Zákaz svévolné manipulace s překážkami a skákání na neověřené nářadí</dd></div>
+<div class="field"><dt>Postup při chybě / Záchrana</dt><dd>Při sebemenším viklání prvek snížit nebo okamžitě vyřadit z tréninku</dd></div>
+<div class="field"><dt>Záznam a řešení incidentu</dt><dd>Vyřazené nářadí označit viditelnou cedulí „MIMO PROVOZ“ a hlásit správci</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Doskokové plochy a matrace</h4>
+<span class="badge">Kontinuálně během tréninku</span>
+</header>
+<dl>
+<div class="field"><dt>Standard a bezpečnostní norma</dt><dd>Doskoky z výšky nad 50 cm výhradně na certifikované měkké žíněnky/duchny</dd></div>
+<div class="field"><dt>Konkrétní metodický postup trenéra</dt><dd>Kontrola překrytí mezer mezi žíněnkami, ujištění se, že podložky neujíždí</dd></div>
+<div class="field"><dt>Kritická riziková místa</dt><dd>Vklouznutí chodidla do mezery mezi žíněnkami (riziko distorze kotníku)</dd></div>
+<div class="field"><dt>Požadované vybavení a pomůcky</dt><dd>Suché zipy a spojovací pásy žíněnek, dostatečně tlustá dopadová duchna</dd></div>
+<div class="field"><dt>Pravidlo chování pro děti</dt><dd>V doskokové zóně smí být pouze 1 dítě; ihned po dopadu uvolnit prostor</dd></div>
+<div class="field"><dt>Postup při chybě / Záchrana</dt><dd>Trenér srovnává rozjeté matrace po každých 3–5 skocích svěřenců</dd></div>
+<div class="field"><dt>Záznam a řešení incidentu</dt><dd>Výměna prosezené nebo poškozené žíněnky za novou bez prodlení</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Aktivní dopomoc (Spotting)</h4>
+<span class="badge">Neustále při nácviku nových prvků</span>
+</header>
+<dl>
+<div class="field"><dt>Standard a bezpečnostní norma</dt><dd>100% trenérská pozornost; postoj v bezprostřední blízkosti těžiště cvičence</dd></div>
+<div class="field"><dt>Konkrétní metodický postup trenéra</dt><dd>Aktivní střežení s pokrčenými koleny, ruce v úrovni trupu/lopatek dítěte</dd></div>
+<div class="field"><dt>Kritická riziková místa</dt><dd>Nekontrolovaný pád vzad na hlavu/krk, podklouznutí odrazové nohy</dd></div>
+<div class="field"><dt>Požadované vybavení a pomůcky</dt><dd>Molitanový záchranný klín, pomocná bedna pro snížení výšky trenéra</dd></div>
+<div class="field"><dt>Pravidlo chování pro děti</dt><dd>Dítě čeká na jasný oční kontakt a slovní povel trenéra: „Můžeš!“</dd></div>
+<div class="field"><dt>Postup při chybě / Záchrana</dt><dd>Fyzické zachycení těla v letu za trup/paži a usměrnění do měkkého pádu</dd></div>
+<div class="field"><dt>Záznam a řešení incidentu</dt><dd>Okamžitý rozbor chyby s dítětem, návrat k jednoduššímu přípravnému cviku</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Kázeň a pravidla chování</h4>
+<span class="badge">Po celou dobu přítomnosti v sále</span>
+</header>
+<dl>
+<div class="field"><dt>Standard a bezpečnostní norma</dt><dd>Přísný zákaz svévolného pobíhání, pošťuchování a překřikování pokynů</dd></div>
+<div class="field"><dt>Konkrétní metodický postup trenéra</dt><dd>Jasně dané zvukové signály (hvizd = okamžitý stop-stav, sednout na zem)</dd></div>
+<div class="field"><dt>Kritická riziková místa</dt><dd>Překážení v dráze rozběhu jiného dítěte, hecování do nebezpečných skoků</dd></div>
+<div class="field"><dt>Požadované vybavení a pomůcky</dt><dd>Píšťalka, stopky, vyznačené čekací čáry na podlaze pro nástup</dd></div>
+<div class="field"><dt>Pravidlo chování pro děti</dt><dd>„Jeden cvičí, ostatní čekají za čárou; sledujeme se a pomáháme si!“</dd></div>
+<div class="field"><dt>Postup při chybě / Záchrana</dt><dd>Při porušení: 1. varování, 2. pětiminutový odpočinek na lavičce</dd></div>
+<div class="field"><dt>Záznam a řešení incidentu</dt><dd>Zápis do trenérského deníku; při opakované nekázni kontakt s rodiči</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Výstroj a bezpečnostní hygiena</h4>
+<span class="badge">Při nástupu v úvodu lekce</span>
+</header>
+<dl>
+<div class="field"><dt>Standard a bezpečnostní norma</dt><dd>Přiléhavý sportovní oděv bez visících šňůrek a kapuc, pevná sálová obuv</dd></div>
+<div class="field"><dt>Konkrétní metodický postup trenéra</dt><dd>Vizuální kontrola zavázaných tkaniček, sejmutí hodinek, řetízků a prstýnků</dd></div>
+<div class="field"><dt>Kritická riziková místa</dt><dd>Zachycení šňůrky o překážku, podklouznutí v ponožkách, zranění šperky</dd></div>
+<div class="field"><dt>Požadované vybavení a pomůcky</dt><dd>Plně vybavená lékárnička, náhradní gumičky do vlasů, náhradní tkaničky</dd></div>
+<div class="field"><dt>Pravidlo chování pro děti</dt><dd>Dlouhé vlasy pevně svázané, všechny šperky dolů, zákaz žvýkaček</dd></div>
+<div class="field"><dt>Postup při chybě / Záchrana</dt><dd>Dítě bez čisté sálové obuvi se neúčastní skoků na nářadí (pouze na zemi)</dd></div>
+<div class="field"><dt>Záznam a řešení incidentu</dt><dd>Důrazné upozornění zákonného zástupce na nutnost správné výstroje</dd></div>
+</dl></article>
+<article class="card">
+<header class="card-head">
+<h4>Krizový plán a postup při úrazu</h4>
+<span class="badge">V případě jakéhokoli incidentu</span>
+</header>
+<dl>
+<div class="field"><dt>Standard a bezpečnostní norma</dt><dd>Priorita č. 1: Zastavit činnost skupiny, zabezpečit zraněného, podat první pomoc</dd></div>
+<div class="field"><dt>Konkrétní metodický postup trenéra</dt><dd>Protokol: 1. Zastavit trénink, 2. Vyšetřit stav, 3. Ledovat/fixovat, 4. Volat 155/rodiče</dd></div>
+<div class="field"><dt>Kritická riziková místa</dt><dd>Panika, neodborná manipulace při podezření na zranění páteře či hlavy</dd></div>
+<div class="field"><dt>Požadované vybavení a pomůcky</dt><dd>Kompletní lékárnička (chladicí polštáře, elastická obinadla, tejpy, dezinfekce)</dd></div>
+<div class="field"><dt>Pravidlo chování pro děti</dt><dd>Ostatní děti okamžitě usedají na určenou lavičku a zachovávají klid</dd></div>
+<div class="field"><dt>Postup při chybě / Záchrana</dt><dd>Poskytnutí první pomoci (metoda RICE: Klid, Led, Komprese, Zvednutí končetiny)</dd></div>
+<div class="field"><dt>Záznam a řešení incidentu</dt><dd>Zápis do knihy úrazů do 24 h, telefonický kontakt rodičů a vedení kroužku</dd></div>
+</dl></article>
+</div>
+<div class="note"><span class="note-ico">✦</span><p><strong>ZÁVĚREČNÉ TRENÉRSKÉ KRÉDO</strong> — Platnost pro všechny trenéry</p></div>
+</section>
+</main>
+<footer><div class="inner"><b>Team VYS</b> · metodický materiál pro trenéry · Vytvořeno trenérem z Team VYS — Pavel Novák · teamvys.cz</div></footer>
+</body>
+</html>
