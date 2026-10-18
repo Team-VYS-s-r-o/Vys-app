@@ -5450,9 +5450,20 @@ app.delete('/api/coordinator/tasks/:id', asyncRoute(async (request, response) =>
 }));
 
 // Koordinátor může zapsat trénink trenérovi na kroužku svého kraje (jako admin).
+// Funkci lze per-organizace vypnout flagem feature_flags.coordinator_forgotten_attendance
+// (chybějící klíč = zapnuto; vypíná se explicitním false přes /api/admin/feature-flags).
 app.post('/api/coordinator/attendance', asyncRoute(async (request, response) => {
   requireServices();
   const coordinator = await requireCoordinator(request);
+  const { data: orgRow, error: orgFlagsError } = await supabase
+    .from('organizations')
+    .select('feature_flags')
+    .eq('id', coordinator.orgId)
+    .maybeSingle();
+  if (orgFlagsError) throw orgFlagsError;
+  if (orgRow?.feature_flags?.coordinator_forgotten_attendance === false) {
+    throw httpError('Zápis docházky koordinátorem má tahle organizace vypnutý.', 403);
+  }
   const coachId = requiredString(request.body.coachId, 'coachId');
   const place = requiredString(request.body.place, 'place');
   const dateText = optionalString(request.body.dateText) ?? new Date().toLocaleDateString('cs-CZ');
@@ -5901,6 +5912,32 @@ app.patch('/api/admin/coordinators/:id/permissions', asyncRoute(async (request, 
   response.json({ ok: true, permissions });
 }));
 
+// Per-org přepínače funkcí (organizations.feature_flags). Jen whitelistované klíče,
+// aby admin externí organizace nemohl zapínat VYS-only gamifikaci.
+const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set(['coordinator_forgotten_attendance']);
+
+app.patch('/api/admin/feature-flags', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const key = requiredString(request.body.key, 'key');
+  if (!ADMIN_TOGGLABLE_FEATURE_FLAGS.has(key)) throw httpError('Tenhle přepínač nelze měnit.', 400);
+  if (typeof request.body.enabled !== 'boolean') throw httpError('enabled musí být true/false.', 400);
+
+  const { data: org, error: orgError } = await supabase
+    .from('organizations')
+    .select('id,feature_flags')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (orgError) throw orgError;
+  if (!org) throw httpError('Organizace nenalezena.', 404);
+
+  const featureFlags = { ...(org.feature_flags && typeof org.feature_flags === 'object' ? org.feature_flags : {}), [key]: request.body.enabled };
+  const { error: updateError } = await supabase.from('organizations').update({ feature_flags: featureFlags }).eq('id', orgId);
+  if (updateError) throw updateError;
+  response.json({ ok: true, featureFlags });
+}));
+
 app.delete('/api/admin/coordinators/:id', asyncRoute(async (request, response) => {
   requireServices();
   const profile = await requireAdmin(request);
@@ -6243,6 +6280,7 @@ async function provisionOrganizationFromCheckout(session) {
         shared_mascots: true,
         shared_attendance_quest_map: true,
         shared_leaderboard: true,
+        coordinator_forgotten_attendance: true,
       },
     })
     .select('id,name,contact_email')

@@ -21,7 +21,9 @@ export type FeatureFlagKey =
   | 'shared_arenas'
   | 'shared_mascots'
   | 'shared_attendance_quest_map'
-  | 'shared_leaderboard';
+  | 'shared_leaderboard'
+  // Koordinátor smí zapsat trenérům zapomenutou docházku (admin může vypnout).
+  | 'coordinator_forgotten_attendance';
 
 export type FeatureFlags = Record<FeatureFlagKey, boolean> & { org_type: OrgType };
 
@@ -42,6 +44,7 @@ export const VYS_FEATURE_FLAGS: FeatureFlags = {
   shared_mascots: true,
   shared_attendance_quest_map: true,
   shared_leaderboard: true,
+  coordinator_forgotten_attendance: true,
 };
 
 export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
@@ -61,6 +64,7 @@ export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
   shared_mascots: true,
   shared_attendance_quest_map: true,
   shared_leaderboard: true,
+  coordinator_forgotten_attendance: true,
 };
 
 /** Parse a raw feature_flags jsonb value; unknown/missing keys fall back to org-type defaults. */
