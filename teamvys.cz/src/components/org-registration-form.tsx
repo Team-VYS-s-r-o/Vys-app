@@ -262,7 +262,7 @@ export function OrgRegistrationForm() {
       </button>
 
       <p className="mt-3 text-center text-xs text-brand-ink/60">
-        Po zkušebním období 790 Kč měsíčně. Předplatné lze kdykoli zrušit.
+        Po zkušebním období 2 490 Kč měsíčně. Předplatné lze kdykoli zrušit.
       </p>
     </form>
   );

@@ -39,7 +39,7 @@ export function PricingSection() {
               className="mt-4"
             >
               <p className="text-[clamp(4rem,9vw,7.5rem)] font-black leading-none tracking-tight text-brand-night">
-                790<span className="bg-gradient-ember bg-clip-text text-transparent"> Kč</span>
+                2 490<span className="bg-gradient-ember bg-clip-text text-transparent"> Kč</span>
               </p>
               <p className="mt-2 text-lg font-black text-brand-night/55">měsíčně za celou organizaci</p>
             </motion.div>
@@ -50,7 +50,7 @@ export function PricingSection() {
               transition={{ duration: 0.7, delay: 0.18, ease }}
               className="mt-6 flex flex-wrap gap-2.5"
             >
-              {['Prvních 30 dní zdarma', 'Bez vstupního poplatku', 'Zrušení kdykoliv'].map((perk) => (
+              {['Prvních 30 dní zdarma', 'Bez závazku', 'Zrušení kdykoliv'].map((perk) => (
                 <span key={perk} className="rounded-full border border-brand-ember/20 bg-brand-ember-soft px-4 py-2 text-xs font-black text-brand-ember-deep">
                   {perk}
                 </span>

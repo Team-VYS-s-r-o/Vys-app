@@ -6090,11 +6090,11 @@ app.post('/api/admin/coordinators/:id/payouts', asyncRoute(async (request, respo
 // ============================================================================
 // Multi-tenant SaaS (Phase 5): organization registration + subscription billing
 // ============================================================================
-// Pricing: 790 Kč/month per organization, first 30 days free (Stripe trial).
+// Pricing: 2 490 Kč/month per organization, first 30 days free (Stripe trial).
 // The VYS org is the platform owner: stripe_customer_id = NULL,
 // subscription_status = 'exempt' — exempt from every check in this section.
 
-const ORG_MONTHLY_PRICE_CZK = 790;
+const ORG_MONTHLY_PRICE_CZK = 2490;
 const ORG_TRIAL_DAYS = 30;
 const ORG_SELF_REGISTRATION_ENABLED = true;
 
@@ -6104,24 +6104,24 @@ const ORG_SELF_REGISTRATION_ENABLED = true;
 const ORG_PLANS = {
   monthly: {
     label: 'Měsíční',
-    priceCzk: 790,
+    priceCzk: 2490,
     recurring: { interval: 'month', interval_count: 1 },
     productName: 'Team VYS platforma — měsíční předplatné',
-    periodNote: '790 Kč měsíčně',
+    periodNote: '2 490 Kč měsíčně',
   },
   halfyear: {
     label: 'Půlroční',
-    priceCzk: 4620, // 6× 790 = 4740, sleva 120 Kč
+    priceCzk: 12450, // 5× 2 490 — jeden měsíc zdarma (plná cena 14 940)
     recurring: { interval: 'month', interval_count: 6 },
     productName: 'Team VYS platforma — půlroční předplatné',
-    periodNote: '4 620 Kč / 6 měsíců (sleva 120 Kč)',
+    periodNote: '12 450 Kč / 6 měsíců (1 měsíc zdarma)',
   },
   yearly: {
     label: 'Roční',
-    priceCzk: 9000, // 12× 790 = 9480, sleva 480 Kč
+    priceCzk: 24900, // 10× 2 490 — dva měsíce zdarma (plná cena 29 880)
     recurring: { interval: 'year', interval_count: 1 },
     productName: 'Team VYS platforma — roční předplatné',
-    periodNote: '9 000 Kč / rok (sleva 480 Kč)',
+    periodNote: '24 900 Kč / rok (2 měsíce zdarma)',
   },
 };
 const ORG_DEFAULT_PLAN = 'monthly';

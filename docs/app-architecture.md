@@ -126,7 +126,7 @@ status „Zapsáno koordinátorem"); admin to vypíná/zapíná přes `PATCH /ap
 
 Next.js 15, Vercel projekt **`aplikacevys-web`**, `force-dynamic` všude (žádné cachování).
 
-**Stránky:** `/` (landing s ceníkem SaaS 790 Kč/měs), `/registrace` (self-service nové organizace),
+**Stránky:** `/` (landing s ceníkem SaaS 2 490 Kč/měs + ceník zprovoznění), `/registrace` (self-service nové organizace),
 `/admin` + `/admin/prihlaseni` + `/admin/organizace`, `/koordinator`,
 a právní: `/obchodni-podminky`, `/ochrana-osobnich-udaju`, `/zpracovatelska-smlouva`, `/smazani-uctu`.
 

@@ -101,7 +101,7 @@ export function SaasHero() {
             custom={0.42}
             className="mt-5 text-xs font-bold text-white/45"
           >
-            790 Kč / měsíc · bez vstupního poplatku · zrušit můžete kdykoliv
+            2 490 Kč / měsíc · první měsíc zdarma · zrušit můžete kdykoliv
           </motion.p>
         </div>
 
