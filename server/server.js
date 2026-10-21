@@ -6128,7 +6128,7 @@ app.patch('/api/admin/coordinators/:id/permissions', asyncRoute(async (request, 
 
 // Per-org přepínače funkcí (organizations.feature_flags). Jen whitelistované klíče,
 // aby admin externí organizace nemohl zapínat VYS-only gamifikaci.
-const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set(['coordinator_forgotten_attendance', 'coordinator_training_ratings']);
+const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set(['coordinator_forgotten_attendance', 'coordinator_training_ratings', 'coordinator_attendance_stats']);
 
 app.patch('/api/admin/feature-flags', asyncRoute(async (request, response) => {
   requireServices();
@@ -6496,6 +6496,7 @@ async function provisionOrganizationFromCheckout(session) {
         shared_leaderboard: true,
         coordinator_forgotten_attendance: true,
         coordinator_training_ratings: true,
+        coordinator_attendance_stats: true,
       },
     })
     .select('id,name,contact_email')

@@ -25,7 +25,9 @@ export type FeatureFlagKey =
   // Koordinátor smí zapsat trenérům zapomenutou docházku (admin může vypnout).
   | 'coordinator_forgotten_attendance'
   // Koordinátor vidí hodnocení tréninků od trenérů (admin může vypnout).
-  | 'coordinator_training_ratings';
+  | 'coordinator_training_ratings'
+  // Koordinátor vidí porovnání návštěvnosti kroužků svého kraje (admin může vypnout).
+  | 'coordinator_attendance_stats';
 
 export type FeatureFlags = Record<FeatureFlagKey, boolean> & { org_type: OrgType };
 
@@ -48,6 +50,7 @@ export const VYS_FEATURE_FLAGS: FeatureFlags = {
   shared_leaderboard: true,
   coordinator_forgotten_attendance: true,
   coordinator_training_ratings: true,
+  coordinator_attendance_stats: true,
 };
 
 export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
@@ -69,6 +72,7 @@ export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
   shared_leaderboard: true,
   coordinator_forgotten_attendance: true,
   coordinator_training_ratings: true,
+  coordinator_attendance_stats: true,
 };
 
 /** Parse a raw feature_flags jsonb value; unknown/missing keys fall back to org-type defaults. */
