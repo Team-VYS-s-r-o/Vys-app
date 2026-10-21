@@ -2423,6 +2423,208 @@ app.post('/api/coach/attendance', asyncRoute(async (request, response) => {
   response.status(201).json({ attendance: data });
 }));
 
+// ─── Hodnocení tréninku trenérem (teploměr 1–10) ────────────────────────────
+// Trenér smí hodnotit jen trénink, ke kterému má ten den zapsanou vlastní
+// docházku, a každý trénink jen jednou denně. Unikát (session_id, den, trenér)
+// řeší i víc tréninků v jeden den — hodnotí se konkrétní session, ne místo.
+
+function todayIsoDay() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+app.post('/api/coach/training-rating', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireStaff(request);
+
+  const coachId = requiredString(request.body.coachId, 'coachId');
+  if (actor.role !== 'admin' && actor.id !== coachId) throw httpError('Trenér může hodnotit jen vlastní trénink.', 403);
+
+  const sessionId = requiredString(request.body.sessionId, 'sessionId');
+  const rating = Math.round(Number(request.body.rating));
+  if (!Number.isFinite(rating) || rating < 1 || rating > 10) throw httpError('Hodnocení musí být 1 až 10.', 400);
+
+  const isoDay = todayIsoDay();
+  const now = new Date();
+  const todayText = `${now.getDate()}. ${now.getMonth() + 1}. ${now.getFullYear()}`;
+
+  // Podmínka: dnes zapsaná docházka tohoto trenéra na tuhle session.
+  const { data: attendance, error: attendanceError } = await supabase
+    .from('coach_attendance_records')
+    .select('id,place,org_id')
+    .eq('coach_id', coachId)
+    .eq('session_id', sessionId)
+    .eq('date_text', todayText)
+    .maybeSingle();
+  if (attendanceError) throw attendanceError;
+  if (!attendance) throw httpError('Nejdřív si zapiš docházku k tomuhle tréninku, pak ho můžeš ohodnotit.', 403);
+
+  const row = {
+    id: `trenink-rating-${sessionId}-${isoDay}-${coachId.slice(0, 8)}`,
+    org_id: attendance.org_id || VYS_ORG_ID,
+    coach_id: coachId,
+    coach_name: actor.name || null,
+    session_id: sessionId,
+    place: attendance.place,
+    rating_date: isoDay,
+    rating,
+  };
+
+  const { data, error } = await supabase.from('training_ratings').insert(row).select().single();
+  if (error) {
+    if (error.code === '23505') throw httpError('Dnešní trénink už jsi ohodnotil — hodnotí se jen jednou denně.', 409);
+    throw error;
+  }
+  response.status(201).json({ rating: data });
+}));
+
+// Dnešní hodnocení trenéra — aby appka věděla, co už je ohodnocené.
+app.get('/api/coach/training-ratings', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireStaff(request);
+  const coachId = optionalString(request.query.coachId) || actor.id;
+  if (actor.role !== 'admin' && actor.id !== coachId) throw httpError('Trenér vidí jen svoje hodnocení.', 403);
+
+  const { data, error } = await supabase
+    .from('training_ratings')
+    .select('id,session_id,place,rating,rating_date')
+    .eq('coach_id', coachId)
+    .eq('rating_date', todayIsoDay());
+  if (error) throw error;
+  response.json({ ratings: data || [] });
+}));
+
+// Admin: hodnocení tréninků za posledních 90 dní (graf v admin webu).
+app.get('/api/admin/training-ratings', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from('training_ratings')
+    .select('id,coach_id,coach_name,session_id,place,rating,rating_date,created_at')
+    .eq('org_id', orgId)
+    .gte('rating_date', since)
+    .order('rating_date', { ascending: true });
+  if (error) throw error;
+  response.json({ ratings: data || [] });
+}));
+
+// Koordinátor: hodnocení jen z míst jeho kraje.
+app.get('/api/coordinator/training-ratings', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+
+  const { data: regionProducts, error: regionProductsError } = await supabase
+    .from('products')
+    .select('place')
+    .eq('org_id', coordinator.orgId)
+    .eq('region', coordinator.region);
+  if (regionProductsError) throw regionProductsError;
+  const regionPlaces = Array.from(new Set((regionProducts || []).map((p) => p.place).filter(Boolean)));
+  if (regionPlaces.length === 0) {
+    response.json({ ratings: [] });
+    return;
+  }
+
+  const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from('training_ratings')
+    .select('id,coach_id,coach_name,session_id,place,rating,rating_date')
+    .eq('org_id', coordinator.orgId)
+    .gte('rating_date', since)
+    .in('place', regionPlaces)
+    .order('rating_date', { ascending: true });
+  if (error) throw error;
+  response.json({ ratings: data || [] });
+}));
+
+// ─── E-mail rodiči po naskenování zvládnutého triku ──────────────────────────
+// Appka to volá best-effort po úspěšném claimu. Idempotence přes deterministické
+// id v parent_notifications (trik + dítě) — e-mail odejde jen při prvním zápisu.
+app.post('/api/notifications/trick-learned', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireAuthenticatedProfile(request);
+
+  const participantId = requiredString(request.body.participantId, 'participantId');
+  const trickId = requiredString(request.body.trickId, 'trickId');
+  const trickTitle = optionalString(request.body.trickTitle) || 'nový trik';
+
+  const { data: participant, error: participantError } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,parent_profile_id,org_id,active_course')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (participantError) throw participantError;
+  if (!participant) throw httpError('Účastník nenalezen.', 404);
+
+  const participantName = `${participant.first_name || ''} ${participant.last_name || ''}`.trim() || 'Dítě';
+  const now = new Date();
+  const createdAtText = `${now.toLocaleDateString('cs-CZ')} ${now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`;
+  const safeTrickKey = trickId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 60) || 'trik';
+
+  const { data: inserted, error: notifError } = await supabase
+    .from('parent_notifications')
+    .upsert({
+      id: `trick-${participant.id}-${safeTrickKey}`,
+      participant_name: participantName,
+      participant_id: participant.id,
+      parent_profile_id: participant.parent_profile_id || null,
+      org_id: participant.org_id || VYS_ORG_ID,
+      location: participant.active_course || 'Trénink',
+      method: 'Trik',
+      text: `🎉 ${participantName} právě zvládl(a) nový trik: ${trickTitle}!`,
+      created_at_text: createdAtText,
+      created_at: now.toISOString(),
+    }, { onConflict: 'id', ignoreDuplicates: true })
+    .select('id');
+  if (notifError) throw notifError;
+
+  // Duplicitní claim (upsert nic nevložil) → e-mail už jednou odešel.
+  if (!inserted || inserted.length === 0) {
+    response.json({ ok: true, sent: false, reason: 'already-notified' });
+    return;
+  }
+
+  // Push rodiči (best-effort, bez čekání).
+  if (participant.parent_profile_id) {
+    void sendExpoPushToProfiles([participant.parent_profile_id], 'Nový trik! 🎉', `${participantName} právě zvládl(a) trik ${trickTitle}. Mrkni do aplikace!`);
+  }
+
+  const to = await profileReceiptEmail(participant.parent_profile_id, null);
+  const emailer = paymentEmailer();
+  if (!to || !emailer) {
+    response.json({ ok: true, sent: false, reason: to ? 'smtp-not-configured' : 'no-parent-email' });
+    return;
+  }
+
+  const html = brandEmailHtml({
+    heading: `${participantName} zvládl(a) nový trik! 🎉`,
+    intro: `Máme radost — <b>${participantName}</b> dnes na tréninku předvedl(a) trenérovi nový trik a ten mu ho oficiálně uznal.`,
+    rows: [
+      ['Trik', trickTitle],
+      ['Kde', participant.active_course || 'Trénink Team VYS'],
+      ['Kdy', createdAtText],
+    ],
+    extraHtml: '<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3F3A52">Celý skill tree, nasbírané XP a pokrok najdete v aplikaci v sekci <b>Triky</b>.</p>',
+    outro: 'Pochvalte doma! 💪',
+  });
+
+  try {
+    await emailer.sendMail({
+      from: smtpFrom,
+      to,
+      subject: `🎉 ${participantName} se naučil(a) nový trik — ${trickTitle}`,
+      html,
+    });
+    response.json({ ok: true, sent: true });
+  } catch (mailError) {
+    console.error('Trick email failed:', mailError?.message || mailError);
+    response.json({ ok: true, sent: false, reason: 'smtp-error' });
+  }
+}));
+
 // Sourozenecká sleva na permanentku: DRUHÉ a TŘETÍ dítě v rodině má −250 Kč,
 // první a čtvrté+ platí plnou cenu. Pořadí dětí určuje datum prvního
 // zaplaceného nákupu permanentky; dítě bez nákupní historie se řadí za
