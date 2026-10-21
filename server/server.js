@@ -2511,19 +2511,12 @@ app.get('/api/admin/training-ratings', asyncRoute(async (request, response) => {
   response.json({ ratings: data || [] });
 }));
 
-// Koordinátor: hodnocení jen z míst jeho kraje. Admin může celou funkci
-// per-organizace vypnout flagem feature_flags.coordinator_training_ratings.
+// Koordinátor: hodnocení jen z míst jeho kraje. Admin funkci vypíná
+// per-koordinátor v jeho oprávněních (coordinator_profiles.permissions).
 app.get('/api/coordinator/training-ratings', asyncRoute(async (request, response) => {
   requireServices();
   const coordinator = await requireCoordinator(request);
-
-  const { data: orgFlagsRow, error: orgFlagsError } = await supabase
-    .from('organizations')
-    .select('feature_flags')
-    .eq('id', coordinator.orgId)
-    .maybeSingle();
-  if (orgFlagsError) throw orgFlagsError;
-  if (orgFlagsRow?.feature_flags?.coordinator_training_ratings === false) {
+  if (coordinator.permissions.training_ratings === false) {
     response.json({ ratings: [], disabled: true });
     return;
   }
@@ -5217,17 +5210,17 @@ async function requireCoordinator(request) {
   if (profile.role !== 'coordinator') throw httpError('Tahle sekce je pouze pro koordinátora.', 403);
   const { data, error } = await supabase
     .from('coordinator_profiles')
-    .select('id,org_id,region,percent')
+    .select('id,org_id,region,percent,permissions')
     .eq('id', profile.id)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw httpError('Koordinátor zatím nemá přiřazený kraj. Ozvi se adminovi.', 403);
-  return { ...profile, orgId: data.org_id || VYS_ORG_ID, region: data.region, percent: data.percent ?? 30 };
+  return { ...profile, orgId: data.org_id || VYS_ORG_ID, region: data.region, percent: data.percent ?? 30, permissions: normalizeCoordinatorPermissions(data.permissions) };
 }
 
 // Per-koordinátorská oprávnění (nastavuje admin): jiné organizace nemusí chtít,
 // aby koordinátor viděl finance, osobní údaje dětí nebo údaje trenérů.
-const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data'];
+const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data', 'forgotten_attendance', 'training_ratings', 'attendance_stats'];
 function normalizeCoordinatorPermissions(raw) {
   const permissions = {};
   for (const key of COORDINATOR_PERMISSION_KEYS) {
@@ -5664,19 +5657,12 @@ app.delete('/api/coordinator/tasks/:id', asyncRoute(async (request, response) =>
 }));
 
 // Koordinátor může zapsat trénink trenérovi na kroužku svého kraje (jako admin).
-// Funkci lze per-organizace vypnout flagem feature_flags.coordinator_forgotten_attendance
-// (chybějící klíč = zapnuto; vypíná se explicitním false přes /api/admin/feature-flags).
+// Funkci admin vypíná per-koordinátor v jeho oprávněních (coordinator_profiles.permissions).
 app.post('/api/coordinator/attendance', asyncRoute(async (request, response) => {
   requireServices();
   const coordinator = await requireCoordinator(request);
-  const { data: orgRow, error: orgFlagsError } = await supabase
-    .from('organizations')
-    .select('feature_flags')
-    .eq('id', coordinator.orgId)
-    .maybeSingle();
-  if (orgFlagsError) throw orgFlagsError;
-  if (orgRow?.feature_flags?.coordinator_forgotten_attendance === false) {
-    throw httpError('Zápis docházky koordinátorem má tahle organizace vypnutý.', 403);
+  if (coordinator.permissions.forgotten_attendance === false) {
+    throw httpError('Zápis zapomenuté docházky máš vypnutý — ozvi se adminovi.', 403);
   }
   const coachId = requiredString(request.body.coachId, 'coachId');
   const place = requiredString(request.body.place, 'place');
