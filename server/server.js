@@ -2511,10 +2511,22 @@ app.get('/api/admin/training-ratings', asyncRoute(async (request, response) => {
   response.json({ ratings: data || [] });
 }));
 
-// Koordinátor: hodnocení jen z míst jeho kraje.
+// Koordinátor: hodnocení jen z míst jeho kraje. Admin může celou funkci
+// per-organizace vypnout flagem feature_flags.coordinator_training_ratings.
 app.get('/api/coordinator/training-ratings', asyncRoute(async (request, response) => {
   requireServices();
   const coordinator = await requireCoordinator(request);
+
+  const { data: orgFlagsRow, error: orgFlagsError } = await supabase
+    .from('organizations')
+    .select('feature_flags')
+    .eq('id', coordinator.orgId)
+    .maybeSingle();
+  if (orgFlagsError) throw orgFlagsError;
+  if (orgFlagsRow?.feature_flags?.coordinator_training_ratings === false) {
+    response.json({ ratings: [], disabled: true });
+    return;
+  }
 
   const { data: regionProducts, error: regionProductsError } = await supabase
     .from('products')
@@ -6116,7 +6128,7 @@ app.patch('/api/admin/coordinators/:id/permissions', asyncRoute(async (request, 
 
 // Per-org přepínače funkcí (organizations.feature_flags). Jen whitelistované klíče,
 // aby admin externí organizace nemohl zapínat VYS-only gamifikaci.
-const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set(['coordinator_forgotten_attendance']);
+const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set(['coordinator_forgotten_attendance', 'coordinator_training_ratings']);
 
 app.patch('/api/admin/feature-flags', asyncRoute(async (request, response) => {
   requireServices();
@@ -6483,6 +6495,7 @@ async function provisionOrganizationFromCheckout(session) {
         shared_attendance_quest_map: true,
         shared_leaderboard: true,
         coordinator_forgotten_attendance: true,
+        coordinator_training_ratings: true,
       },
     })
     .select('id,name,contact_email')
