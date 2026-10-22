@@ -97,13 +97,29 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
         containerRef.current.style.touchAction = 'pan-y';
       }
 
-      // OSM tile server nás blokuje (usage policy) a CARTO od 2026 vyžaduje
-      // API klíč (dlaždice s vodoznakem "API KEY REQUIRED") — Esri jede bez klíče.
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Esri &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxNativeZoom: 18,
+      // Esri má popisky jen anglicky („Prague", „Pilsen"), proto jedeme na
+      // standardních OSM dlaždicích s českými názvy. CARTO od 2026 vyžaduje
+      // API klíč (vodoznak „API KEY REQUIRED"), takže Esri drží jako záloha,
+      // kdyby OSM přestal odpovídat (usage policy).
+      const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxNativeZoom: 19,
         maxZoom: 19,
       }).addTo(map);
+
+      let tileErrors = 0;
+      let switched = false;
+      osmLayer.on('tileerror', () => {
+        tileErrors += 1;
+        if (switched || tileErrors < 4) return;
+        switched = true;
+        map.removeLayer(osmLayer);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Esri &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+          maxNativeZoom: 18,
+          maxZoom: 19,
+        }).addTo(map);
+      });
 
       const bounds = L.latLngBounds([]);
       for (const pin of pins) {
