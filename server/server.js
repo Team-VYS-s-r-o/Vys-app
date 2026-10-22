@@ -494,7 +494,7 @@ async function requireAuthenticatedProfile(request) {
 
   const { data: profile, error: profileError } = await supabase
     .from('app_profiles')
-    .select('id,role,email,name,phone')
+    .select('id,role,email,name,phone,org_id')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -4652,6 +4652,144 @@ app.post('/api/admin/coaches/:coachId/stripe-onboarding', asyncRoute(async (requ
 }));
 
 // Coach-initiated onboarding: no admin needed and the link is always fresh.
+// ─── Certifikáty trenéra ─────────────────────────────────────────────────────
+// Trenér si sám nahraje svoje osvědčení (kurz, školení, zdravotník…). Admin
+// i koordinátor je pak vidí u trenéra mezi dokumenty a můžou si je stáhnout.
+const COACH_CERTIFICATES_BUCKET = 'coach-certificates';
+
+function coachCertificateFromRow(row) {
+  return {
+    id: row.id,
+    coachId: row.coach_id,
+    title: row.title,
+    fileFilename: row.file_filename,
+    note: row.note,
+    createdAt: row.created_at,
+  };
+}
+
+async function requireCoach(request) {
+  const profile = await requireAuthenticatedProfile(request);
+  if (profile.role !== 'coach' && profile.role !== 'admin') {
+    throw httpError('Tahle sekce je pouze pro trenéra.', 403);
+  }
+  return profile;
+}
+
+app.post('/api/coach/certificates/upload-url', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireCoach(request);
+  const filename = optionalString(request.body.filename) || 'certifikat.pdf';
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
+  const path = `${profile.id}/${Date.now()}_${safe}`;
+
+  const { data, error } = await supabase.storage.from(COACH_CERTIFICATES_BUCKET).createSignedUploadUrl(path);
+  if (error) throw error;
+  response.json({ signedUrl: data.signedUrl, path: data.path });
+}));
+
+app.post('/api/coach/certificates', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireCoach(request);
+  const title = requiredString(request.body.title, 'název certifikátu');
+  const filePath = requiredString(request.body.filePath, 'soubor');
+  // Cesta musí patřit tomuhle trenérovi — jinak by šlo přivlastnit cizí soubor.
+  if (!filePath.startsWith(`${profile.id}/`)) throw httpError('Neplatná cesta k souboru.', 400);
+
+  const { data, error } = await supabase
+    .from('coach_certificates')
+    .insert({
+      org_id: profile.org_id || VYS_ORG_ID,
+      coach_id: profile.id,
+      title,
+      file_path: filePath,
+      file_filename: optionalString(request.body.filename),
+      note: optionalString(request.body.note),
+    })
+    .select('id,coach_id,title,file_filename,note,created_at')
+    .single();
+  if (error) throw error;
+  response.status(201).json({ certificate: coachCertificateFromRow(data) });
+}));
+
+app.get('/api/coach/certificates', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireCoach(request);
+  const { data, error } = await supabase
+    .from('coach_certificates')
+    .select('id,coach_id,title,file_filename,note,created_at')
+    .eq('coach_id', profile.id)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  response.json({ certificates: (data || []).map(coachCertificateFromRow) });
+}));
+
+app.delete('/api/coach/certificates/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireCoach(request);
+  const id = requiredString(request.params.id, 'id');
+
+  const { data: row, error: rowError } = await supabase
+    .from('coach_certificates')
+    .select('id,coach_id,file_path')
+    .eq('id', id)
+    .maybeSingle();
+  if (rowError) throw rowError;
+  if (!row || row.coach_id !== profile.id) throw httpError('Certifikát nenalezen.', 404);
+
+  await supabase.storage.from(COACH_CERTIFICATES_BUCKET).remove([row.file_path]);
+  const { error } = await supabase.from('coach_certificates').delete().eq('id', id);
+  if (error) throw error;
+  response.json({ ok: true });
+}));
+
+// Admin: certifikáty všech trenérů organizace (volitelně jednoho trenéra).
+app.get('/api/admin/coach-certificates', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const coachId = optionalString(request.query.coachId);
+
+  let query = supabase
+    .from('coach_certificates')
+    .select('id,coach_id,title,file_filename,note,created_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false });
+  if (coachId) query = query.eq('coach_id', coachId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  response.json({ certificates: (data || []).map(coachCertificateFromRow) });
+}));
+
+// Podepsaný odkaz ke stažení — admin kdekoliv ve své org, koordinátor jen
+// u trenérů, na které vidí, trenér u svých vlastních.
+app.get('/api/coach-certificates/:id/url', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAuthenticatedProfile(request);
+  const id = requiredString(request.params.id, 'id');
+
+  const { data: row, error } = await supabase
+    .from('coach_certificates')
+    .select('id,org_id,coach_id,file_path')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) throw httpError('Certifikát nenalezen.', 404);
+
+  const sameOrg = (row.org_id || VYS_ORG_ID) === (profile.org_id || VYS_ORG_ID);
+  const allowed = row.coach_id === profile.id
+    || (profile.role === 'admin' && sameOrg)
+    || (profile.role === 'coordinator' && sameOrg);
+  if (!allowed) throw httpError('Na tenhle certifikát nemáš přístup.', 403);
+
+  const { data: signed, error: signError } = await supabase.storage
+    .from(COACH_CERTIFICATES_BUCKET)
+    .createSignedUrl(row.file_path, 300);
+  if (signError) throw signError;
+  response.json({ url: signed.signedUrl });
+}));
+
 app.post('/api/coach/stripe-onboarding', asyncRoute(async (request, response) => {
   requireServices();
   const profile = await requireStaff(request);
