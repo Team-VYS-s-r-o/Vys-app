@@ -4,21 +4,39 @@
     {
       "name": "teamvys-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "cwd": "teamvys.cz",
       "port": 3000
     },
     {
       "name": "aplikacevys-web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "/Users/davidkropac/Desktop/aplikacevys.cz"],
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NEXT_PUBLIC_DEV_BYPASS_AUTH=true",
+        "npm",
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/davidkropac/Desktop/aplikacevys.cz"
+      ],
       "port": 3000,
       "autoPort": true
     },
     {
       "name": "vys-aplikace",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "web", "--prefix", "/Users/davidkropac/Desktop/vys-aplikace"],
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "EXPO_PUBLIC_DEV_BYPASS_AUTH=true",
+        "EXPO_PUBLIC_DEV_BYPASS_ROLE_GUARD=true",
+        "npm",
+        "run",
+        "web",
+        "--prefix",
+        "/Users/davidkropac/Desktop/vys-aplikace"
+      ],
       "port": 8081
     }
   ]

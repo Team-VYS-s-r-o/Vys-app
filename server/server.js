@@ -5765,6 +5765,30 @@ app.post('/api/coordinator/products/:id/gym-contact', asyncRoute(async (request,
   response.json({ ok: true, gymContact });
 }));
 
+// Koordinátor přejmenuje kroužek — název je to, co rodiče vidí na webu,
+// takže typicky nahradí obecné „Parkour kroužek" názvem školy.
+app.post('/api/coordinator/products/:id/title', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const productId = requiredString(request.params.id, 'product id');
+  const title = requiredString(request.body.title, 'title').trim().slice(0, 120);
+  if (title.length < 2) throw httpError('Název musí mít aspoň 2 znaky.', 400);
+
+  const { data: product, error: productError } = await supabase
+    .from('products')
+    .select('id,org_id,region')
+    .eq('id', productId)
+    .maybeSingle();
+  if (productError) throw productError;
+  if (!product || (product.org_id || VYS_ORG_ID) !== coordinator.orgId || product.region !== coordinator.region) {
+    throw httpError('Tento produkt nepatří do tvého kraje.', 403);
+  }
+
+  const { error } = await supabase.from('products').update({ title }).eq('id', productId);
+  if (error) throw error;
+  response.json({ ok: true, title });
+}));
+
 // Denní zástup/absence v kalendáři tréninků — nemění stálé týdenní obsazení.
 // action 'add'/'remove' zapíše override pro daný den, 'clear' ho zase smaže.
 app.post('/api/coordinator/products/:id/training-override', asyncRoute(async (request, response) => {
