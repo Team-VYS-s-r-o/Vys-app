@@ -5669,8 +5669,26 @@ app.post('/api/coordinator/attendance', asyncRoute(async (request, response) => 
   const dateText = optionalString(request.body.dateText) ?? new Date().toLocaleDateString('cs-CZ');
   const durationHours = Number(request.body.durationHours);
   if (!Number.isFinite(durationHours) || durationHours <= 0) throw httpError('Vyplň počet hodin.', 400);
-  const amount = Math.round(Number(request.body.amount));
-  if (!Number.isFinite(amount) || amount < 0) throw httpError('Vyplň odměnu v Kč.', 400);
+
+  // Odměnu NEBERE z požadavku — koordinátor ji měnit nesmí (to umí jen admin).
+  // Sazba = hodinovka trenéra (coach_payouts), jinak výchozí sazba organizace.
+  const { data: payoutRow, error: payoutError } = await supabase
+    .from('coach_payouts')
+    .select('hourly_rate')
+    .eq('coach_id', coachId)
+    .maybeSingle();
+  if (payoutError) throw payoutError;
+  let hourlyRate = Number(payoutRow?.hourly_rate);
+  if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) {
+    const { data: orgRateRow, error: orgRateError } = await supabase
+      .from('organizations')
+      .select('default_coach_hourly_rate')
+      .eq('id', coordinator.orgId)
+      .maybeSingle();
+    if (orgRateError) throw orgRateError;
+    hourlyRate = Number(orgRateRow?.default_coach_hourly_rate) || DEFAULT_COURSE_ATTENDANCE_RATE;
+  }
+  const amount = Math.round(hourlyRate * durationHours);
 
   const { data: regionProducts, error: regionProductsError } = await supabase
     .from('products')
@@ -5691,7 +5709,7 @@ app.post('/api/coordinator/attendance', asyncRoute(async (request, response) => 
     status: 'Zapsáno koordinátorem',
     present: true,
     duration_hours: durationHours,
-    hourly_rate: Math.round(amount / durationHours),
+    hourly_rate: Math.round(hourlyRate),
     amount,
     org_id: coordinator.orgId,
   };
