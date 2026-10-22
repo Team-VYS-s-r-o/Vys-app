@@ -6223,6 +6223,16 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       org_id: orgId,
       coach_ids: [],
     };
+
+    // Doporučený věk z návrhu — do „Důležité info", odkud ho appka i web čtou.
+    const ageFrom = Number.isFinite(Number(payload.ageFrom)) && Number(payload.ageFrom) > 0 ? Math.round(Number(payload.ageFrom)) : null;
+    const ageTo = Number.isFinite(Number(payload.ageTo)) && Number(payload.ageTo) > 0 ? Math.round(Number(payload.ageTo)) : null;
+    if (ageFrom || ageTo) {
+      const ageValue = ageFrom && ageTo
+        ? `${Math.min(ageFrom, ageTo)}–${Math.max(ageFrom, ageTo)} let`
+        : ageFrom ? `od ${ageFrom} let` : `do ${ageTo} let`;
+      productRow.important_info = [{ label: 'Věk', value: ageValue }];
+    }
     const { error: productError } = await supabase.from('products').insert(productRow);
     if (productError) throw productError;
 
