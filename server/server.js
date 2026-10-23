@@ -798,7 +798,7 @@ function brandEmailHtml({ heading, intro, rows = [], extraHtml = '', outro = 'D�
   return `<!doctype html><html><body style="margin:0;padding:0;background:#F6F4FB;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
   <div style="max-width:560px;margin:0 auto;padding:32px 16px">
     <div style="background:#140E26;border-radius:18px 18px 0 0;padding:22px 28px">
-      <span style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:0.02em">Team VYS</span>
+      <span style="color:#ffffff;font-size:18px;font-weight:800;letter-spacing:0.02em">Team VYS s.r.o.</span>
       <span style="color:#F12BB3;font-size:18px;font-weight:800"> ·</span>
     </div>
     <div style="background:#ffffff;border-radius:0 0 18px 18px;padding:28px;border:1px solid rgba(20,14,38,0.08);border-top:none">
@@ -806,7 +806,7 @@ function brandEmailHtml({ heading, intro, rows = [], extraHtml = '', outro = 'D�
       <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3F3A52">${intro}</p>
       ${rowsHtml ? `<table style="border-collapse:collapse;font-size:14px;margin:4px 0 16px;width:100%">${rowsHtml}</table>` : ''}
       ${extraHtml}
-      <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#3F3A52">${outro}<br/><b>Team VYS</b></p>
+      <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#3F3A52">${outro}<br/><b>Team VYS s.r.o.</b></p>
     </div>
     <p style="text-align:center;color:#8B86A0;font-size:12px;line-height:1.6;margin:16px 0 0">Team VYS s.r.o. · <a href="mailto:info@teamvys.cz" style="color:#8B86A0">info@teamvys.cz</a> · <a href="https://teamvys.cz" style="color:#8B86A0">teamvys.cz</a></p>
   </div></body></html>`;
@@ -838,7 +838,7 @@ async function sendPaymentConfirmationEmail(purchase, fallbackEmail) {
     purchase.event_date ? `Termín: ${purchase.event_date}` : null,
     ...(isWorkshop ? ['', `Vstupenka s QR kódem: ${ticketUrl(purchase.id)}`, 'QR kód z přílohy ukažte u vstupu — po načtení zobrazí jméno, datum narození, stav platby i podepsané dokumenty.'] : []),
     '',
-    'Děkujeme, Team VYS',
+    'Děkujeme, Team VYS s.r.o.',
   ].filter(Boolean);
 
   let attachments;
@@ -910,7 +910,7 @@ async function sendRefundConfirmationEmail(purchase, fallbackEmail) {
     '',
     'Pokud máte jakýkoli dotaz, napište nám na info@teamvys.cz.',
     '',
-    'Děkujeme, Team VYS',
+    'Děkujeme, Team VYS s.r.o.',
   ];
 
   await emailer.sendMail({
@@ -6801,7 +6801,7 @@ async function sendOrgOnboardingEmail(org, adminName, trialEndsAt) {
     '',
     'První kroky: nahrajte logo, pozvěte prvního trenéra a založte první kroužek.',
     '',
-    'Děkujeme, Team VYS',
+    'Děkujeme, Team VYS s.r.o.',
   ];
 
   await emailer.sendMail({
@@ -6825,7 +6825,7 @@ async function sendOrgTrialEndingEmail(subscription) {
     from: smtpFrom,
     to: org.contact_email,
     subject: `Team VYS — zkušební období organizace ${org.name} brzy končí`,
-    text: `Dobrý den,\n\nzkušební období organizace ${org.name} končí ${trialEnd}. Poté bude automaticky účtováno ${ORG_MONTHLY_PRICE_CZK} Kč měsíčně.\n\nDěkujeme, Team VYS`,
+    text: `Dobrý den,\n\nzkušební období organizace ${org.name} končí ${trialEnd}. Poté bude automaticky účtováno ${ORG_MONTHLY_PRICE_CZK} Kč měsíčně.\n\nDěkujeme, Team VYS s.r.o.`,
   });
 }
 
@@ -6902,7 +6902,7 @@ async function sendOrgRejectionEmail(org) {
       'Případné platby spojené s registrací nebudou účtovány — předplatné bylo zrušeno.',
       'Pokud si myslíte, že jde o omyl, odpovězte prosím na tento e-mail.',
       '',
-      'Děkujeme, Team VYS',
+      'Děkujeme, Team VYS s.r.o.',
     ].join('\n'),
   });
 }
@@ -7955,7 +7955,7 @@ function passReminderEmailContent(pass, entriesLeft) {
     '',
     'Kdyby cokoliv, ozvěte se na 734 167 417.',
     '',
-    'Děkujeme, Team VYS',
+    'Děkujeme, Team VYS s.r.o.',
   ];
 
   const html = brandEmailHtml({
