@@ -7890,6 +7890,223 @@ app.post('/api/bot/chat', asyncRoute(async (request, response) => {
   response.json({ reply });
 }));
 
+// --- Upozornění na docházející permanentku ---------------------------------
+//
+// Když permanentka dojde a nikdo nic neřekne, dítě typicky tiše přestane
+// chodit — rodič na dokoupení zapomene. Cron jednou denně projde aktivní
+// permanentky a při dosažení prahu pošle rodiči e-mail s odkazem do aplikace.
+//
+// Každý práh se posílá nejvýš jednou: `pass_reminders` má deterministické id
+// `<pass_id>:<práh>` a zápis jde přes insert, takže druhý pokus skončí
+// konfliktem a mail se neodešle. E-mail se posílá až PO úspěšném zápisu —
+// když zápis selže, radši upozornění vynecháme, než abychom ho poslali dvakrát.
+
+/** Prahy zbývajících vstupů, při kterých se ozýváme. */
+const PASS_REMINDER_THRESHOLDS = [2, 0];
+
+const PARENT_APP_URL = process.env.PARENT_APP_URL || 'https://app.aplikacevys.cz';
+
+function passEntriesLeft(pass) {
+  const total = Number(pass?.total_entries || 0);
+  const used = Number(pass?.used_entries || 0);
+  return Math.max(0, total - used);
+}
+
+/** Expirovaná permanentka se nedokupuje, takže ani neupozorňujeme. */
+function isPassExpired(pass, now = new Date()) {
+  const expiresAt = parseFlexibleDate(pass?.expires_at);
+  return Boolean(expiresAt && expiresAt.getTime() < now.getTime());
+}
+
+/**
+ * Nejvyšší práh, který permanentka právě přesáhla dolů.
+ * Při 2 zbývajících vrací 2, při 0 vrací 0, jinak null.
+ */
+function passReminderThreshold(entriesLeft) {
+  if (!PASS_REMINDER_THRESHOLDS.includes(entriesLeft)) return null;
+  return entriesLeft;
+}
+
+function passReminderEmailContent(pass, entriesLeft) {
+  const childName = optionalString(pass.holder_name) || 'Vaše dítě';
+  const place = optionalString(pass.location) || optionalString(pass.title) || 'kroužek';
+  const buyUrl = PARENT_APP_URL;
+
+  const isUsedUp = entriesLeft <= 0;
+  const subject = isUsedUp
+    ? `Permanentka je vyčerpaná — ${childName}`
+    : `Na permanentce zbývají ${entriesLeft} vstupy — ${childName}`;
+
+  const intro = isUsedUp
+    ? `permanentka pro ${escapeHtml(childName)} je vyčerpaná. Aby dítě mohlo na další trénink, stačí v aplikaci koupit novou — zabere to minutu a vstupy naskočí hned.`
+    : `jen abyste nebyli zaskočení: ${escapeHtml(childName)} má na permanentce poslední ${entriesLeft} vstupy. Další permanentku můžete koupit kdykoliv v aplikaci, vstupy se automaticky navážou na ty stávající.`;
+
+  const textLines = [
+    'Dobrý den,',
+    '',
+    isUsedUp
+      ? `permanentka pro ${childName} je vyčerpaná. Aby mohlo dítě na další trénink, stačí v aplikaci koupit novou.`
+      : `${childName} má na permanentce poslední ${entriesLeft} vstupy. Další permanentku si můžete koupit kdykoliv v aplikaci.`,
+    '',
+    `Kroužek: ${place}`,
+    `Zbývá vstupů: ${entriesLeft}`,
+    '',
+    `Koupit permanentku: ${buyUrl}`,
+    '',
+    'Kdyby cokoliv, ozvěte se na 734 167 417.',
+    '',
+    'Děkujeme, Team VYS',
+  ];
+
+  const html = brandEmailHtml({
+    heading: isUsedUp ? 'Permanentka je vyčerpaná' : 'Permanentka se blíží ke konci',
+    intro,
+    rows: [
+      ['Dítě', childName],
+      ['Kroužek', place],
+      ['Zbývá vstupů', String(entriesLeft)],
+    ],
+    extraHtml: `<div style="margin:20px 0 4px"><a href="${buyUrl}" style="display:inline-block;background:#7C3AED;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 26px;border-radius:999px">Koupit permanentku</a></div><p style="margin:10px 0 0;font-size:13px;color:#8B86A0">Nevyčerpané vstupy nepropadají — platí i v dalším pololetí.</p>`,
+    outro: 'Děkujeme, že s námi trénujete.',
+  });
+
+  return { subject, text: textLines.join('\n'), html };
+}
+
+/**
+ * Projde aktivní permanentky a pošle upozornění těm, které právě dosáhly prahu.
+ * `dryRun` vrátí, co by se odeslalo, ale nic nezapíše ani neodešle — slouží
+ * k ověření, že výběr sedí, než se spustí ostrý běh.
+ */
+async function runPassReminders({ dryRun = false } = {}) {
+  const emailer = paymentEmailer();
+  if (!emailer && !dryRun) {
+    return { skipped: 'SMTP není nastavené', sent: 0, candidates: 0 };
+  }
+
+  const { data: passes, error } = await supabase
+    .from('digital_passes')
+    .select('id,participant_id,holder_name,title,location,total_entries,used_entries,expires_at,org_id,product_id');
+  if (error) throw error;
+
+  const now = new Date();
+  const results = { candidates: 0, sent: 0, alreadySent: 0, noEmail: 0, failed: 0, details: [] };
+
+  for (const pass of passes || []) {
+    if (isPassExpired(pass, now)) continue;
+
+    const entriesLeft = passEntriesLeft(pass);
+    const threshold = passReminderThreshold(entriesLeft);
+    if (threshold === null) continue;
+
+    // Permanentka, kterou nikdo nikdy nepoužil, není "docházející" — je buď
+    // čerstvě koupená, nebo dítě vůbec nedorazilo. To je jiný problém.
+    if (Number(pass.used_entries || 0) <= 0) continue;
+
+    results.candidates += 1;
+    const reminderId = `${pass.id}:${threshold}`;
+
+    if (dryRun) {
+      results.details.push({ pass: pass.id, child: pass.holder_name, entriesLeft, threshold });
+      continue;
+    }
+
+    let parentProfileId = null;
+    if (pass.participant_id) {
+      const { data: participant } = await supabase
+        .from('participants')
+        .select('parent_profile_id')
+        .eq('id', pass.participant_id)
+        .maybeSingle();
+      parentProfileId = participant?.parent_profile_id || null;
+    }
+
+    const to = await profileReceiptEmail(parentProfileId, null);
+    if (!to) {
+      results.noEmail += 1;
+      continue;
+    }
+
+    // Zápis PŘED odesláním: když dva běhy poběží současně, projde jen jeden.
+    const { error: logError } = await supabase.from('pass_reminders').insert({
+      id: reminderId,
+      pass_id: pass.id,
+      participant_id: pass.participant_id || null,
+      parent_profile_id: parentProfileId,
+      org_id: pass.org_id,
+      threshold,
+      entries_left: entriesLeft,
+      sent_to: to,
+    });
+
+    if (logError) {
+      // 23505 = unique violation → upozornění už jednou odešlo, to je v pořádku.
+      if (logError.code === '23505') results.alreadySent += 1;
+      else {
+        console.error(`Pass reminder log failed for ${pass.id}:`, logError);
+        results.failed += 1;
+      }
+      continue;
+    }
+
+    try {
+      const { subject, text, html } = passReminderEmailContent(pass, entriesLeft);
+      await emailer.sendMail({ from: smtpFrom, to, subject, text, html });
+      results.sent += 1;
+    } catch (sendError) {
+      console.error(`Pass reminder email failed for ${pass.id}:`, sendError);
+      results.failed += 1;
+      // Zápis necháme být — radši jedno neodeslané upozornění než dvě odeslaná.
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Spouští Vercel Cron jednou denně. Chráněno `CRON_SECRET` — bez něj by
+ * kdokoliv mohl rozesílat e-maily rodičům.
+ */
+app.get('/api/cron/pass-reminders', asyncRoute(async (request, response) => {
+  // Fail closed: bez nastaveného klíče endpoint radši neběží vůbec, než aby
+  // kdokoliv na internetu mohl spustit rozesílku e-mailů rodičům.
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    response.status(503).json({ error: 'CRON_SECRET není nastavený — rozesílka je vypnutá.' });
+    return;
+  }
+  const header = request.get('authorization') || '';
+  const provided = header.startsWith('Bearer ') ? header.slice(7) : request.query.secret;
+  if (provided !== secret) {
+    response.status(401).json({ error: 'Neplatný klíč.' });
+    return;
+  }
+
+  // `previewTo` pošle ukázku e-mailu na zadanou adresu a nic nezapíše —
+  // slouží ke kontrole šablony, aniž by se ozvalo komukoliv z rodičů.
+  const previewTo = optionalString(request.query.previewTo);
+  if (previewTo) {
+    const emailer = paymentEmailer();
+    if (!emailer) {
+      response.status(503).json({ error: 'SMTP není nastavené.' });
+      return;
+    }
+    const sample = {
+      holder_name: 'Ukázkové dítě',
+      location: 'Vyškov · ZŠ Purkyňova',
+      title: 'Permanentka 10 vstupů',
+    };
+    const { subject, text, html } = passReminderEmailContent(sample, 2);
+    await emailer.sendMail({ from: smtpFrom, to: previewTo, subject: `[UKÁZKA] ${subject}`, text, html });
+    response.json({ ok: true, preview: true, sentTo: previewTo });
+    return;
+  }
+
+  const dryRun = request.query.dryRun === '1' || request.query.dryRun === 'true';
+  const result = await runPassReminders({ dryRun });
+  response.json({ ok: true, dryRun, ...result });
+}));
+
 app.use((error, _request, response, _next) => {
   const status = error.statusCode || 400;
   response.status(status).json({ error: error.message || 'Unexpected backend error.' });
