@@ -5,7 +5,8 @@ import { PageHero } from '@/components/page-hero';
 import { PublicCourseCatalog } from '@/components/public-admin-products';
 import { SubpageCta } from '@/components/subpage-cta';
 import { FeatureCard, SectionIntro } from '@/components/subpage-feature-card';
-import { CITIES } from '@/lib/cities';
+import { GoogleReviewCta } from '@/components/google-review';
+import { loadCities } from '@/lib/cities';
 
 export const metadata = {
   title: 'Parkour kroužky pro děti',
@@ -29,7 +30,11 @@ const benefits = [
   { icon: <Trophy size={20} />, eyebrow: 'Skill tree', title: 'Pokrok je vidět', body: 'Dítě sbírá XP, odemyká triky a postupuje barevnými náramky rovnou v appce.' },
 ];
 
-export default function CoursesPage() {
+export const revalidate = 1800;
+
+export default async function CoursesPage() {
+  const cities = await loadCities();
+
   return (
     <div className="bg-[#0B0B10] text-white">
       <PageHero
@@ -57,7 +62,7 @@ export default function CoursesPage() {
       <section className="section-shell pb-16 md:pb-24">
         <SectionIntro eyebrow="Podle města" title="Kde trénujeme" />
         <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {CITIES.map((city) => (
+          {cities.map((city) => (
             <Link
               key={city.slug}
               href={`/parkour/${city.slug}`}
@@ -71,6 +76,8 @@ export default function CoursesPage() {
           ))}
         </div>
       </section>
+
+      <GoogleReviewCta />
 
       <SubpageCta
         eyebrow="Přidej se"

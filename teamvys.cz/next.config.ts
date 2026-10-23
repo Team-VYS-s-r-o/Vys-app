@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Slugy měst se odvozují z názvu v adminu; tyhle tvary byly v první verzi.
+      { source: '/parkour/brandys-nad-labem', destination: '/parkour/brandys', permanent: true },
+      { source: '/parkour/praha-vrsovice', destination: '/parkour/vrsovice', permanent: true },
+      { source: '/parkour/jesenice-zdimerice', destination: '/parkour/zdimerice', permanent: true },
       {
         source: '/app',
         destination: 'https://app.aplikacevys.cz/sign-in',

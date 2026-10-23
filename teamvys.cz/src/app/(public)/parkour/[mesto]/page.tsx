@@ -6,7 +6,8 @@ import { notFound } from 'next/navigation';
 import { PageHero } from '@/components/page-hero';
 import { SubpageCta } from '@/components/subpage-cta';
 import { FeatureCard, SectionIntro } from '@/components/subpage-feature-card';
-import { CITIES, PRICE_10, PRICE_15, cityBySlug, freeSpots, type City } from '@/lib/cities';
+import { GoogleReviewCta } from '@/components/google-review';
+import { freeSpots, loadCities, loadCity, type City } from '@/lib/cities';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https')
   ? process.env.NEXT_PUBLIC_SITE_URL
@@ -14,18 +15,24 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https')
 
 type Props = { params: Promise<{ mesto: string }> };
 
-export function generateStaticParams() {
-  return CITIES.map((c) => ({ mesto: c.slug }));
+/** Nové město založené v adminu se vyrenderuje samo při první návštěvě. */
+export const dynamicParams = true;
+/** Rozvrhy a obsazenost se obnoví z adminu každou půlhodinu. */
+export const revalidate = 1800;
+
+export async function generateStaticParams() {
+  const cities = await loadCities();
+  return cities.map((c) => ({ mesto: c.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { mesto } = await params;
-  const city = cityBySlug(mesto);
+  const city = await loadCity(mesto);
   if (!city) return {};
 
   const title = `Parkour kroužek ${city.name} pro děti`;
   const schedule = city.sessions.map((s) => `${s.venue}, ${s.when}`).join(' · ');
-  const description = `Parkour kroužek pro děti ${city.inCity} — ${schedule}. První lekce zdarma, certifikovaní trenéři, děti od 6 do 14 let. Permanentka od ${PRICE_10.toLocaleString('cs-CZ')} Kč.`;
+  const description = `Parkour kroužek pro děti ${city.inCity} — ${schedule}. První lekce zdarma, certifikovaní trenéři, děti od 6 do 14 let. Permanentka od ${city.priceFrom.toLocaleString('cs-CZ')} Kč.`;
 
   return {
     title,
@@ -66,7 +73,7 @@ function faqFor(city: City) {
     },
     {
       q: 'Kolik kroužek stojí?',
-      a: `Neplatí se měsíční paušál, ale permanentka na vstupy — ${PRICE_10.toLocaleString('cs-CZ')} Kč za 10 vstupů nebo ${PRICE_15.toLocaleString('cs-CZ')} Kč za 15 vstupů. Vstupy nepropadají na konci pololetí, takže když dítě onemocní, o nic nepřijdete.`,
+      a: `Neplatí se měsíční paušál, ale permanentka na vstupy — ${city.priceFrom.toLocaleString('cs-CZ')} Kč za 10 vstupů nebo ${city.priceTo.toLocaleString('cs-CZ')} Kč za 15 vstupů. Vstupy nepropadají na konci pololetí, takže když dítě onemocní, o nic nepřijdete.`,
     },
     {
       q: 'Kdy kroužek začíná?',
@@ -81,12 +88,12 @@ function faqFor(city: City) {
 
 export default async function CityPage({ params }: Props) {
   const { mesto } = await params;
-  const city = cityBySlug(mesto);
+  const city = await loadCity(mesto);
   if (!city) notFound();
 
   const faq = faqFor(city);
   const free = freeSpots(city);
-  const others = CITIES.filter((c) => c.slug !== city.slug);
+  const others = (await loadCities()).filter((c) => c.slug !== city.slug);
 
   const sportsLd = {
     '@context': 'https://schema.org',
@@ -99,10 +106,10 @@ export default async function CityPage({ params }: Props) {
     sport: 'Parkour',
     telephone: '+420734167417',
     email: 'info@teamvys.cz',
-    priceRange: `${PRICE_10} – ${PRICE_15} Kč`,
+    priceRange: `${city.priceFrom} – ${city.priceTo} Kč`,
     address: {
       '@type': 'PostalAddress',
-      streetAddress: city.sessions.find((s) => s.street)?.street,
+      streetAddress: city.street,
       addressLocality: city.name,
       addressRegion: city.region,
       addressCountry: 'CZ',
@@ -164,7 +171,7 @@ export default async function CityPage({ params }: Props) {
                 <div className="mt-3 flex items-center gap-2 text-2xl font-black tracking-tight">
                   <CalendarDays size={22} className="text-white/60" /> {s.when}
                 </div>
-                {s.street ? <p className="mt-2 text-sm text-white/50">{s.street}</p> : null}
+                {city.street ? <p className="mt-2 text-sm text-white/50">{city.street}</p> : null}
                 {s.startsOn ? (
                   <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold">
                     <Sparkles size={14} /> První lekce {s.startsOn}
@@ -187,8 +194,8 @@ export default async function CityPage({ params }: Props) {
           <p className="text-lg font-semibold">Kolik to stojí</p>
           <p className="mt-2 max-w-[62ch] text-white/70">
             Žádný měsíční paušál. Platí se permanentka na vstupy —{' '}
-            <strong className="text-white">{PRICE_10.toLocaleString('cs-CZ')} Kč za 10 vstupů</strong> nebo{' '}
-            <strong className="text-white">{PRICE_15.toLocaleString('cs-CZ')} Kč za 15 vstupů</strong>.
+            <strong className="text-white">{city.priceFrom.toLocaleString('cs-CZ')} Kč za 10 vstupů</strong> nebo{' '}
+            <strong className="text-white">{city.priceTo.toLocaleString('cs-CZ')} Kč za 15 vstupů</strong>.
             Vstupy nepropadají na konci pololetí, takže nemoc ani prázdniny nejsou problém. Docházku
             i zbývající vstupy vidíte v aplikaci.
           </p>
@@ -256,6 +263,8 @@ export default async function CityPage({ params }: Props) {
           ))}
         </div>
       </section>
+
+      <GoogleReviewCta city={city.inCity} />
 
       <SubpageCta
         eyebrow="První lekce zdarma"

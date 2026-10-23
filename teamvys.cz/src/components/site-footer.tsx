@@ -1,4 +1,6 @@
 import { Mail, MapPin, Phone } from 'lucide-react';
+
+import { GoogleReviewFooterLink } from '@/components/google-review';
 import Link from 'next/link';
 
 import { TeamVysLogo } from '@/components/brand/team-vys-logo';
@@ -56,12 +58,15 @@ export function SiteFooter() {
             <FooterContact icon={<Phone size={16} />} value={contacts.phone} href={`tel:${contacts.phone.replaceAll(' ', '')}`} />
             <FooterContact icon={<MapPin size={16} />} value={contacts.cities.join(', ')} />
             <p className="text-sm leading-6 text-white/[0.58]">Team VYS s.r.o. · IČO {contacts.ico}{contacts.bank ? ` · ${contacts.bank}` : ''}</p>
+            <div className="mt-1 text-sm font-semibold text-white/70">
+              <GoogleReviewFooterLink />
+            </div>
           </div>
         </div>
 
         <div className="mt-8 border-t border-white/10 pt-5">
           <p className="text-xs leading-[18px] text-white/[0.55]">
-            © {new Date().getFullYear()} Team VYS s.r.o. · Vyškov · Prostějov · Blansko · Brandýs · Jeseník · Zdiměřice · Praha
+            © {new Date().getFullYear()} Team VYS s.r.o. · Vyškov · Prostějov · Blansko · Brandýs · Jeseník · Šumperk · Písečná · Jesenice · Praha
           </p>
         </div>
       </div>

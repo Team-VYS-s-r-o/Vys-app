@@ -1,204 +1,231 @@
 /**
- * Města, kde Team VYS vede parkour kroužky.
+ * Města pro lokální stránky `/parkour/<slug>`.
  *
- * Zdroj pravdy pro lokální landing stránky `/parkour/<slug>`. Údaje odpovídají
- * tabulce `products` v Supabase — když se mění rozvrh nebo přibude město,
- * aktualizuj i tenhle soubor, ať si stránka a katalog neodporují.
- *
- * `street` vyplňuj jen tam, kde je adresa ověřená; prázdná hodnota je lepší
- * než odhad, protože adresa jde do strukturovaných dat pro Google.
+ * Zdrojem pravdy jsou **produkty z adminu** (`/api/public/products`) — když
+ * David založí nový kroužek, město se na webu objeví samo. Statický je tu jen
+ * doprovodný text (úvodní odstavec, okolní obce), protože ten se z databáze
+ * vzít nedá; město bez něj funguje dál, jen má obecnější úvod.
  */
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://server-psi-ochre-40.vercel.app';
+
 export type CitySession = {
-  /** Název tělocvičny tak, jak ho zná rodič. */
   venue: string;
-  /** Den a čas, např. „Pondělí 17:00–18:00“. */
+  /** „Pondělí 17:00–18:00“ */
   when: string;
-  /** Ulice a PSČ, pokud je ověřená. */
-  street?: string;
-  /** Datum první lekce u kroužků, které teprve startují. */
+  /** Datum první lekce u kroužku, který teprve startuje. */
   startsOn?: string;
-  /** Volných míst / kapacita — pro větu o obsazenosti. */
-  taken?: number;
-  capacity?: number;
+  taken: number;
+  capacity: number;
 };
 
 export type City = {
   slug: string;
-  /** Název v 1. pádě pro nadpisy: „Vyškov“. */
   name: string;
-  /** Tvar do věty „parkour kroužek ve Vyškově“ — včetně předložky. */
+  /** Tvar do věty „parkour kroužek ve Vyškově“ — s předložkou. */
   inCity: string;
-  /** Kraj nebo region pro strukturovaná data. */
-  region: string;
-  /** Jedna až dvě věty, které se objeví jako úvod — pro každé město jiné. */
+  region?: string;
   intro: string;
-  /** Okolní obce, odkud děti dojíždějí — pomáhá na dlouhý ocas dotazů. */
   nearby: string[];
+  street?: string;
   sessions: CitySession[];
+  priceFrom: number;
+  priceTo: number;
 };
 
-export const PRICE_10 = 2190;
-export const PRICE_15 = 3190;
+type PublicProduct = {
+  id: string;
+  type?: string | null;
+  city?: string | null;
+  venue?: string | null;
+  place?: string | null;
+  primary_meta?: string | null;
+  price?: number | null;
+  event_date?: string | null;
+  capacity_total?: number | null;
+  capacity_current?: number | null;
+  interest_mode?: boolean | null;
+  is_published?: boolean | null;
+};
 
-export const CITIES: City[] = [
-  {
-    slug: 'vyskov',
-    name: 'Vyškov',
+/**
+ * Ručně psané doplňky k městům. Klíč je slug odvozený z názvu města.
+ * Město, které tu chybí, se na webu přesto objeví — jen s obecným úvodem.
+ */
+const CITY_COPY: Record<string, { inCity?: string; intro?: string; nearby?: string[]; street?: string; name?: string }> = {
+  vyskov: {
     inCity: 've Vyškově',
-    region: 'Jihomoravský kraj',
     intro:
       'Ve Vyškově trénujeme na dvou základních školách, takže si můžete vybrat termín, který sedí k rozvrhu družiny. Je to naše domovské město — vedle kroužků tu děláme i příměstské tábory.',
     nearby: ['Rousínov', 'Slavkov u Brna', 'Bučovice', 'Drnovice', 'Ruprechtov'],
-    sessions: [
-      { venue: 'ZŠ Purkyňova', when: 'Pondělí 15:30–16:30', taken: 14, capacity: 25 },
-      { venue: 'ZŠ Nádražní', when: 'Středa 16:30–17:30', taken: 14, capacity: 25 },
-    ],
   },
-  {
-    slug: 'prostejov',
-    name: 'Prostějov',
+  prostejov: {
     inCity: 'v Prostějově',
-    region: 'Olomoucký kraj',
     intro:
       'V Prostějově trénujeme v sobotu dopoledne, takže kroužek nekoliduje s odpoledními aktivitami ani s družinou. Máme dvě skupiny — v té pozdější bývá víc místa.',
     nearby: ['Olomouc', 'Kostelec na Hané', 'Plumlov', 'Němčice nad Hanou'],
-    sessions: [
-      { venue: 'ZŠ Melantrichova', when: 'Sobota 10:00–11:00', taken: 12, capacity: 25 },
-      { venue: 'ZŠ Melantrichova', when: 'Sobota 11:00–12:00', taken: 4, capacity: 25 },
-    ],
   },
-  {
-    slug: 'blansko',
-    name: 'Blansko',
+  blansko: {
     inCity: 'v Blansku',
-    region: 'Jihomoravský kraj',
     intro:
       'Blanenský kroužek běží v úterý podvečer na ZŠ Erbenova. Hodí se i dětem, které po škole chodí do družiny — začínáme až v 17:30.',
     nearby: ['Boskovice', 'Adamov', 'Rájec-Jestřebí', 'Jedovnice', 'Brno-sever'],
-    sessions: [{ venue: 'ZŠ Erbenova', when: 'Úterý 17:30–18:30', taken: 8, capacity: 25 }],
   },
-  {
-    slug: 'brandys-nad-labem',
+  brandys: {
     name: 'Brandýs nad Labem',
     inCity: 'v Brandýse nad Labem',
-    region: 'Středočeský kraj',
     intro:
       'V Brandýse máme dva termíny ve stejné tělocvičně — úterý bývá plnější, ve čtvrtek je klidnější skupina a víc prostoru na jednotlivce.',
     nearby: ['Stará Boleslav', 'Čelákovice', 'Neratovice', 'Lysá nad Labem', 'Praha-východ'],
-    sessions: [
-      { venue: 'ZŠ Na Výsluní', when: 'Úterý 17:00–18:00', taken: 15, capacity: 25 },
-      { venue: 'ZŠ Na Výsluní', when: 'Čtvrtek 17:00–18:00', taken: 4, capacity: 20 },
-    ],
   },
-  {
-    slug: 'jesenik',
-    name: 'Jeseník',
+  jesenik: {
     inCity: 'v Jeseníku',
-    region: 'Olomoucký kraj',
     intro:
       'V Jeseníku trénujeme v pátek večer v tělocvičně gymnázia. Je to zavedená skupina, kam jezdí děti i z okolních obcí.',
     nearby: ['Česká Ves', 'Lipová-lázně', 'Mikulovice', 'Zlaté Hory', 'Písečná'],
-    sessions: [{ venue: 'Gymnázium Komenského', when: 'Pátek 18:00–19:00', taken: 12, capacity: 25 }],
   },
-  {
-    slug: 'praha-vrsovice',
+  vrsovice: {
     name: 'Praha — Vršovice',
     inCity: 'v Praze ve Vršovicích',
-    region: 'Praha',
+    street: 'Vršovické náměstí 111/2, 101 00 Praha 10',
     intro:
-      'V Praze trénujeme v sokolovně na Vršovickém náměstí, v sobotu odpoledne. Dva navazující termíny — ve druhém je zatím nejvíc volného místa z celé republiky.',
+      'V Praze trénujeme v sokolovně na Vršovickém náměstí, v sobotu odpoledne. Dva navazující termíny — ve druhém bývá nejvíc volného místa.',
     nearby: ['Praha 10', 'Praha 2', 'Praha 4', 'Vinohrady', 'Strašnice', 'Michle'],
-    sessions: [
-      {
-        venue: 'Sokolovna Vršovice',
-        when: 'Sobota 14:00–15:00',
-        street: 'Vršovické náměstí 111/2, 101 00 Praha 10',
-        taken: 2,
-        capacity: 25,
-      },
-      {
-        venue: 'Sokolovna Vršovice',
-        when: 'Sobota 15:00–16:00',
-        street: 'Vršovické náměstí 111/2, 101 00 Praha 10',
-        taken: 1,
-        capacity: 25,
-      },
-    ],
   },
-  {
-    slug: 'jesenice-zdimerice',
+  zdimerice: {
     name: 'Jesenice — Zdiměřice',
     inCity: 'v Jesenici u Prahy',
-    region: 'Středočeský kraj',
+    street: 'Hrnčířská 500, 252 42 Jesenice',
     intro:
-      'Kroužek pro Jesenici a okolí běží na ZŠ Zdiměřice v pátek odpoledne. Dva termíny hned po sobě — ten pozdější je zatím skoro prázdný, takže tam má dítě trenéra skoro pro sebe.',
+      'Kroužek pro Jesenici a okolí běží na ZŠ Zdiměřice v pátek odpoledne. Dva termíny hned po sobě — ten pozdější bývá volnější, takže tam má dítě trenéra skoro pro sebe.',
     nearby: ['Průhonice', 'Vestec', 'Dolní Břežany', 'Praha-Zbraslav', 'Psáry'],
-    sessions: [
-      {
-        venue: 'ZŠ Zdiměřice',
-        when: 'Pátek 15:00–16:00',
-        street: 'Hrnčířská 500, 252 42 Jesenice',
-        taken: 7,
-        capacity: 25,
-      },
-      {
-        venue: 'ZŠ Zdiměřice',
-        when: 'Pátek 16:00–17:00',
-        street: 'Hrnčířská 500, 252 42 Jesenice',
-        taken: 0,
-        capacity: 25,
-      },
-    ],
   },
-  {
-    slug: 'sumperk',
-    name: 'Šumperk',
+  sumperk: {
     inCity: 'v Šumperku',
-    region: 'Olomoucký kraj',
+    street: 'Sluneční 38, 787 01 Šumperk',
     intro:
-      'V Šumperku otevíráme nový kroužek — trénovat budeme ve specializované gymnastické tělocvičně ZŠ Sluneční, která má molitanové jámy a gymnastické nářadí. Pro parkour je to jedno z nejlepších zázemí, jaké v kraji máme.',
+      'V Šumperku otevíráme nový kroužek — trénovat budeme ve specializované gymnastické tělocvičně ZŠ Sluneční, která má molitanové jámy a gymnastické nářadí. Pro parkour je to jedno z nejlepších zázemí v kraji.',
     nearby: ['Zábřeh', 'Bludov', 'Rapotín', 'Hanušovice', 'Mohelnice'],
-    sessions: [
-      {
-        venue: 'ZŠ Sluneční',
-        when: 'Pondělí 17:00–18:00',
-        street: 'Sluneční 38, 787 01 Šumperk',
-        startsOn: '2. listopadu 2026',
-        taken: 0,
-        capacity: 20,
-      },
-    ],
   },
-  {
-    slug: 'pisecna',
-    name: 'Písečná',
+  pisecna: {
     inCity: 'v Písečné u Jeseníku',
-    region: 'Olomoucký kraj',
+    street: 'Písečná 76, 790 82 Písečná',
     intro:
       'V Písečné otevíráme nový kroužek přímo v tělocvičně místní školy, takže děti nemusí nikam dojíždět. Začínáme ve středu odpoledne hned po vyučování.',
     nearby: ['Jeseník', 'Česká Ves', 'Mikulovice', 'Supíkovice'],
-    sessions: [
-      {
-        venue: 'ZŠ a MŠ Písečná',
-        when: 'Středa 16:00–18:00',
-        street: 'Písečná 76, 790 82 Písečná',
-        startsOn: '4. listopadu 2026',
-        taken: 0,
-        capacity: 20,
-      },
-    ],
   },
-];
+};
 
-export function cityBySlug(slug: string): City | undefined {
-  return CITIES.find((c) => c.slug === slug);
+/** „Brandýs nad Labem“ → „brandys-nad-labem“ */
+export function citySlug(city: string): string {
+  return city
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+/** Předložka pro město, které nemá ručně psaný tvar. */
+function guessInCity(name: string): string {
+  const first = name.trim()[0]?.toLowerCase() ?? '';
+  return `${'vfw'.includes(first) ? 've' : 'v'} ${name}`;
+}
+
+/** „Pondělí 17:00 - 18:00“ → „Pondělí 17:00–18:00“ */
+function tidySchedule(meta: string): string {
+  return meta.replace(/\s*-\s*/g, '–').trim();
+}
+
+/** „2.11.2026“ → „2. listopadu 2026“ */
+function czechDate(raw: string): string {
+  const months = ['ledna','února','března','dubna','května','června','července','srpna','září','října','listopadu','prosince'];
+  const m = raw.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+  if (!m) return raw;
+  const [, d, mo, y] = m;
+  return `${Number(d)}. ${months[Number(mo) - 1] ?? ''} ${y}`.replace(/\s+/g, ' ').trim();
+}
+
+async function fetchPublicProducts(): Promise<PublicProduct[]> {
+  try {
+    const res = await fetch(`${apiUrl}/api/public/products`, { next: { revalidate: 1800 } });
+    if (!res.ok) return [];
+    const payload = (await res.json()) as { products?: PublicProduct[] };
+    return payload.products ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Města s aktivním kroužkem, postavená z produktů v adminu.
+ * Termíny ve stavu „sběr zájmu“ (`interest_mode`) se nenabízejí — nejsou to
+ * reálné lekce a nesmí se objevit jako termín pro rodiče.
+ */
+export async function loadCities(): Promise<City[]> {
+  const products = await fetchPublicProducts();
+  const courses = products.filter(
+    (p) => p.type === 'Kroužek' && p.is_published !== false && !p.interest_mode && p.city,
+  );
+
+  const byCity = new Map<string, PublicProduct[]>();
+  for (const course of courses) {
+    const slug = citySlug(String(course.city));
+    if (!slug) continue;
+    byCity.set(slug, [...(byCity.get(slug) ?? []), course]);
+  }
+
+  const cities: City[] = [];
+  for (const [slug, rows] of byCity) {
+    const copy = CITY_COPY[slug] ?? {};
+    const rawName = String(rows[0].city);
+    const name = copy.name ?? rawName;
+
+    // Jeden termín může mít dvě varianty permanentky (10 a 15 vstupů) —
+    // pro rodiče je to jedna lekce, takže je slučujeme podle místa a času.
+    const seen = new Map<string, CitySession>();
+    for (const row of rows) {
+      const venue = row.venue ?? rawName;
+      const when = tidySchedule(row.primary_meta ?? '');
+      if (!when) continue;
+      const key = `${venue}|${when}`;
+      if (seen.has(key)) continue;
+      seen.set(key, {
+        venue,
+        when,
+        startsOn: row.event_date ? czechDate(row.event_date) : undefined,
+        taken: Math.max(0, Number(row.capacity_current ?? 0)),
+        capacity: Math.max(0, Number(row.capacity_total ?? 0)),
+      });
+    }
+    const sessions = [...seen.values()];
+    if (!sessions.length) continue;
+
+    const prices = rows.map((r) => Number(r.price ?? 0)).filter((n) => n > 0);
+
+    cities.push({
+      slug,
+      name,
+      inCity: copy.inCity ?? guessInCity(name),
+      intro:
+        copy.intro ??
+        `Parkourový kroužek Team VYS ${copy.inCity ?? guessInCity(name)} vedou certifikovaní trenéři. Učíme děti od 6 do 14 let bezpečné dopady a triky krok za krokem — na zkušenostech nezáleží.`,
+      nearby: copy.nearby ?? [],
+      street: copy.street,
+      sessions,
+      priceFrom: prices.length ? Math.min(...prices) : 2190,
+      priceTo: prices.length ? Math.max(...prices) : 3190,
+    });
+  }
+
+  return cities.sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+}
+
+export async function loadCity(slug: string): Promise<City | undefined> {
+  return (await loadCities()).find((c) => c.slug === slug);
 }
 
 /** Volná místa napříč termíny jednoho města. */
 export function freeSpots(city: City): number {
-  return city.sessions.reduce(
-    (sum, s) => sum + Math.max(0, (s.capacity ?? 0) - (s.taken ?? 0)),
-    0,
-  );
+  return city.sessions.reduce((sum, s) => sum + Math.max(0, s.capacity - s.taken), 0);
 }
