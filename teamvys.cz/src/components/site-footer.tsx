@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { TeamVysLogo } from '@/components/brand/team-vys-logo';
 import { contacts } from '@shared/content';
 
+import { loadCities } from '@/lib/cities';
+
 const navLinks = [
   { label: 'Kroužky', href: '/krouzky' as const },
   { label: 'Tábory', href: '/tabory' as const },
@@ -15,7 +17,9 @@ const navLinks = [
   { label: 'Ochrana osobních údajů', href: '/ochrana-osobnich-udaju' as const },
 ];
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const cities = await loadCities();
+
   return (
     <footer className="relative overflow-hidden border-t border-white/10 bg-brand-ink px-4 pt-10 pb-8 text-white sm:px-6">
       <div aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-brand" />
@@ -63,6 +67,23 @@ export function SiteFooter() {
             </div>
           </div>
         </div>
+
+        {cities.length ? (
+          <div className="mt-8 border-t border-white/10 pt-5">
+            <h3 className="mb-2 text-[13px] font-black uppercase text-brand-pink">Parkour podle města</h3>
+            <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+              {cities.map((city) => (
+                <Link
+                  key={city.slug}
+                  href={`/parkour/${city.slug}`}
+                  className="text-sm font-semibold text-white/[0.58] transition-colors hover:text-white"
+                >
+                  {city.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-8 border-t border-white/10 pt-5">
           <p className="text-xs leading-[18px] text-white/[0.55]">
