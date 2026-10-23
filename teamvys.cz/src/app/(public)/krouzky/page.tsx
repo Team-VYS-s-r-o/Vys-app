@@ -1,9 +1,11 @@
 import { ScanLine, ShieldCheck, Trophy } from 'lucide-react';
+import Link from 'next/link';
 
 import { PageHero } from '@/components/page-hero';
 import { PublicCourseCatalog } from '@/components/public-admin-products';
 import { SubpageCta } from '@/components/subpage-cta';
 import { FeatureCard, SectionIntro } from '@/components/subpage-feature-card';
+import { CITIES } from '@/lib/cities';
 
 export const metadata = {
   title: 'Parkour kroužky pro děti',
@@ -47,6 +49,25 @@ export default function CoursesPage() {
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {benefits.map((b, i) => (
             <FeatureCard key={b.title} {...b} index={i} />
+          ))}
+        </div>
+      </section>
+
+      {/* Rozcestník na lokální stránky — hlavní vstup z vyhledávání „parkour kroužek <město>“. */}
+      <section className="section-shell pb-16 md:pb-24">
+        <SectionIntro eyebrow="Podle města" title="Kde trénujeme" />
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {CITIES.map((city) => (
+            <Link
+              key={city.slug}
+              href={`/parkour/${city.slug}`}
+              className="group rounded-[20px] border border-white/10 bg-white/[0.04] p-5 transition hover:border-white/30 hover:bg-white/[0.07]"
+            >
+              <p className="text-lg font-bold tracking-tight">Parkour {city.name}</p>
+              <p className="mt-1 text-sm text-white/60">
+                {city.sessions.map((session) => session.when).join(' · ')}
+              </p>
+            </Link>
           ))}
         </div>
       </section>

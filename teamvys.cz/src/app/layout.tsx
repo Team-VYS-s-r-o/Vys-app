@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     template: '%s · Team VYS',
   },
   description:
-    'Parkour kroužky pro děti, příměstské tábory a workshopy s youtuberem pod vedením certifikovaných trenérů. Vyškov, Prostějov, Blansko, Brandýs nad Labem, Jeseník a Praha. Přihlaste své dítě online.',
+    'Parkour kroužky pro děti, příměstské tábory a workshopy s youtuberem pod vedením certifikovaných trenérů. Vyškov, Prostějov, Blansko, Brandýs nad Labem, Jeseník, Šumperk, Písečná, Jesenice a Praha. První lekce zdarma.',
   metadataBase: new URL(SITE_URL),
   applicationName: 'Team VYS',
   keywords: [
@@ -41,6 +41,11 @@ export const metadata: Metadata = {
     'parkour Brandýs nad Labem',
     'parkour Jeseník',
     'parkour Praha',
+    'parkour Šumperk',
+    'parkour Písečná',
+    'parkour Jesenice',
+    'kroužek pro děti',
+    'parkour kroužek první lekce zdarma',
     'Team VYS',
   ],
   alternates: {
@@ -104,9 +109,22 @@ const organizationJsonLd = {
   priceRange: 'Kč',
   address: {
     '@type': 'PostalAddress',
+    streetAddress: 'Ruprechtov 198',
+    postalCode: '683 04',
+    addressLocality: 'Ruprechtov',
     addressCountry: 'CZ',
   },
-  areaServed: ['Vyškov', 'Prostějov', 'Blansko', 'Brandýs nad Labem', 'Jeseník', 'Zdiměřice', 'Praha'],
+  areaServed: [
+    'Vyškov',
+    'Prostějov',
+    'Blansko',
+    'Brandýs nad Labem',
+    'Jeseník',
+    'Šumperk',
+    'Písečná',
+    'Jesenice',
+    'Praha',
+  ],
   makesOffer: [
     {
       '@type': 'Offer',
