@@ -6642,12 +6642,14 @@ app.post('/api/coordinator/product-requests', asyncRoute(async (request, respons
   requiredString(payload.title, 'název');
   requiredString(payload.city, 'město');
 
-  // Test zájmu Meta reklamou: koordinátor halu ještě nemá a chce město nejdřív
-  // ověřit reklamou. Tlačítko reklamu NESPOUŠTÍ — adminovi jen odejde e-mail se
-  // zadáním (útratu schvaluje a kampaň staví admin ručně).
+  // Žádost o průzkum zájmu Meta reklamou: ze zadání se pak (v chatu Marketing)
+  // připraví příspěvek a z něj reklama. Tlačítko samo nic NESPOUŠTÍ — adminovi
+  // jen odejde e-mail se zadáním, útratu schvaluje on. Jen pro Team VYS,
+  // reklamní účet i proces patří Davidovi.
   const metaAdTest = payload.metaAdTest === true;
   if (metaAdTest) {
-    if (!coordinator.permissions.meta_ad_requests) throw httpError('Testy zájmu přes reklamu ti admin nepovolil.', 403);
+    if (coordinator.orgId !== VYS_ORG_ID) throw httpError('Průzkum přes Meta reklamu je dostupný jen pro Team VYS.', 403);
+    if (!coordinator.permissions.meta_ad_requests) throw httpError('Průzkumy přes reklamu ti admin nepovolil.', 403);
     requiredString(payload.venue, 'tělocvična');
     requiredString(payload.proposedSchedule, 'navrhovaný den a čas');
     if (!payload.ageFrom && !payload.ageTo) throw httpError('Vyplň věk dětí — bez něj nejde reklama zacílit.', 400);
@@ -6698,8 +6700,8 @@ async function sendMetaAdTestEmail(coordinator, payload) {
 
   const age = [payload.ageFrom, payload.ageTo].filter(Boolean).join('–');
   const html = brandEmailHtml({
-    heading: `Otestovat zájem reklamou: ${escapeHtml(payload.city)} 🎯`,
-    intro: `Koordinátor <b>${escapeHtml(coordinator.name || coordinator.email || 'bez jména')}</b> chce otevřít nový kroužek, halu zatím nemá a žádá o testovací reklamu na Metě (cca 500 Kč/týden). Návrh zároveň čeká na schválení v adminu — po schválení sbírá zájemce v režimu sběru zájmu.`,
+    heading: `Žádost o průzkum zájmu: ${escapeHtml(payload.city)} 🎯`,
+    intro: `Koordinátor <b>${escapeHtml(coordinator.name || coordinator.email || 'bez jména')}</b> žádá o průzkum zájmu o nový kroužek přes Meta reklamu (cca 500 Kč/týden). Návrh zároveň čeká na schválení v adminu — po schválení sbírá zájemce v režimu sběru zájmu.`,
     rows: [
       ['Město', payload.city],
       ['Tělocvična (plán)', payload.venue || '—'],
@@ -6711,14 +6713,14 @@ async function sendMetaAdTestEmail(coordinator, payload) {
       ['Kraj', coordinator.region || '—'],
       ['Koordinátor', `${coordinator.name || '—'} · ${coordinator.email || '—'}${coordinator.phone ? ` · ${coordinator.phone}` : ''}`],
     ],
-    extraHtml: `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3F3A52">Další kroky: postavit sadu reklam s rychlým formulářem, založit tabulku leadů pro město a nasdílet ji na <b>${escapeHtml(coordinator.email || 'e-mail koordinátora')}</b>. Reklama se spouští ručně — tenhle e-mail nic neutrácí.</p>`,
+    extraHtml: `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3F3A52">Další krok: v chatu <b>Marketing</b> nech z tohoto zadání vygenerovat příspěvek a z něj reklamu s rychlým formulářem; tabulku leadů pro město pak nasdílej na <b>${escapeHtml(coordinator.email || 'e-mail koordinátora')}</b>. Spuštění je na tobě — tenhle e-mail nic neutrácí.</p>`,
     outro: 'Zadání přišlo z aplikace, sekce Návrhy.',
   });
 
   await emailer.sendMail({
     from: smtpFrom,
     to: recipients,
-    subject: `🎯 Test zájmu reklamou — ${payload.city} (${coordinator.name || 'koordinátor'})`,
+    subject: `🎯 Průzkum zájmu přes Metu — ${payload.city} (${coordinator.name || 'koordinátor'})`,
     html,
   });
 }
