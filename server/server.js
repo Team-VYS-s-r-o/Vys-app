@@ -5848,7 +5848,7 @@ async function requireCoordinator(request) {
 
 // Per-koordinátorská oprávnění (nastavuje admin): jiné organizace nemusí chtít,
 // aby koordinátor viděl finance, osobní údaje dětí nebo údaje trenérů.
-const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data', 'forgotten_attendance', 'training_ratings', 'attendance_stats', 'broadcasts'];
+const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data', 'forgotten_attendance', 'training_ratings', 'attendance_stats', 'broadcasts', 'meta_ad_requests'];
 function normalizeCoordinatorPermissions(raw) {
   const permissions = {};
   for (const key of COORDINATOR_PERMISSION_KEYS) {
@@ -6642,6 +6642,17 @@ app.post('/api/coordinator/product-requests', asyncRoute(async (request, respons
   requiredString(payload.title, 'název');
   requiredString(payload.city, 'město');
 
+  // Test zájmu Meta reklamou: koordinátor halu ještě nemá a chce město nejdřív
+  // ověřit reklamou. Tlačítko reklamu NESPOUŠTÍ — adminovi jen odejde e-mail se
+  // zadáním (útratu schvaluje a kampaň staví admin ručně).
+  const metaAdTest = payload.metaAdTest === true;
+  if (metaAdTest) {
+    if (!coordinator.permissions.meta_ad_requests) throw httpError('Testy zájmu přes reklamu ti admin nepovolil.', 403);
+    requiredString(payload.venue, 'tělocvična');
+    requiredString(payload.proposedSchedule, 'navrhovaný den a čas');
+    if (!payload.ageFrom && !payload.ageTo) throw httpError('Vyplň věk dětí — bez něj nejde reklama zacílit.', 400);
+  }
+
   const { data, error } = await supabase
     .from('coordinator_product_requests')
     .insert({
@@ -6654,8 +6665,63 @@ app.post('/api/coordinator/product-requests', asyncRoute(async (request, respons
     .select('id,payload,status,admin_note,created_at,resolved_at')
     .single();
   if (error) throw error;
+
+  if (metaAdTest) {
+    try {
+      await sendMetaAdTestEmail(coordinator, payload);
+    } catch (mailError) {
+      // Návrh je uložený; e-mail je best-effort (admin ho uvidí i v adminu).
+      console.error('Meta ad test email failed:', mailError?.message || mailError);
+    }
+  }
+
   response.status(201).json({ request: data });
 }));
+
+// Zadání testovací reklamy pro admina — všechno, co potřebuje k postavení
+// kampaně, bez doptávání: město, tělocvična, den a čas, věk, poznámka
+// a e-mail koordinátora (na ten se pak sdílí tabulka s leady).
+async function sendMetaAdTestEmail(coordinator, payload) {
+  const emailer = paymentEmailer();
+  if (!emailer) {
+    console.info('Meta ad test email skipped: SMTP is not configured.');
+    return;
+  }
+  const { data: admins, error } = await supabase
+    .from('app_profiles')
+    .select('email')
+    .eq('role', 'admin')
+    .eq('org_id', coordinator.orgId);
+  if (error) throw error;
+  const recipients = (admins || []).map((row) => row.email).filter(Boolean);
+  if (recipients.length === 0) return;
+
+  const age = [payload.ageFrom, payload.ageTo].filter(Boolean).join('–');
+  const html = brandEmailHtml({
+    heading: `Otestovat zájem reklamou: ${escapeHtml(payload.city)} 🎯`,
+    intro: `Koordinátor <b>${escapeHtml(coordinator.name || coordinator.email || 'bez jména')}</b> chce otevřít nový kroužek, halu zatím nemá a žádá o testovací reklamu na Metě (cca 500 Kč/týden). Návrh zároveň čeká na schválení v adminu — po schválení sbírá zájemce v režimu sběru zájmu.`,
+    rows: [
+      ['Město', payload.city],
+      ['Tělocvična (plán)', payload.venue || '—'],
+      ['Den a čas', payload.proposedSchedule || '—'],
+      ['Věk dětí', age ? `${age} let` : '—'],
+      ['Název kroužku', payload.title],
+      payload.capacityTotal ? ['Kapacita', String(payload.capacityTotal)] : null,
+      ['Poznámka koordinátora', payload.note || '—'],
+      ['Kraj', coordinator.region || '—'],
+      ['Koordinátor', `${coordinator.name || '—'} · ${coordinator.email || '—'}${coordinator.phone ? ` · ${coordinator.phone}` : ''}`],
+    ],
+    extraHtml: `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3F3A52">Další kroky: postavit sadu reklam s rychlým formulářem, založit tabulku leadů pro město a nasdílet ji na <b>${escapeHtml(coordinator.email || 'e-mail koordinátora')}</b>. Reklama se spouští ručně — tenhle e-mail nic neutrácí.</p>`,
+    outro: 'Zadání přišlo z aplikace, sekce Návrhy.',
+  });
+
+  await emailer.sendMail({
+    from: smtpFrom,
+    to: recipients,
+    subject: `🎯 Test zájmu reklamou — ${payload.city} (${coordinator.name || 'koordinátor'})`,
+    html,
+  });
+}
 
 app.post('/api/coordinator/invoices/upload-url', asyncRoute(async (request, response) => {
   requireServices();
@@ -7037,7 +7103,7 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       // Kroužky mají fixní strukturu 10/15 vstupů — popisek generujeme, ne z návrhu.
       price_label: isCourse && price > 0 ? `10 vstupů · ${price.toLocaleString('cs-CZ')} Kč` : optionalString(payload.priceLabel) || '',
       // Sloupce jsou NOT NULL bez defaultu — bez nich insert spadne.
-      primary_meta: optionalString(payload.schedule) || optionalString(payload.primaryMeta) || '',
+      primary_meta: optionalString(payload.schedule) || optionalString(payload.proposedSchedule) || optionalString(payload.primaryMeta) || '',
       secondary_meta: isCourse ? 'Digitální permanentka přes NFC čip' : '',
       badge: isCourse ? 'Kroužek' : String(type),
       entries_total: isCourse ? 10 : Number(payload.entriesTotal) || null,
