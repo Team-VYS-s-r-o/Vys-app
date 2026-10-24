@@ -33,7 +33,9 @@ export type FeatureFlagKey =
   // Rodič dostane e-mail, když dítě přišlo bez NFC kartičky a zapsalo se ručně.
   | 'attendance_forgot_card_email'
   // Permanentka odchozená celá přes NFC dostane jeden bonusový vstup zdarma.
-  | 'attendance_nfc_bonus_entry';
+  | 'attendance_nfc_bonus_entry'
+  // AI průzkum města pro koordinátory (Claude s webovým vyhledáváním, měsíční limit).
+  | 'coordinator_city_research';
 
 export type FeatureFlags = Record<FeatureFlagKey, boolean> & { org_type: OrgType };
 
@@ -60,6 +62,7 @@ export const VYS_FEATURE_FLAGS: FeatureFlags = {
   attendance_coins_nfc_only: true,
   attendance_forgot_card_email: true,
   attendance_nfc_bonus_entry: true,
+  coordinator_city_research: true,
 };
 
 export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
@@ -85,6 +88,7 @@ export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
   attendance_coins_nfc_only: false,
   attendance_forgot_card_email: false,
   attendance_nfc_bonus_entry: false,
+  coordinator_city_research: false,
 };
 
 /** Parse a raw feature_flags jsonb value; unknown/missing keys fall back to org-type defaults. */

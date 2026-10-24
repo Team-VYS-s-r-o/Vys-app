@@ -6390,6 +6390,113 @@ app.patch('/api/coordinator/profile', asyncRoute(async (request, response) => {
   response.json({ ok: true });
 }));
 
+// ─── AI průzkum města ────────────────────────────────────────────────────────
+// Koordinátor si nechá zmapovat město (obyvatelstvo, školy, konkurence) přes
+// Claude s webovým vyhledáváním. Měsíční limit per organizace drží náklady na
+// uzdě; funkci zapíná org flag coordinator_city_research (cizí orgy vypnuto).
+const CITY_RESEARCH_MONTHLY_LIMIT = 10;
+
+async function cityResearchUsage(orgId) {
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const { count, error } = await supabase
+    .from('city_research_reports')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_id', orgId)
+    .gte('created_at', monthStart.toISOString());
+  if (error) throw error;
+  return { used: count || 0, limit: CITY_RESEARCH_MONTHLY_LIMIT };
+}
+
+app.get('/api/coordinator/city-research', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const flags = await orgFeatureFlags(coordinator.orgId);
+  if (flags.coordinator_city_research !== true) {
+    response.json({ enabled: false, report: null, usage: null });
+    return;
+  }
+  const city = requiredString(request.query.city, 'město');
+  const [{ data: rows, error }, usage] = await Promise.all([
+    supabase
+      .from('city_research_reports')
+      .select('id,city,report,created_at')
+      .eq('org_id', coordinator.orgId)
+      .ilike('city', city)
+      .order('created_at', { ascending: false })
+      .limit(1),
+    cityResearchUsage(coordinator.orgId),
+  ]);
+  if (error) throw error;
+  response.json({ enabled: true, report: rows?.[0] ?? null, usage });
+}));
+
+app.post('/api/coordinator/city-research', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const flags = await orgFeatureFlags(coordinator.orgId);
+  if (flags.coordinator_city_research !== true) throw httpError('AI průzkum města není pro tvou organizaci zapnutý.', 403);
+  if (!anthropicApiKey) throw httpError('AI průzkum není na serveru nakonfigurovaný.', 503);
+  const city = requiredString(request.body.city, 'město').slice(0, 60);
+
+  const usage = await cityResearchUsage(coordinator.orgId);
+  if (usage.used >= usage.limit) {
+    throw httpError(`Měsíční limit ${usage.limit} průzkumů je vyčerpaný. Další se odemknou začátkem příštího měsíce.`, 429);
+  }
+
+  const systemPrompt = `Jsi analytik trhu dětských sportovních kroužků v Česku. Uživatel zvažuje otevření parkourového kroužku pro děti 6–14 let v zadaném městě a potřebuje stručný průzkum, aby se rozhodl.
+
+Vyhledej aktuální informace na webu a napiš report ČESKY. Formát: prostý text bez markdownu (žádné hvězdičky ani mřížky), sekce uvozuj řádkem s názvem VELKÝMI PÍSMENY, odrážky začínej pomlčkou. Sekce:
+
+OBYVATELSTVO — počet obyvatel města a spádových obcí, odhad počtu dětí 6–14 let (hledej data ČSÚ).
+ŠKOLY A TĚLOCVIČNY — základní školy s tělocvičnou, sportovní haly, TJ Sokol; kde by šlo trénovat.
+KONKURENCE — parkour, gymnastika a pohybové kroužky pro děti ve městě a okolí; ceny, pokud jsou dohledatelné.
+ZÁVĚR — 4 až 6 vět: potenciál (kolik dětí reálně připadá v úvahu), hlavní rizika a jasné doporučení, zda to zkusit.
+
+U klíčových čísel uveď v závorce zdroj (doménu nebo URL). Co nedohledáš, přiznej — nic si nevymýšlej. Celkově max 450 slov.`;
+
+  const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 3000,
+      system: systemPrompt,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
+      messages: [{
+        role: 'user',
+        content: `Město: ${city}${coordinator.region ? ` (${coordinator.region})` : ''}. Kontext: permanentka 2 190 Kč / 10 vstupů, tréninky ve všední dny odpoledne v tělocvičnách ZŠ, skupiny do 20 dětí.`,
+      }],
+    }),
+  });
+  if (!anthropicResponse.ok) {
+    const detail = await anthropicResponse.text().catch(() => '');
+    console.error('City research API error:', anthropicResponse.status, detail.slice(0, 400));
+    throw httpError('Průzkum se nepodařilo vygenerovat, zkus to za chvíli.', 502);
+  }
+  const result = await anthropicResponse.json();
+  const reportText = (result.content || [])
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('\n')
+    .trim();
+  if (!reportText) throw httpError('Průzkum se nepodařilo vygenerovat, zkus to za chvíli.', 502);
+
+  const { data: saved, error: saveError } = await supabase
+    .from('city_research_reports')
+    .insert({ org_id: coordinator.orgId, coordinator_id: coordinator.id, city, report: reportText })
+    .select('id,city,report,created_at')
+    .single();
+  if (saveError) throw saveError;
+
+  response.status(201).json({ enabled: true, report: saved, usage: { used: usage.used + 1, limit: usage.limit } });
+}));
+
 // ─── Plán rozjezdu nového města ──────────────────────────────────────────────
 // Osvědčený postup (sepsal koordinátor Pavel Novák, říjen 2026) jako živý
 // checklist v Úkolníčku: 6 fází od průzkumu trhu po vyhodnocení. Appka k
@@ -7070,6 +7177,8 @@ const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set([
   'coordinator_forgotten_attendance', 'coordinator_training_ratings', 'coordinator_attendance_stats',
   // Motivace nosit NFC kartičku — každá organizace si vybere, co chce.
   'attendance_coins_nfc_only', 'attendance_forgot_card_email', 'attendance_nfc_bonus_entry',
+  // AI průzkum města (placená funkce — náklady na Claude API nese platforma).
+  'coordinator_city_research',
 ]);
 // Číselná nastavení v témže jsonb (0 = funkce vypnutá, zůstane jen žebříček).
 const ADMIN_NUMERIC_FEATURE_SETTINGS = new Set(['coach_attendance_bonus_czk']);
