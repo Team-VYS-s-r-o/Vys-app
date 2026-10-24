@@ -7277,7 +7277,8 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       description: optionalString(payload.description) || (isCourse ? 'Permanentka na 10 vstupů do parkour tréninku.' : ''),
       capacity_total: Number(payload.capacityTotal) || 0,
       capacity_current: 0,
-      event_date: optionalString(payload.eventDate),
+      // U kroužku event_date nedává smysl (týdenní trénink; datum jen mátlo).
+      event_date: isCourse ? null : optionalString(payload.eventDate),
       price,
       // Kroužky mají fixní strukturu 10/15 vstupů — popisek generujeme, ne z návrhu.
       price_label: isCourse && price > 0 ? `10 vstupů · ${price.toLocaleString('cs-CZ')} Kč` : optionalString(payload.priceLabel) || '',
@@ -7291,7 +7292,9 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       // jiné organizace startují s prázdnými poli.
       included_items: isCourse && orgId === VYS_ORG_ID ? VYS_COURSE_INCLUDED_ITEMS : [],
       bring_items: isCourse && orgId === VYS_ORG_ID ? VYS_COURSE_BRING_ITEMS : [],
-      is_published: false,
+      // Kroužek ve sběru zájmu se zveřejní hned — nic se neprodává, jen se
+      // sbírají kontakty. Ostrý kroužek čeká, až admin doladí cenu a publikuje.
+      is_published: payload.interestMode === true,
       interest_mode: payload.interestMode === true,
       region: req.region,
       org_id: orgId,
