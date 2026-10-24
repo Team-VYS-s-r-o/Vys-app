@@ -4772,6 +4772,201 @@ async function requireCoach(request) {
   return profile;
 }
 
+// ─── Zástup/absence na jednom tréninku (trenér sám za sebe) ─────────────────
+// Trenér si v kalendáři odhlásí nebo vezme jeden konkrétní den. Zapisuje se do
+// shared_training_overrides (stejná tabulka jako admin kalendář), takže stálé
+// týdenní obsazení v coach_sessions zůstává beze změny.
+// Když někdo trénink zruší, ostatní trenéři organizace dostanou e-mail i push,
+// aby mohl někdo zaskočit — jinak by se o díře nikdo nedozvěděl.
+const CZECH_WEEKDAYS_LONG = ['neděli', 'pondělí', 'úterý', 'středu', 'čtvrtek', 'pátek', 'sobotu'];
+
+function czechOccurrenceLabel(occurrenceDate) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(occurrenceDate || ''));
+  if (!match) return String(occurrenceDate || '');
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (Number.isNaN(date.getTime())) return String(occurrenceDate);
+  return `${CZECH_WEEKDAYS_LONG[date.getDay()]} ${date.getDate()}. ${date.getMonth() + 1}. ${date.getFullYear()}`;
+}
+
+/** Kolik trenérů na daný trénink a den zbývá po zápisu override. */
+async function remainingCoachesForOccurrence(orgId, productId, occurrenceDate, context) {
+  const place = optionalString(context.place);
+  const day = optionalString(context.day);
+  const time = optionalString(context.time);
+  if (!place || !day || !time) return null;
+  const [city, venue] = place.split('·').map((part) => part.trim());
+  if (!city || !venue) return null;
+
+  const { data: sessionRows, error } = await supabase
+    .from('coach_sessions')
+    .select('coach_id,city,venue,day,time,org_id')
+    .eq('city', city)
+    .eq('venue', venue)
+    .eq('day', day)
+    .eq('time', time);
+  if (error) throw error;
+  const baseCoachIds = new Set((sessionRows || [])
+    .filter((row) => (row.org_id || VYS_ORG_ID) === orgId)
+    .map((row) => row.coach_id)
+    .filter(Boolean));
+
+  const { data: overrideRows, error: overrideError } = await supabase
+    .from('shared_training_overrides')
+    .select('coach_id,action')
+    .eq('product_id', productId)
+    .eq('occurrence_date', occurrenceDate);
+  if (overrideError) throw overrideError;
+  for (const row of overrideRows || []) {
+    if (row.action === 'remove') baseCoachIds.delete(row.coach_id);
+    if (row.action === 'add') baseCoachIds.add(row.coach_id);
+  }
+  return baseCoachIds.size;
+}
+
+async function notifyCoachesAboutRelease({ orgId, releasedBy, releasedByName, productId, occurrenceDate, context, dryRun = false }) {
+  // Příjemci: ostatní schválení trenéři organizace. Hledá se záskok, takže to
+  // musí vidět i trenéři, kteří na tom kroužku běžně nejsou.
+  const { data: coachProfiles, error: coachError } = await supabase
+    .from('coach_profiles')
+    .select('id,org_id,approval_status')
+    .eq('approval_status', 'approved');
+  if (coachError) throw coachError;
+  const recipientIds = (coachProfiles || [])
+    .filter((coach) => (coach.org_id || VYS_ORG_ID) === orgId && coach.id !== releasedBy)
+    .map((coach) => coach.id);
+  if (recipientIds.length === 0) return { emailed: 0, pushed: 0 };
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from('app_profiles')
+    .select('id,name,email')
+    .in('id', recipientIds);
+  if (profilesError) throw profilesError;
+
+  const place = optionalString(context.place) || 'trénink';
+  const time = optionalString(context.time);
+  const group = optionalString(context.group);
+  const whenLabel = czechOccurrenceLabel(occurrenceDate);
+  const remaining = await remainingCoachesForOccurrence(orgId, productId, occurrenceDate, context);
+
+  const title = remaining === 0 ? 'Trénink zůstal bez trenéra' : 'Trenér zrušil trénink';
+  const bodyText = `${releasedByName} nepřijde na ${whenLabel} — ${place}${time ? `, ${time}` : ''}.${remaining === 0 ? ' Trénink teď nemá nikoho, kdo by ho vedl.' : ''} Zaskočit můžeš v aplikaci v kalendáři tréninků.`;
+
+  const pushed = dryRun ? 0 : await sendExpoPushToProfiles(recipientIds, title, bodyText);
+
+  const emailer = paymentEmailer();
+  const recipientEmails = (profiles || []).map((row) => row.email).filter(Boolean);
+  if (!emailer || recipientEmails.length === 0) {
+    if (!emailer) console.info('Coach release email skipped: SMTP is not configured.');
+    return { emailed: 0, pushed };
+  }
+
+  const html = brandEmailHtml({
+    heading: remaining === 0 ? 'Trénink zůstal bez trenéra' : 'Trenér zrušil trénink',
+    intro: `${escapeHtml(releasedByName)} se odhlásil z tréninku. Pokud můžeš zaskočit, vezmi si ho v aplikaci v kalendáři tréninků.`,
+    rows: [
+      ['Kdy', whenLabel + (time ? ` · ${time}` : '')],
+      ['Kde', place],
+      group ? ['Skupina', group] : null,
+      ['Odhlásil se', releasedByName],
+      remaining !== null ? ['Trenérů na tréninku', remaining === 0 ? 'nikdo — trénink je bez trenéra' : String(remaining)] : null,
+    ],
+    outro: 'Díky, že si hlídáte kalendář.',
+  });
+
+  if (dryRun) {
+    return { emailed: 0, pushed: 0, dryRun: true, subject: remaining === 0 ? `Bez trenéra: ${place} — ${whenLabel}` : `Zrušený trénink: ${place} — ${whenLabel}`, bodyText, remaining, recipients: recipientEmails.length };
+  }
+
+  // Příjemci jdou do BCC — trenéři si navzájem nevidí e-maily.
+  await emailer.sendMail({
+    from: smtpFrom,
+    to: smtpFrom,
+    bcc: recipientEmails,
+    subject: remaining === 0 ? `Bez trenéra: ${place} — ${whenLabel}` : `Zrušený trénink: ${place} — ${whenLabel}`,
+    text: `Dobrý den,\n\n${bodyText}\n\nDěkujeme, Team VYS s.r.o.`,
+    html,
+  });
+
+  return { emailed: recipientEmails.length, pushed };
+}
+
+app.post('/api/coach/training-override', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireCoach(request);
+  const orgId = profile.org_id || VYS_ORG_ID;
+  const productId = requiredString(request.body.productId, 'productId');
+  const occurrenceDate = requiredString(request.body.occurrenceDate, 'occurrenceDate');
+  const action = request.body.action;
+  if (!['add', 'remove', 'clear'].includes(action)) throw httpError("action musí být 'add', 'remove' nebo 'clear'.", 400);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(occurrenceDate)) throw httpError('occurrenceDate musí být ve formátu YYYY-MM-DD.', 400);
+
+  // SECURITY: trenér mění vždy jen sám sebe — coach_id se bere z tokenu,
+  // nikdy z těla požadavku, takže nikoho jiného odhlásit nemůže.
+  const coachId = profile.id;
+  const context = {
+    place: optionalString(request.body.place),
+    day: optionalString(request.body.day),
+    time: optionalString(request.body.time),
+    group: optionalString(request.body.group),
+  };
+
+  // dryRun = jen náhled rozesílky (pro ověření), nic se nezapisuje ani neodesílá.
+  if (request.body.dryRun === true) {
+    const preview = await notifyCoachesAboutRelease({
+      orgId, releasedBy: coachId, releasedByName: profile.name || 'Trenér', productId, occurrenceDate, context, dryRun: true,
+    });
+    response.json({ ok: true, dryRun: true, preview });
+    return;
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from('shared_training_overrides')
+    .select('id,action')
+    .eq('product_id', productId)
+    .eq('occurrence_date', occurrenceDate)
+    .eq('coach_id', coachId)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  if (action === 'clear') {
+    const { error } = await supabase
+      .from('shared_training_overrides')
+      .delete()
+      .eq('product_id', productId)
+      .eq('occurrence_date', occurrenceDate)
+      .eq('coach_id', coachId);
+    if (error) throw error;
+    response.json({ ok: true, notified: null });
+    return;
+  }
+
+  const { error } = await supabase.from('shared_training_overrides').upsert(
+    { org_id: orgId, product_id: productId, occurrence_date: occurrenceDate, coach_id: coachId, action },
+    { onConflict: 'product_id,occurrence_date,coach_id' },
+  );
+  if (error) throw error;
+
+  // E-mail jen při novém zrušení — opakované klepnutí nerozesílá znovu.
+  let notified = null;
+  if (action === 'remove' && existing?.action !== 'remove') {
+    try {
+      notified = await notifyCoachesAboutRelease({
+        orgId,
+        releasedBy: coachId,
+        releasedByName: profile.name || 'Trenér',
+        productId,
+        occurrenceDate,
+        context,
+      });
+    } catch (notifyError) {
+      // Zrušení tréninku musí projít i když e-mail selže.
+      console.error('Coach release notification failed:', notifyError);
+    }
+  }
+
+  response.json({ ok: true, notified });
+}));
+
 app.post('/api/coach/certificates/upload-url', asyncRoute(async (request, response) => {
   requireServices();
   const profile = await requireCoach(request);
