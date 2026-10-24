@@ -1708,6 +1708,100 @@ async function applyExtraPlacesFromMetadata(purchase, metadata) {
   }
 }
 
+// ─── Žebříček trenérů podle načtených dětí ──────────────────────────────────
+// Počítá se každé dítě zapsané na tréninku (čip i ruční zápis) ze
+// child_attendance_records; trenér se pozná z id session v záznamu
+// (coach-session-<uuid>-…). Nejlepší trenér měsíce dostane k výplatě bonus,
+// při shodě ho dostanou všichni se stejným počtem.
+const ATTENDANCE_LEADERBOARD_BONUS_CZK = 300;
+
+function coachIdFromSessionId(sessionId) {
+  const match = /^coach-session-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-/i.exec(String(sessionId || ''));
+  return match ? match[1].toLowerCase() : null;
+}
+
+function monthBounds(monthKey) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(monthKey || ''));
+  const now = new Date();
+  const year = match ? Number(match[1]) : now.getUTCFullYear();
+  const month = match ? Number(match[2]) : now.getUTCMonth() + 1;
+  const pad = (n) => String(n).padStart(2, '0');
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return { key: `${year}-${pad(month)}`, periodStart: `${year}-${pad(month)}-01`, periodEnd: `${year}-${pad(month)}-${pad(lastDay)}` };
+}
+
+async function coachAttendanceLeaderboard(orgId, periodStart, periodEnd) {
+  const { data: rows, error } = await supabase
+    .from('child_attendance_records')
+    .select('id,session_id,attendees,created_at')
+    .eq('org_id', orgId)
+    .gte('created_at', `${periodStart}T00:00:00.000Z`)
+    .lte('created_at', `${periodEnd}T23:59:59.999Z`);
+  if (error) throw error;
+
+  const counts = new Map();
+  const lessons = new Map();
+  for (const row of rows || []) {
+    const coachId = coachIdFromSessionId(row.session_id);
+    if (!coachId) continue;
+    const children = Array.isArray(row.attendees) ? row.attendees.filter((item) => item && item.name).length : 0;
+    counts.set(coachId, (counts.get(coachId) || 0) + children);
+    lessons.set(coachId, (lessons.get(coachId) || 0) + 1);
+  }
+
+  const coachIds = Array.from(counts.keys());
+  let profiles = [];
+  let coachRows = [];
+  if (coachIds.length > 0) {
+    const [profilesResult, coachResult] = await Promise.all([
+      supabase.from('app_profiles').select('id,name').in('id', coachIds),
+      supabase.from('coach_profiles').select('id,profile_photo_url').in('id', coachIds),
+    ]);
+    if (profilesResult.error) throw profilesResult.error;
+    if (coachResult.error) throw coachResult.error;
+    profiles = profilesResult.data || [];
+    coachRows = coachResult.data || [];
+  }
+  const nameById = new Map(profiles.map((row) => [String(row.id).toLowerCase(), row.name]));
+  const photoById = new Map(coachRows.map((row) => [String(row.id).toLowerCase(), row.profile_photo_url]));
+
+  const sorted = coachIds
+    .map((coachId) => ({ coachId, name: nameById.get(coachId) || 'Trenér', photoUrl: photoById.get(coachId) || null, children: counts.get(coachId) || 0, lessons: lessons.get(coachId) || 0 }))
+    .sort((a, b) => b.children - a.children || a.name.localeCompare(b.name, 'cs'));
+  const top = sorted.length > 0 ? sorted[0].children : 0;
+
+  let rank = 0;
+  let previous = null;
+  const entries = sorted.map((entry, index) => {
+    if (entry.children !== previous) { rank = index + 1; previous = entry.children; }
+    const isWinner = top > 0 && entry.children === top;
+    return { ...entry, rank, isWinner, bonus: isWinner ? ATTENDANCE_LEADERBOARD_BONUS_CZK : 0 };
+  });
+  return { entries, bonus: ATTENDANCE_LEADERBOARD_BONUS_CZK, topCount: top };
+}
+
+async function attendanceLeaderboardBonusForCoach(coachId, periodStart, periodEnd) {
+  const { data: coachProfile } = await supabase
+    .from('coach_profiles')
+    .select('org_id')
+    .eq('id', coachId)
+    .maybeSingle();
+  const orgId = coachProfile?.org_id || VYS_ORG_ID;
+  const { entries } = await coachAttendanceLeaderboard(orgId, periodStart, periodEnd);
+  const me = entries.find((entry) => entry.coachId === String(coachId).toLowerCase());
+  return me && me.isWinner ? me.bonus : 0;
+}
+
+// Veřejný žebříček (kdokoliv přihlášený v organizaci: rodič, dítě, trenér, koordinátor, admin).
+app.get('/api/leaderboard/coach-attendance', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAuthenticatedProfile(request);
+  const orgId = profile.org_id || VYS_ORG_ID;
+  const period = monthBounds(optionalString(request.query.month));
+  const board = await coachAttendanceLeaderboard(orgId, period.periodStart, period.periodEnd);
+  response.json({ period, ...board });
+}));
+
 async function calculateTrainerPayoutAmount(coachId, periodStart, periodEnd) {
   const [attendanceResult, adjustmentsResult, payoutResult] = await Promise.all([
     supabase
@@ -1737,8 +1831,10 @@ async function calculateTrainerPayoutAmount(coachId, periodStart, periodEnd) {
   const attendanceAmount = (attendanceResult.data || []).reduce((sum, record) => sum + Number(record.amount || 0), 0);
   const adjustmentAmount = (adjustmentsResult.data || []).reduce((sum, record) => sum + Number(record.amount || 0), 0);
   const approvedBonuses = Number(payoutResult.data?.approved_bonuses || 0);
+  // Bonus za nejvíc načtených dětí v období — přičte se automaticky, admin nic neklikne.
+  const leaderboardBonus = await attendanceLeaderboardBonusForCoach(coachId, periodStart, periodEnd);
 
-  return Math.round(attendanceAmount + adjustmentAmount + approvedBonuses);
+  return Math.round(attendanceAmount + adjustmentAmount + approvedBonuses + leaderboardBonus);
 }
 
 app.get('/health', (_request, response) => {
