@@ -7374,6 +7374,22 @@ app.post('/api/admin/coordinators/:id/payouts', asyncRoute(async (request, respo
   response.status(201).json({ payout: data });
 }));
 
+// Odvolání zaznamenané výplaty koordinátora — toggle Vyplaceno/Nevyplaceno
+// v měsíční tabulce (překlep nebo omylem označený měsíc).
+app.delete('/api/admin/coordinator-payouts/:payoutId', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const payoutId = requiredString(request.params.payoutId, 'payout id');
+  const { error } = await supabase
+    .from('coordinator_payouts')
+    .delete()
+    .eq('id', payoutId)
+    .eq('org_id', orgId);
+  if (error) throw error;
+  response.json({ ok: true });
+}));
+
 // ============================================================================
 // Multi-tenant SaaS (Phase 5): organization registration + subscription billing
 // ============================================================================
