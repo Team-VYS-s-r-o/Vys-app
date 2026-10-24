@@ -6272,7 +6272,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
 
   const { data: tasks, error: tasksError } = await supabase
     .from('coordinator_tasks')
-    .select('id,title,done,due_date,created_at')
+    .select('id,title,done,due_date,created_at,city,phase,template_key')
     .eq('coordinator_id', coordinator.id)
     .order('created_at', { ascending: false });
   if (tasksError) throw tasksError;
@@ -6390,6 +6390,74 @@ app.patch('/api/coordinator/profile', asyncRoute(async (request, response) => {
   response.json({ ok: true });
 }));
 
+// ─── Plán rozjezdu nového města ──────────────────────────────────────────────
+// Osvědčený postup (sepsal koordinátor Pavel Novák, říjen 2026) jako živý
+// checklist v Úkolníčku: 6 fází od průzkumu trhu po vyhodnocení. Appka k
+// jednotlivým krokům ukazuje nápovědu a odkazy podle template_key.
+const NEW_CITY_PLAN_TEMPLATE = [
+  { phase: 1, key: 'research_city', title: 'Zmapovat město a spádové obce' },
+  { phase: 1, key: 'research_competition', title: 'Zjistit konkurenci — co už ve městě funguje' },
+  { phase: 1, key: 'research_ad_test', title: 'Ověřit zájem rodičů reklamou' },
+  { phase: 2, key: 'venue_contact', title: 'Oslovit školy, Sokol a sportovní haly' },
+  { phase: 2, key: 'venue_terms', title: 'Domluvit cenu, termíny a nářadí' },
+  { phase: 2, key: 'venue_contract', title: 'Poslat smlouvu s tělocvičnou adminovi' },
+  { phase: 2, key: 'venue_flyers_deal', title: 'Domluvit letáky do škol a družin' },
+  { phase: 3, key: 'coach_find', title: 'Najít trenéry v místě' },
+  { phase: 3, key: 'coach_training', title: 'Proškolit trenéry' },
+  { phase: 3, key: 'coach_schedule', title: 'Sestavit rozvrh a přiřadit trenéry' },
+  { phase: 4, key: 'launch_proposal', title: 'Navrhnout kroužek v aplikaci (sběr zájmu)' },
+  { phase: 4, key: 'launch_flyers', title: 'Vytisknout a roznést letáky' },
+  { phase: 4, key: 'launch_capacity', title: 'Hlídat naplněnost skupin' },
+  { phase: 5, key: 'open_demo', title: 'Uspořádat ukázkovou lekci zdarma' },
+  { phase: 5, key: 'open_parents', title: 'Odpovídat rodičům na dotazy' },
+  { phase: 5, key: 'open_quality', title: 'Navštívit první tréninky osobně' },
+  { phase: 6, key: 'eval_profit', title: 'Spočítat rentabilitu skupiny' },
+  { phase: 6, key: 'eval_feedback', title: 'Posbírat zpětnou vazbu a upravit časy' },
+];
+
+app.post('/api/coordinator/tasks/city-plan', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const city = requiredString(request.body.city, 'město').slice(0, 60);
+
+  const { data: existing, error: existingError } = await supabase
+    .from('coordinator_tasks')
+    .select('id')
+    .eq('coordinator_id', coordinator.id)
+    .eq('city', city)
+    .limit(1);
+  if (existingError) throw existingError;
+  if (existing && existing.length > 0) throw httpError(`Plán pro město ${city} už máš založený.`, 409);
+
+  const rows = NEW_CITY_PLAN_TEMPLATE.map((item) => ({
+    coordinator_id: coordinator.id,
+    org_id: coordinator.orgId,
+    title: item.title,
+    city,
+    phase: item.phase,
+    template_key: item.key,
+  }));
+  const { data, error } = await supabase
+    .from('coordinator_tasks')
+    .insert(rows)
+    .select('id,title,done,due_date,created_at,city,phase,template_key');
+  if (error) throw error;
+  response.status(201).json({ tasks: data || [] });
+}));
+
+app.delete('/api/coordinator/tasks/city-plan', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  const city = requiredString(request.query.city, 'město');
+  const { error } = await supabase
+    .from('coordinator_tasks')
+    .delete()
+    .eq('coordinator_id', coordinator.id)
+    .eq('city', city);
+  if (error) throw error;
+  response.json({ ok: true });
+}));
+
 app.post('/api/coordinator/tasks', asyncRoute(async (request, response) => {
   requireServices();
   const coordinator = await requireCoordinator(request);
@@ -6397,7 +6465,7 @@ app.post('/api/coordinator/tasks', asyncRoute(async (request, response) => {
   const { data, error } = await supabase
     .from('coordinator_tasks')
     .insert({ coordinator_id: coordinator.id, org_id: coordinator.orgId, title, due_date: optionalString(request.body.dueDate) })
-    .select('id,title,done,due_date,created_at')
+    .select('id,title,done,due_date,created_at,city,phase,template_key')
     .single();
   if (error) throw error;
   response.status(201).json({ task: data });
@@ -6415,7 +6483,7 @@ app.patch('/api/coordinator/tasks/:id', asyncRoute(async (request, response) => 
     .update(patch)
     .eq('id', id)
     .eq('coordinator_id', coordinator.id)
-    .select('id,title,done,due_date,created_at')
+    .select('id,title,done,due_date,created_at,city,phase,template_key')
     .single();
   if (error) throw error;
   response.json({ task: data });
