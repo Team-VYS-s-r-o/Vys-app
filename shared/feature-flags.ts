@@ -27,7 +27,13 @@ export type FeatureFlagKey =
   // Koordinátor vidí hodnocení tréninků od trenérů (admin může vypnout).
   | 'coordinator_training_ratings'
   // Koordinátor vidí porovnání návštěvnosti kroužků svého kraje (admin může vypnout).
-  | 'coordinator_attendance_stats';
+  | 'coordinator_attendance_stats'
+  // Ruční zápis docházky nepřidá dítěti klubíčka — motivace nosit NFC kartičku.
+  | 'attendance_coins_nfc_only'
+  // Rodič dostane e-mail, když dítě přišlo bez NFC kartičky a zapsalo se ručně.
+  | 'attendance_forgot_card_email'
+  // Permanentka odchozená celá přes NFC dostane jeden bonusový vstup zdarma.
+  | 'attendance_nfc_bonus_entry';
 
 export type FeatureFlags = Record<FeatureFlagKey, boolean> & { org_type: OrgType };
 
@@ -51,6 +57,9 @@ export const VYS_FEATURE_FLAGS: FeatureFlags = {
   coordinator_forgotten_attendance: true,
   coordinator_training_ratings: true,
   coordinator_attendance_stats: true,
+  attendance_coins_nfc_only: true,
+  attendance_forgot_card_email: true,
+  attendance_nfc_bonus_entry: true,
 };
 
 export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
@@ -73,6 +82,9 @@ export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
   coordinator_forgotten_attendance: true,
   coordinator_training_ratings: true,
   coordinator_attendance_stats: true,
+  attendance_coins_nfc_only: false,
+  attendance_forgot_card_email: false,
+  attendance_nfc_bonus_entry: false,
 };
 
 /** Parse a raw feature_flags jsonb value; unknown/missing keys fall back to org-type defaults. */

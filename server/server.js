@@ -1713,7 +1713,23 @@ async function applyExtraPlacesFromMetadata(purchase, metadata) {
 // child_attendance_records; trenér se pozná z id session v záznamu
 // (coach-session-<uuid>-…). Nejlepší trenér měsíce dostane k výplatě bonus,
 // při shodě ho dostanou všichni se stejným počtem.
-const ATTENDANCE_LEADERBOARD_BONUS_CZK = 300;
+const ATTENDANCE_LEADERBOARD_BONUS_CZK = 300; // default, org může změnit (coach_attendance_bonus_czk)
+
+async function orgFeatureFlags(orgId) {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('feature_flags')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.feature_flags && typeof data.feature_flags === 'object' ? data.feature_flags : {};
+}
+
+async function orgAttendanceBonusCzk(orgId) {
+  const flags = await orgFeatureFlags(orgId);
+  const raw = Number(flags.coach_attendance_bonus_czk);
+  return Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : ATTENDANCE_LEADERBOARD_BONUS_CZK;
+}
 
 function coachIdFromSessionId(sessionId) {
   const match = /^coach-session-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-/i.exec(String(sessionId || ''));
@@ -1731,6 +1747,7 @@ function monthBounds(monthKey) {
 }
 
 async function coachAttendanceLeaderboard(orgId, periodStart, periodEnd) {
+  const bonusCzk = await orgAttendanceBonusCzk(orgId);
   const { data: rows, error } = await supabase
     .from('child_attendance_records')
     .select('id,session_id,attendees,created_at')
@@ -1775,9 +1792,9 @@ async function coachAttendanceLeaderboard(orgId, periodStart, periodEnd) {
   const entries = sorted.map((entry, index) => {
     if (entry.children !== previous) { rank = index + 1; previous = entry.children; }
     const isWinner = top > 0 && entry.children === top;
-    return { ...entry, rank, isWinner, bonus: isWinner ? ATTENDANCE_LEADERBOARD_BONUS_CZK : 0 };
+    return { ...entry, rank, isWinner, bonus: isWinner ? bonusCzk : 0 };
   });
-  return { entries, bonus: ATTENDANCE_LEADERBOARD_BONUS_CZK, topCount: top };
+  return { entries, bonus: bonusCzk, topCount: top };
 }
 
 async function attendanceLeaderboardBonusForCoach(coachId, periodStart, periodEnd) {
@@ -2644,6 +2661,188 @@ app.get('/api/coordinator/training-ratings', asyncRoute(async (request, response
 // ─── E-mail rodiči po naskenování zvládnutého triku ──────────────────────────
 // Appka to volá best-effort po úspěšném claimu. Idempotence přes deterministické
 // id v parent_notifications (trik + dítě) — e-mail odejde jen při prvním zápisu.
+// ─── Zapomenutá NFC kartička → e-mail rodiči ─────────────────────────────────
+// Trenér dítě zapsal ručně. Pokud má dítě spárovanou fyzickou kartičku a org
+// má funkci zapnutou, rodiči odejde e-mail „doneste ji příště" (max 1× denně).
+app.post('/api/notifications/forgot-card', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireStaff(request);
+
+  const participantId = requiredString(request.body.participantId, 'participantId');
+  const location = optionalString(request.body.location) || 'Trénink';
+
+  const { data: participant, error: participantError } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,parent_profile_id,org_id,active_course')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (participantError) throw participantError;
+  if (!participant) throw httpError('Účastník nenalezen.', 404);
+
+  const orgId = participant.org_id || VYS_ORG_ID;
+  const flags = await orgFeatureFlags(orgId);
+  if (flags.attendance_forgot_card_email !== true) {
+    response.json({ ok: true, sent: false, reason: 'disabled' });
+    return;
+  }
+
+  // Jen děti se spárovanou fyzickou kartičkou — dítě s převedenou papírovou
+  // permanentkou (NFC-MANUAL-*) žádnou kartu nemá, nemá co zapomenout.
+  const { data: passes, error: passError } = await supabase
+    .from('digital_passes')
+    .select('id,nfc_chip_id')
+    .eq('participant_id', participant.id);
+  if (passError) throw passError;
+  const hasPhysicalChip = (passes || []).some((pass) => pass.nfc_chip_id && !/^(NFC|QR)-/i.test(String(pass.nfc_chip_id).trim()));
+  if (!hasPhysicalChip) {
+    response.json({ ok: true, sent: false, reason: 'no-physical-card' });
+    return;
+  }
+
+  const participantName = `${participant.first_name || ''} ${participant.last_name || ''}`.trim() || 'Dítě';
+  const now = new Date();
+  const dayKey = now.toISOString().slice(0, 10);
+  const createdAtText = `${now.toLocaleDateString('cs-CZ')} ${now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`;
+
+  // Idempotence: 1 upozornění na dítě a den (řádek v centru oznámení = zámek).
+  const { data: inserted, error: notifError } = await supabase
+    .from('parent_notifications')
+    .upsert({
+      id: `forgot-card-${participant.id}-${dayKey}`,
+      participant_name: participantName,
+      participant_id: participant.id,
+      parent_profile_id: participant.parent_profile_id || null,
+      org_id: orgId,
+      location,
+      method: 'Kartička',
+      text: `${participantName} dnes neměl(a) NFC kartičku — zapsali jsme docházku ručně. Příště ji prosím přibalte.`,
+      created_at_text: createdAtText,
+      created_at: now.toISOString(),
+    }, { onConflict: 'id', ignoreDuplicates: true })
+    .select('id');
+  if (notifError) throw notifError;
+  if (!inserted || inserted.length === 0) {
+    response.json({ ok: true, sent: false, reason: 'already-notified' });
+    return;
+  }
+
+  const to = await profileReceiptEmail(participant.parent_profile_id, null);
+  const emailer = paymentEmailer();
+  if (!to || !emailer) {
+    response.json({ ok: true, sent: false, reason: to ? 'smtp-not-configured' : 'no-parent-email' });
+    return;
+  }
+
+  const coinsOn = flags.attendance_coins_nfc_only === true;
+  const bonusOn = flags.attendance_nfc_bonus_entry === true;
+  const motivationBits = [];
+  if (coinsOn) motivationBits.push('za vstup načtený kartičkou sbírá v aplikaci klubíčka na maskoty');
+  if (bonusOn) motivationBits.push('permanentka odchozená celá přes kartičku dostane jeden vstup navíc zdarma');
+  const motivationHtml = motivationBits.length > 0
+    ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3F3A52">A vyplatí se to i ${escapeHtml(participantName)}: ${escapeHtml(motivationBits.join(' a '))}.</p>`
+    : '';
+
+  const html = brandEmailHtml({
+    heading: 'NFC kartička zůstala doma 🪪',
+    intro: `<b>${escapeHtml(participantName)}</b> dnes přišel/přišla na trénink bez NFC kartičky, docházku jsme proto zapsali ručně. Prosíme, přibalte ji příště s sebou — pípnutí na začátku tréninku nám docházku hodně urychlí.`,
+    rows: [
+      ['Trénink', location],
+      ['Kdy', createdAtText],
+    ],
+    extraHtml: motivationHtml,
+    outro: 'Děkujeme, že na kartičku myslíte.',
+  });
+
+  try {
+    await emailer.sendMail({ from: smtpFrom, to, subject: `${participantName} dnes zapomněl(a) NFC kartičku`, html });
+    response.json({ ok: true, sent: true });
+  } catch (mailError) {
+    console.error('Forgot-card email failed:', mailError?.message || mailError);
+    response.json({ ok: true, sent: false, reason: 'smtp-error' });
+  }
+}));
+
+// ─── Bonusový vstup za permanentku odchozenou celou přes NFC ─────────────────
+// Bonus přidělila scan RPC (bonus_entry_granted); tady se jen oznamuje rodiči.
+// Údaje se berou z DB, ne z klienta — passId jen ukazuje, o kterou kartu jde.
+app.post('/api/notifications/nfc-bonus-entry', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireStaff(request);
+
+  const passId = requiredString(request.body.passId, 'passId');
+  const { data: pass, error: passError } = await supabase
+    .from('digital_passes')
+    .select('id,participant_id,holder_name,title,location,total_entries,used_entries,org_id,bonus_entry_granted,manual_entries')
+    .eq('id', passId)
+    .maybeSingle();
+  if (passError) throw passError;
+  if (!pass || !pass.bonus_entry_granted) {
+    response.json({ ok: true, sent: false, reason: 'no-bonus' });
+    return;
+  }
+
+  const { data: participant } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,parent_profile_id,org_id')
+    .eq('id', pass.participant_id)
+    .maybeSingle();
+  const participantName = `${participant?.first_name || ''} ${participant?.last_name || ''}`.trim() || pass.holder_name || 'Dítě';
+  const orgId = pass.org_id || participant?.org_id || VYS_ORG_ID;
+  const now = new Date();
+  const createdAtText = `${now.toLocaleDateString('cs-CZ')} ${now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`;
+
+  const { data: inserted, error: notifError } = await supabase
+    .from('parent_notifications')
+    .upsert({
+      id: `nfc-bonus-${pass.id}`,
+      participant_name: participantName,
+      participant_id: pass.participant_id,
+      parent_profile_id: participant?.parent_profile_id || null,
+      org_id: orgId,
+      location: pass.location || 'Trénink',
+      method: 'Bonus',
+      text: `🎉 ${participantName} odchodil(a) celou permanentku s NFC kartičkou — přidali jsme jeden vstup zdarma!`,
+      created_at_text: createdAtText,
+      created_at: now.toISOString(),
+    }, { onConflict: 'id', ignoreDuplicates: true })
+    .select('id');
+  if (notifError) throw notifError;
+  if (!inserted || inserted.length === 0) {
+    response.json({ ok: true, sent: false, reason: 'already-notified' });
+    return;
+  }
+
+  if (participant?.parent_profile_id) {
+    void sendExpoPushToProfiles([participant.parent_profile_id], 'Vstup zdarma! 🎉', `${participantName} nezapomněl(a) NFC kartičku ani jednou — permanentka má teď jeden vstup navíc.`);
+  }
+
+  const to = await profileReceiptEmail(participant?.parent_profile_id, null);
+  const emailer = paymentEmailer();
+  if (!to || !emailer) {
+    response.json({ ok: true, sent: false, reason: to ? 'smtp-not-configured' : 'no-parent-email' });
+    return;
+  }
+
+  const html = brandEmailHtml({
+    heading: 'Vstup zdarma za vzornou kartičku 🎉',
+    intro: `<b>${escapeHtml(participantName)}</b> odchodil(a) celou permanentku a pokaždé měl(a) s sebou NFC kartičku. Jako poděkování jsme na permanentku přidali <b>jeden vstup zdarma</b>.`,
+    rows: [
+      ['Permanentka', pass.title || 'Permanentka'],
+      ['Kroužek', pass.location || '—'],
+      ['Vstupů teď', `${pass.used_entries}/${pass.total_entries} (bonus započten)`],
+    ],
+    outro: 'Jen tak dál! 💪',
+  });
+
+  try {
+    await emailer.sendMail({ from: smtpFrom, to, subject: `🎉 ${participantName} má vstup zdarma za NFC kartičku`, html });
+    response.json({ ok: true, sent: true });
+  } catch (mailError) {
+    console.error('NFC bonus email failed:', mailError?.message || mailError);
+    response.json({ ok: true, sent: false, reason: 'smtp-error' });
+  }
+}));
+
 app.post('/api/notifications/trick-learned', asyncRoute(async (request, response) => {
   requireServices();
   await requireAuthenticatedProfile(request);
@@ -6731,15 +6930,28 @@ app.patch('/api/admin/coordinators/:id/permissions', asyncRoute(async (request, 
 
 // Per-org přepínače funkcí (organizations.feature_flags). Jen whitelistované klíče,
 // aby admin externí organizace nemohl zapínat VYS-only gamifikaci.
-const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set(['coordinator_forgotten_attendance', 'coordinator_training_ratings', 'coordinator_attendance_stats']);
+const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set([
+  'coordinator_forgotten_attendance', 'coordinator_training_ratings', 'coordinator_attendance_stats',
+  // Motivace nosit NFC kartičku — každá organizace si vybere, co chce.
+  'attendance_coins_nfc_only', 'attendance_forgot_card_email', 'attendance_nfc_bonus_entry',
+]);
+// Číselná nastavení v témže jsonb (0 = funkce vypnutá, zůstane jen žebříček).
+const ADMIN_NUMERIC_FEATURE_SETTINGS = new Set(['coach_attendance_bonus_czk']);
 
 app.patch('/api/admin/feature-flags', asyncRoute(async (request, response) => {
   requireServices();
   const profile = await requireAdmin(request);
   const orgId = await adminOrgId(profile);
   const key = requiredString(request.body.key, 'key');
-  if (!ADMIN_TOGGLABLE_FEATURE_FLAGS.has(key)) throw httpError('Tenhle přepínač nelze měnit.', 400);
-  if (typeof request.body.enabled !== 'boolean') throw httpError('enabled musí být true/false.', 400);
+  const isNumeric = ADMIN_NUMERIC_FEATURE_SETTINGS.has(key);
+  if (!isNumeric && !ADMIN_TOGGLABLE_FEATURE_FLAGS.has(key)) throw httpError('Tenhle přepínač nelze měnit.', 400);
+  let numericValue = null;
+  if (isNumeric) {
+    numericValue = Math.round(Number(request.body.value));
+    if (!Number.isFinite(numericValue) || numericValue < 0 || numericValue > 100000) throw httpError('Hodnota musí být číslo 0–100000.', 400);
+  } else if (typeof request.body.enabled !== 'boolean') {
+    throw httpError('enabled musí být true/false.', 400);
+  }
 
   const { data: org, error: orgError } = await supabase
     .from('organizations')
@@ -6749,7 +6961,7 @@ app.patch('/api/admin/feature-flags', asyncRoute(async (request, response) => {
   if (orgError) throw orgError;
   if (!org) throw httpError('Organizace nenalezena.', 404);
 
-  const featureFlags = { ...(org.feature_flags && typeof org.feature_flags === 'object' ? org.feature_flags : {}), [key]: request.body.enabled };
+  const featureFlags = { ...(org.feature_flags && typeof org.feature_flags === 'object' ? org.feature_flags : {}), [key]: isNumeric ? numericValue : request.body.enabled };
   const { error: updateError } = await supabase.from('organizations').update({ feature_flags: featureFlags }).eq('id', orgId);
   if (updateError) throw updateError;
   response.json({ ok: true, featureFlags });
