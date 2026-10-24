@@ -5454,7 +5454,7 @@ async function requireCoordinator(request) {
 
 // Per-koordinátorská oprávnění (nastavuje admin): jiné organizace nemusí chtít,
 // aby koordinátor viděl finance, osobní údaje dětí nebo údaje trenérů.
-const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data', 'forgotten_attendance', 'training_ratings', 'attendance_stats'];
+const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data', 'forgotten_attendance', 'training_ratings', 'attendance_stats', 'broadcasts'];
 function normalizeCoordinatorPermissions(raw) {
   const permissions = {};
   for (const key of COORDINATOR_PERMISSION_KEYS) {
@@ -5630,6 +5630,152 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
     finance: { revenue, coachCost, invoiceCost, net, percent, commissionEnabled, commission, paidOut, owed },
   };
 }
+
+// ─── Zprávy od koordinátora rodičům a trenérům v jeho kraji ─────────────────
+// Stejný mechanismus jako admin broadcast (centrum oznámení v appce + push),
+// jen příjemci jsou omezení na kraj koordinátora a funkce se dá vypnout
+// v adminu (oprávnění `broadcasts`).
+async function coordinatorRegionRecipients(coordinator) {
+  const financeData = await computeRegionFinance(coordinator.orgId, coordinator.region, coordinator.percent, coordinator.id, coordinator.commissionEnabled !== false);
+  const products = financeData.products || [];
+  const placesList = Array.from(new Set(products.map((product) => product.place).filter(Boolean)));
+
+  // Rodiče: děti zapsané na místa kraje → jejich rodičovské profily.
+  let parents = [];
+  if (placesList.length > 0) {
+    const cols = 'id,first_name,last_name,active_course,parent_profile_id,paid_status';
+    const [primaryRes, extraRes] = await Promise.all([
+      supabase.from('participants').select(cols).in('active_course', placesList),
+      supabase.from('participants').select(cols).overlaps('extra_courses', placesList),
+    ]);
+    if (primaryRes.error) throw primaryRes.error;
+    if (extraRes.error) throw extraRes.error;
+    const children = new Map();
+    for (const row of [...(primaryRes.data || []), ...(extraRes.data || [])]) {
+      if (!row.parent_profile_id || children.has(row.id)) continue;
+      children.set(row.id, row);
+    }
+    const parentIds = Array.from(new Set(Array.from(children.values()).map((row) => row.parent_profile_id)));
+    if (parentIds.length > 0) {
+      // Jen rodiče, kteří jsou členy téhle organizace.
+      const [profilesRes, membersRes] = await Promise.all([
+        supabase.from('app_profiles').select('id,name').in('id', parentIds),
+        supabase.from('organization_members').select('profile_id').eq('org_id', coordinator.orgId).eq('role', 'parent').in('profile_id', parentIds),
+      ]);
+      if (profilesRes.error) throw profilesRes.error;
+      if (membersRes.error) throw membersRes.error;
+      const memberSet = new Set((membersRes.data || []).map((row) => row.profile_id));
+      const nameById = new Map((profilesRes.data || []).map((row) => [row.id, row.name]));
+      const byParent = new Map();
+      for (const child of children.values()) {
+        if (!memberSet.has(child.parent_profile_id)) continue;
+        const entry = byParent.get(child.parent_profile_id) || { id: child.parent_profile_id, name: nameById.get(child.parent_profile_id) || 'Rodič', children: [] };
+        entry.children.push({ name: `${child.first_name || ''} ${child.last_name || ''}`.trim(), course: child.active_course || '', unpaid: child.paid_status === 'due' });
+        byParent.set(child.parent_profile_id, entry);
+      }
+      parents = Array.from(byParent.values()).sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+    }
+  }
+
+  // Trenéři kraje — stejná logika jako v přehledu koordinátora.
+  const { data: coachProfiles, error: coachError } = await supabase
+    .from('coach_profiles')
+    .select('id,org_id,approval_status,assigned_courses')
+    .eq('approval_status', 'approved');
+  if (coachError) throw coachError;
+  const regionPlaceSet = new Set(placesList);
+  const regionCoachIdSet = new Set();
+  for (const product of products) for (const coachId of product.coach_ids || []) regionCoachIdSet.add(coachId);
+  for (const coach of coachProfiles || []) {
+    if ((coach.org_id || VYS_ORG_ID) !== coordinator.orgId) continue;
+    if ((coach.assigned_courses || []).some((course) => regionPlaceSet.has(course))) regionCoachIdSet.add(coach.id);
+  }
+  for (const record of financeData.attendance || []) if (record.coach_id) regionCoachIdSet.add(record.coach_id);
+  const orgCoachIdSet = new Set((coachProfiles || []).filter((coach) => (coach.org_id || VYS_ORG_ID) === coordinator.orgId).map((coach) => coach.id));
+  const coachIds = Array.from(regionCoachIdSet).filter((coachId) => orgCoachIdSet.has(coachId));
+  let coaches = [];
+  if (coachIds.length > 0) {
+    const { data: coachRows, error } = await supabase.from('app_profiles').select('id,name').in('id', coachIds);
+    if (error) throw error;
+    coaches = (coachRows || []).map((row) => {
+      const places = new Set();
+      for (const product of products) if ((product.coach_ids || []).includes(row.id) && product.place) places.add(product.place);
+      return { id: row.id, name: row.name || 'Trenér', places: Array.from(places) };
+    }).sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  }
+
+  return { parents, coaches, places: placesList };
+}
+
+app.get('/api/coordinator/broadcasts', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  if (!coordinator.permissions.broadcasts) {
+    response.json({ disabled: true, parents: [], coaches: [], places: [], history: [] });
+    return;
+  }
+  const recipients = await coordinatorRegionRecipients(coordinator);
+  const [parentHistory, coachHistory] = await Promise.all([
+    supabase.from('parent_broadcasts').select('id,title,body,audience,recipient_count,created_at').eq('sender_id', coordinator.id).order('created_at', { ascending: false }).limit(30),
+    supabase.from('coach_broadcasts').select('id,title,body,audience,recipient_count,created_at').eq('sender_id', coordinator.id).order('created_at', { ascending: false }).limit(30),
+  ]);
+  if (parentHistory.error) throw parentHistory.error;
+  if (coachHistory.error) throw coachHistory.error;
+  const history = [
+    ...(parentHistory.data || []).map((row) => ({ ...row, target: 'parents' })),
+    ...(coachHistory.data || []).map((row) => ({ ...row, target: 'coaches' })),
+  ].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  response.json({ disabled: false, ...recipients, history });
+}));
+
+app.post('/api/coordinator/broadcasts', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  if (!coordinator.permissions.broadcasts) throw httpError('Posílání zpráv ti admin vypnul.', 403);
+
+  const target = optionalString(request.body.target) === 'coaches' ? 'coaches' : 'parents';
+  const title = requiredString(request.body.title, 'title');
+  const body = requiredString(request.body.body, 'body');
+  const audience = optionalString(request.body.audience) === 'selected' ? 'selected' : 'all';
+  const requestedIds = Array.isArray(request.body.recipientIds)
+    ? Array.from(new Set(request.body.recipientIds.map((id) => optionalString(id)).filter(Boolean)))
+    : [];
+  if (requestedIds.length === 0) throw httpError('Vyber aspoň jednoho příjemce.', 400);
+
+  // SECURITY: koordinátor smí psát jen lidem ze svého kraje — každé id se
+  // ověří proti seznamu, který server sám sestavil.
+  const recipients = await coordinatorRegionRecipients(coordinator);
+  const allowed = new Set((target === 'coaches' ? recipients.coaches : recipients.parents).map((row) => row.id));
+  const recipientIds = requestedIds.filter((id) => allowed.has(id));
+  if (recipientIds.length === 0) throw httpError('Žádný z vybraných příjemců nepatří do tvého kraje.', 403);
+
+  const senderName = coordinator.name ? `${coordinator.name} · koordinátor` : 'Koordinátor kraje';
+  const nowIso = new Date().toISOString();
+  const broadcastTable = target === 'coaches' ? 'coach_broadcasts' : 'parent_broadcasts';
+  const recipientTable = target === 'coaches' ? 'coach_broadcast_recipients' : 'parent_broadcast_recipients';
+  const recipientColumn = target === 'coaches' ? 'coach_profile_id' : 'parent_profile_id';
+
+  const { data: broadcast, error: broadcastError } = await supabase
+    .from(broadcastTable)
+    .insert({ org_id: coordinator.orgId, sender_id: coordinator.id, sender_name: senderName, title, body, audience, recipient_count: recipientIds.length, created_at: nowIso })
+    .select('id')
+    .single();
+  if (broadcastError) throw broadcastError;
+
+  const { error: recipientsError } = await supabase.from(recipientTable).insert(recipientIds.map((id) => ({
+    broadcast_id: broadcast.id,
+    org_id: coordinator.orgId,
+    [recipientColumn]: id,
+    title,
+    body,
+    sender_name: senderName,
+    created_at: nowIso,
+  })));
+  if (recipientsError) throw recipientsError;
+
+  const pushed = await sendExpoPushToProfiles(recipientIds, title, body);
+  response.status(201).json({ ok: true, broadcastId: broadcast.id, recipients: recipientIds.length, pushed, skipped: requestedIds.length - recipientIds.length });
+}));
 
 app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
   requireServices();
