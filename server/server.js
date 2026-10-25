@@ -8763,17 +8763,19 @@ async function botCatalogText() {
     const camps = [];
     const workshops = [];
     for (const row of products) {
-      const type = normalizeActivityType(row.type);
-      if (type === 'Kroužek') {
+      // normalizeActivityType vrací 'Krouzek' bez háčku a 'Tábor' nezná vůbec —
+      // tady normalizujeme sami, ať nabídka nezůstane prázdná.
+      const type = String(row.type || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      if (type.includes('krouzek')) {
         const baseId = String(row.id).replace(/-15$/, '');
         const group = courses.get(baseId) || { row: null, prices: [] };
         // Detaily (čas, kapacita) bereme ze základní varianty; -15 jen doplní cenu.
         if (!group.row || !String(row.id).endsWith('-15')) group.row = row;
         if (row.price) group.prices.push(`${row.entries_total || '?'} vstupů ${Math.round(row.price).toLocaleString('cs-CZ')} Kč`);
         courses.set(baseId, group);
-      } else if (type === 'Tábor') {
+      } else if (type.includes('tabor')) {
         camps.push(row);
-      } else if (type === 'Workshop') {
+      } else if (type.includes('workshop')) {
         workshops.push(row);
       }
     }
