@@ -8754,7 +8754,7 @@ async function botCatalogText() {
   try {
     const { data: rows, error } = await supabase
       .from('products')
-      .select('id,type,title,city,place,venue,price,price_label,entries_total,capacity_total,capacity_current,primary_meta,event_date,interest_mode,is_published,org_id')
+      .select('id,type,title,city,place,venue,price,price_label,entries_total,capacity_total,capacity_current,primary_meta,secondary_meta,event_date,interest_mode,is_published,org_id')
       .eq('is_published', true);
     if (error) throw error;
     const products = (rows || []).filter((row) => (row.org_id || VYS_ORG_ID) === VYS_ORG_ID);
@@ -8795,7 +8795,7 @@ async function botCatalogText() {
     if (camps.length === 0) lines.push('- aktuálně žádný vypsaný turnus (další se vypisují před prázdninami)');
     for (const row of camps) {
       const free = row.capacity_total > 0 ? Math.max(0, row.capacity_total - (row.capacity_current || 0)) : null;
-      lines.push(`- ${[row.title, [row.city, row.place].filter(Boolean).join(' · '), row.event_date, row.price ? `${Math.round(row.price).toLocaleString('cs-CZ')} Kč` : null, free !== null ? (free > 0 ? `volných míst ${free}` : 'PLNÁ KAPACITA') : null].filter(Boolean).join(' — ')}`);
+      lines.push(`- ${[row.title, [row.city, row.place].filter(Boolean).join(' · '), row.primary_meta, row.event_date, row.price ? `${Math.round(row.price).toLocaleString('cs-CZ')} Kč` : null, row.secondary_meta, free !== null ? (free > 0 ? `volných míst ${free}` : 'PLNÁ KAPACITA') : null, 'konkrétní turnusy v aplikaci a na teamvys.cz/tabory'].filter(Boolean).join(' — ')}`);
     }
     lines.push('WORKSHOPY:');
     if (workshops.length === 0) lines.push('- aktuálně žádný vypsaný workshop');
