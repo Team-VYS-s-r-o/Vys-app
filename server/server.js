@@ -2698,31 +2698,16 @@ app.post('/api/coach/rating-reward/claim', asyncRoute(async (request, response) 
   if (state.rewardCzk <= 0) throw httpError('Odměna za hodnocení není pro tvou organizaci zapnutá.', 403);
   if (state.claimableBundles < 1) throw httpError('Zatím nemáš plný teploměr — ohodnoť dalších pár tréninků.', 400);
 
-  const { error: claimError } = await supabase
-    .from('coach_rating_rewards')
-    .insert({ org_id: orgId, coach_id: profile.id, amount: state.rewardCzk, ratings_at_claim: state.totalRatings });
+  // Claim + přičtení do výplaty atomicky v jedné transakci (DB funkce) —
+  // bez ní uměl spadlý zápis výplaty nechat claim bez peněz.
+  const { data: claimResult, error: claimError } = await supabase.rpc('teamvys_claim_rating_reward', {
+    p_coach_id: profile.id,
+    p_org_id: orgId,
+    p_amount: state.rewardCzk,
+  });
   if (claimError) throw claimError;
-
-  // Bonus rovnou do schválených bonusů — výplata ho započte bez klikání admina.
-  const payoutId = `payout-${profile.id}-current`;
-  const { data: payoutRow, error: payoutReadError } = await supabase
-    .from('coach_payouts')
-    .select('id,approved_bonuses')
-    .eq('coach_id', profile.id)
-    .maybeSingle();
-  if (payoutReadError) throw payoutReadError;
-  if (payoutRow) {
-    const { error } = await supabase
-      .from('coach_payouts')
-      .update({ approved_bonuses: Number(payoutRow.approved_bonuses || 0) + state.rewardCzk })
-      .eq('id', payoutRow.id);
-    if (error) throw error;
-  } else {
-    const { error } = await supabase
-      .from('coach_payouts')
-      .insert({ id: payoutId, coach_id: profile.id, org_id: orgId, approved_bonuses: state.rewardCzk, status: 'active' });
-    if (error) throw error;
-  }
+  const claimRow = Array.isArray(claimResult) ? claimResult[0] : claimResult;
+  if (!claimRow?.ok) throw httpError('Zatím nemáš plný teploměr — ohodnoť dalších pár tréninků.', 400);
 
   const next = await coachRatingRewardState(profile.id, orgId);
   response.status(201).json({ ok: true, claimedCzk: state.rewardCzk, ...next });
