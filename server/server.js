@@ -4191,14 +4191,53 @@ app.post('/api/admin/broadcasts', asyncRoute(async (request, response) => {
   // Best-effort native push to each parent (no-op for parents without a device).
   const pushed = await sendExpoPushToProfiles(parentProfileIds, title, body);
 
+  // Push má jen zlomek rodičů (web verze token nemá — 26. 10. došly děti
+  // k zavřené tělocvičně). Volitelně proto zpráva odejde i e-mailem.
+  let emailed = 0;
+  if (request.body.sendEmail === true) {
+    emailed = await emailBroadcastToParents(parentProfileIds, title, body);
+  }
+
   response.status(201).json({
     ok: true,
     broadcastId: broadcast.id,
     recipients: parentProfileIds.length,
     pushed,
+    emailed,
     skipped: requestedParentProfileIds.length - parentProfileIds.length,
   });
 }));
+
+async function emailBroadcastToParents(parentProfileIds, title, body) {
+  const emailer = paymentEmailer();
+  if (!emailer || parentProfileIds.length === 0) return 0;
+  const { data: profiles, error } = await supabase
+    .from('app_profiles')
+    .select('email')
+    .in('id', parentProfileIds);
+  if (error) throw error;
+  const recipients = Array.from(new Set((profiles || []).map((row) => row.email).filter(Boolean)));
+  if (recipients.length === 0) return 0;
+
+  const html = brandEmailHtml({
+    heading: title,
+    intro: escapeHtml(body).replace(/\n/g, '<br/>'),
+    rows: [],
+    outro: 'Zprávu najdete i v aplikaci v centru oznámení.',
+  });
+
+  let sent = 0;
+  for (let i = 0; i < recipients.length; i += 40) {
+    const batch = recipients.slice(i, i + 40);
+    try {
+      await emailer.sendMail({ from: smtpFrom, to: smtpFrom, bcc: batch, subject: title, html });
+      sent += batch.length;
+    } catch (mailError) {
+      console.error('Broadcast email batch failed:', mailError?.message || mailError);
+    }
+  }
+  return sent;
+}
 
 
 app.get('/api/admin/broadcasts', asyncRoute(async (request, response) => {
