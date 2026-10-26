@@ -2653,6 +2653,107 @@ app.get('/api/coach/training-ratings', asyncRoute(async (request, response) => {
 }));
 
 // Admin: hodnocení tréninků za posledních 90 dní (graf v admin webu).
+// ─── Odměna za hodnocení tréninků (osobní teploměr trenéra) ──────────────────
+// Za každých 10 ohodnocených tréninků si trenér vyzvedne bonus; částku řídí
+// org (feature_flags.coach_rating_reward_czk, 0 = jen počítadlo). Vyzvednutí
+// přičte částku do coach_payouts.approved_bonuses → výplata ji započte sama.
+async function coachRatingRewardState(coachId, orgId) {
+  const flags = await orgFeatureFlags(orgId);
+  const raw = Number(flags.coach_rating_reward_czk);
+  const rewardCzk = Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : 0;
+
+  const [{ count: totalRatings, error: ratingsError }, { data: claims, error: claimsError }] = await Promise.all([
+    supabase.from('training_ratings').select('id', { count: 'exact', head: true }).eq('coach_id', coachId),
+    supabase.from('coach_rating_rewards').select('id,amount').eq('coach_id', coachId),
+  ]);
+  if (ratingsError) throw ratingsError;
+  if (claimsError) throw claimsError;
+
+  const total = totalRatings || 0;
+  const claimedBundles = (claims || []).length;
+  const claimedAmount = (claims || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const claimableBundles = Math.max(0, Math.floor(total / 10) - claimedBundles);
+  return {
+    rewardCzk,
+    totalRatings: total,
+    progress: total % 10,
+    claimedBundles,
+    claimedAmount,
+    claimableBundles,
+  };
+}
+
+app.get('/api/coach/rating-reward', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireCoach(request);
+  const state = await coachRatingRewardState(profile.id, profile.org_id || VYS_ORG_ID);
+  response.json(state);
+}));
+
+app.post('/api/coach/rating-reward/claim', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireCoach(request);
+  const orgId = profile.org_id || VYS_ORG_ID;
+  const state = await coachRatingRewardState(profile.id, orgId);
+  if (state.rewardCzk <= 0) throw httpError('Odměna za hodnocení není pro tvou organizaci zapnutá.', 403);
+  if (state.claimableBundles < 1) throw httpError('Zatím nemáš plný teploměr — ohodnoť dalších pár tréninků.', 400);
+
+  const { error: claimError } = await supabase
+    .from('coach_rating_rewards')
+    .insert({ org_id: orgId, coach_id: profile.id, amount: state.rewardCzk, ratings_at_claim: state.totalRatings });
+  if (claimError) throw claimError;
+
+  // Bonus rovnou do schválených bonusů — výplata ho započte bez klikání admina.
+  const payoutId = `payout-${profile.id}-current`;
+  const { data: payoutRow, error: payoutReadError } = await supabase
+    .from('coach_payouts')
+    .select('id,approved_bonuses')
+    .eq('coach_id', profile.id)
+    .maybeSingle();
+  if (payoutReadError) throw payoutReadError;
+  if (payoutRow) {
+    const { error } = await supabase
+      .from('coach_payouts')
+      .update({ approved_bonuses: Number(payoutRow.approved_bonuses || 0) + state.rewardCzk })
+      .eq('id', payoutRow.id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('coach_payouts')
+      .insert({ id: payoutId, coach_id: profile.id, org_id: orgId, approved_bonuses: state.rewardCzk, status: 'active' });
+    if (error) throw error;
+  }
+
+  const next = await coachRatingRewardState(profile.id, orgId);
+  response.status(201).json({ ok: true, claimedCzk: state.rewardCzk, ...next });
+}));
+
+// Počty hodnocení a vyzvednuté odměny per trenér — pro admin a koordinátorské panely.
+async function ratingRewardSummary(orgId, coachIds = null) {
+  let ratingsQuery = supabase.from('training_ratings').select('coach_id').eq('org_id', orgId);
+  let claimsQuery = supabase.from('coach_rating_rewards').select('coach_id,amount').eq('org_id', orgId);
+  if (coachIds && coachIds.length > 0) {
+    ratingsQuery = ratingsQuery.in('coach_id', coachIds);
+    claimsQuery = claimsQuery.in('coach_id', coachIds);
+  }
+  const [ratingsRes, claimsRes] = await Promise.all([ratingsQuery, claimsQuery]);
+  if (ratingsRes.error) throw ratingsRes.error;
+  if (claimsRes.error) throw claimsRes.error;
+  const byCoach = new Map();
+  for (const row of ratingsRes.data || []) {
+    const entry = byCoach.get(row.coach_id) || { coach_id: row.coach_id, total_ratings: 0, claimed_bundles: 0, claimed_amount: 0 };
+    entry.total_ratings += 1;
+    byCoach.set(row.coach_id, entry);
+  }
+  for (const row of claimsRes.data || []) {
+    const entry = byCoach.get(row.coach_id) || { coach_id: row.coach_id, total_ratings: 0, claimed_bundles: 0, claimed_amount: 0 };
+    entry.claimed_bundles += 1;
+    entry.claimed_amount += Number(row.amount || 0);
+    byCoach.set(row.coach_id, entry);
+  }
+  return Array.from(byCoach.values());
+}
+
 app.get('/api/admin/training-ratings', asyncRoute(async (request, response) => {
   requireServices();
   const profile = await requireAdmin(request);
@@ -2666,7 +2767,8 @@ app.get('/api/admin/training-ratings', asyncRoute(async (request, response) => {
     .gte('rating_date', since)
     .order('rating_date', { ascending: true });
   if (error) throw error;
-  response.json({ ratings: data || [] });
+  const rewards = await ratingRewardSummary(orgId);
+  response.json({ ratings: data || [], rewards });
 }));
 
 // Koordinátor: hodnocení jen z míst jeho kraje. Admin funkci vypíná
@@ -2700,7 +2802,9 @@ app.get('/api/coordinator/training-ratings', asyncRoute(async (request, response
     .in('place', regionPlaces)
     .order('rating_date', { ascending: true });
   if (error) throw error;
-  response.json({ ratings: data || [] });
+  const coachIds = Array.from(new Set((data || []).map((row) => row.coach_id).filter(Boolean)));
+  const rewards = coachIds.length > 0 ? await ratingRewardSummary(coordinator.orgId, coachIds) : [];
+  response.json({ ratings: data || [], rewards });
 }));
 
 // ─── E-mail rodiči po naskenování zvládnutého triku ──────────────────────────
@@ -7304,7 +7408,7 @@ const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set([
   'coordinator_city_research',
 ]);
 // Číselná nastavení v témže jsonb (0 = funkce vypnutá, zůstane jen žebříček).
-const ADMIN_NUMERIC_FEATURE_SETTINGS = new Set(['coach_attendance_bonus_czk']);
+const ADMIN_NUMERIC_FEATURE_SETTINGS = new Set(['coach_attendance_bonus_czk', 'coach_rating_reward_czk']);
 
 app.patch('/api/admin/feature-flags', asyncRoute(async (request, response) => {
   requireServices();
