@@ -933,6 +933,51 @@ async function safelySendRefundConfirmationEmail(purchase, fallbackEmail) {
   } catch (error) {
     console.error(`Refund confirmation email failed for ${purchase?.id || 'unknown purchase'}:`, error);
   }
+  // Admin chce o každém stornu/refundu vědět hned (přání z 25. 10. 2026) —
+  // dřív se o nich dozvěděl až náhodou z přehledů.
+  try {
+    await notifyAdminsAboutRefund(purchase);
+  } catch (error) {
+    console.error(`Refund admin notification failed for ${purchase?.id || 'unknown purchase'}:`, error);
+  }
+}
+
+async function notifyAdminsAboutRefund(purchase) {
+  const emailer = paymentEmailer();
+  if (!emailer || !purchase) return;
+  const orgId = purchase.org_id || VYS_ORG_ID;
+  const { data: admins, error } = await supabase
+    .from('app_profiles')
+    .select('email')
+    .eq('role', 'admin')
+    .eq('org_id', orgId);
+  if (error) throw error;
+  const recipients = (admins || []).map((row) => row.email).filter(Boolean);
+  if (recipients.length === 0) return;
+
+  const { data: parent } = purchase.parent_profile_id
+    ? await supabase.from('app_profiles').select('name,email').eq('id', purchase.parent_profile_id).maybeSingle()
+    : { data: null };
+
+  const html = brandEmailHtml({
+    heading: 'Storno / refundace nákupu ⚠️',
+    intro: 'Právě proběhlo storno nákupu a rodiči odešlo potvrzení o vrácení peněz.',
+    rows: [
+      ['Produkt', purchase.title || '—'],
+      ['Dítě', purchase.participant_name || '—'],
+      ['Rodič', `${parent?.name || '—'}${parent?.email ? ` · ${parent.email}` : ''}`],
+      ['Částka', `${Math.round(Number(purchase.amount || 0)).toLocaleString('cs-CZ')} Kč`],
+      ['Nákup', purchase.id],
+      ['Kdy', new Date().toLocaleString('cs-CZ')],
+    ],
+    outro: 'Detail najdeš v adminu v sekci Platby.',
+  });
+  await emailer.sendMail({
+    from: smtpFrom,
+    to: recipients,
+    subject: `⚠️ Storno: ${purchase.title || 'nákup'} — ${purchase.participant_name || ''}`,
+    html,
+  });
 }
 
 // Sends a coach an e-mail once their account is approved by an org admin.
@@ -2968,6 +3013,7 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
   const parentProfileId = parentProfileIdForActor(actor, request.body.parentProfileId);
   const receiptEmail = await profileReceiptEmail(parentProfileId, request.body.receiptEmail || actor.email);
   const product = await ensureProductCapacity(productId);
+  await assertRequiredDocumentsSigned(product, participantId, participantName);
   const originalAmount = Math.round(Number(product.price));
   const discountCode = optionalString(request.body.discountCode);
   const discount = discountCode ? rewardDiscountForCode(discountCode, product.type) : null;
@@ -3154,6 +3200,43 @@ app.get('/api/payments/publishable-key', asyncRoute(async (request, response) =>
   response.json({ publishableKey: org.stripe_publishable_key });
 }));
 
+// Sign-before-pay vynucené i na serveru: povinné elektronické dokumenty musí
+// být podepsané pro dítě, ZA KTERÉ se platí. Chrání před záměnou dítěte mezi
+// podpisem a platbou (říjen 2026: dokumenty Fotios, platba Manolis) i před
+// obejitím brány v klientovi.
+async function assertRequiredDocumentsSigned(product, participantId, participantName) {
+  const activityType = String(product.type || '');
+  if (!['Kroužek', 'Krouzek', 'Tábor', 'Tabor', 'Workshop'].includes(activityType)) return;
+  const orgId = product.org_id || VYS_ORG_ID;
+  const baseProductId = String(product.id).replace(/-15$/, '');
+
+  const { data: slots, error: slotsError } = await supabase
+    .from('document_slots')
+    .select('id,product_id,fulfillment,required,active,activity_type')
+    .eq('org_id', orgId)
+    .eq('active', true)
+    .eq('required', true)
+    .eq('fulfillment', 'electronic');
+  if (slotsError) throw slotsError;
+  const requiredSlots = (slots || []).filter((slot) =>
+    String(slot.activity_type || '') === activityType
+    && (!slot.product_id || slot.product_id === product.id || slot.product_id === baseProductId));
+  if (requiredSlots.length === 0) return;
+
+  const { data: docs, error: docsError } = await supabase
+    .from('course_documents')
+    .select('id,slot_id,status,product_id')
+    .eq('participant_id', participantId)
+    .in('product_id', [product.id, baseProductId])
+    .eq('status', 'signed');
+  if (docsError) throw docsError;
+  const signedSlotIds = new Set((docs || []).map((doc) => doc.slot_id).filter(Boolean));
+  const missing = requiredSlots.filter((slot) => !signedSlotIds.has(slot.id));
+  if (missing.length > 0) {
+    throw httpError(`Pro dítě ${participantName} ještě nejsou podepsané povinné dokumenty k tomuto produktu (chybí ${missing.length}). Zkontroluj v aplikaci, že máš vybrané správné dítě, a dokumenty podepiš před platbou.`, 400);
+  }
+}
+
 app.post('/api/payments/payment-intent', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireParentOrAdmin(request);
@@ -3167,6 +3250,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
   const parentProfileId = parentProfileIdForActor(actor, request.body.parentProfileId);
   const receiptEmail = await profileReceiptEmail(parentProfileId, request.body.receiptEmail || actor.email);
   const product = await ensureProductCapacity(productId);
+  await assertRequiredDocumentsSigned(product, participantId, participantName);
   const originalAmount = Math.round(Number(product.price));
   const discountCode = optionalString(request.body.discountCode);
   const discount = discountCode ? rewardDiscountForCode(discountCode, product.type) : null;
