@@ -99,6 +99,10 @@ export const cityPhotos: Record<string, string[]> = {
     '/courses/zdimerice_2.webp',
     '/courses/zdimerice_3.webp',
   ],
+  olomouc: [
+    '/courses/olomouc_holeckova_1.webp',
+    '/courses/olomouc_holeckova_2.webp',
+  ],
   sumperk: ['/courses/sumperk_slunecni.jpg'],
   pisecna: ['/courses/pisecna_skola.jpg'],
 };

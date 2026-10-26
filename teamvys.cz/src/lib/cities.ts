@@ -33,6 +33,8 @@ export type City = {
   sessions: CitySession[];
   priceFrom: number;
   priceTo: number;
+  /** „od 6 do 14 let" — Olomouc má kroužek pro 3–6 let. */
+  ageRange: string;
 };
 
 type PublicProduct = {
@@ -54,7 +56,7 @@ type PublicProduct = {
  * Ručně psané doplňky k městům. Klíč je slug odvozený z názvu města.
  * Město, které tu chybí, se na webu přesto objeví — jen s obecným úvodem.
  */
-const CITY_COPY: Record<string, { inCity?: string; intro?: string; nearby?: string[]; street?: string; name?: string }> = {
+const CITY_COPY: Record<string, { inCity?: string; intro?: string; nearby?: string[]; street?: string; name?: string; ageRange?: string }> = {
   vyskov: {
     inCity: 've Vyškově',
     intro:
@@ -108,6 +110,14 @@ const CITY_COPY: Record<string, { inCity?: string; intro?: string; nearby?: stri
     intro:
       'V Šumperku otevíráme nový kroužek — trénovat budeme ve specializované gymnastické tělocvičně ZŠ Sluneční, která má molitanové jámy a gymnastické nářadí. Pro parkour je to jedno z nejlepších zázemí v kraji.',
     nearby: ['Zábřeh', 'Bludov', 'Rapotín', 'Hanušovice', 'Mohelnice'],
+  },
+  olomouc: {
+    inCity: 'v Olomouci',
+    street: 'Holečkova 10, 779 00 Olomouc',
+    ageRange: 'od 3 do 6 let',
+    intro:
+      'V Olomouci otevíráme kroužek pro nejmenší — děti od 3 do 6 let. Trénujeme na FZŠ a MŠ Holečkova v pátek odpoledne: základy parkouru hrou, měkké dopadové plochy a maximální dohled trenérů.',
+    nearby: ['Velký Týnec', 'Hněvotín', 'Samotišky', 'Bystrovany', 'Lutín'],
   },
   pisecna: {
     inCity: 'v Písečné u Jeseníku',
@@ -213,9 +223,10 @@ export async function loadCities(): Promise<City[]> {
       inCity: copy.inCity ?? guessInCity(name),
       intro:
         copy.intro ??
-        `Parkourový kroužek Team VYS ${copy.inCity ?? guessInCity(name)} vedou certifikovaní trenéři. Učíme děti od 6 do 14 let bezpečné dopady a triky krok za krokem — na zkušenostech nezáleží.`,
+        `Parkourový kroužek Team VYS ${copy.inCity ?? guessInCity(name)} vedou certifikovaní trenéři. Učíme děti ${copy.ageRange ?? 'od 6 do 14 let'} bezpečné dopady a triky krok za krokem — na zkušenostech nezáleží.`,
       nearby: copy.nearby ?? [],
       street: copy.street,
+      ageRange: copy.ageRange ?? 'od 6 do 14 let',
       sessions,
       priceFrom: prices.length ? Math.min(...prices) : 2190,
       priceTo: prices.length ? Math.max(...prices) : 3190,

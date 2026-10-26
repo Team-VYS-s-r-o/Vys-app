@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = `Parkour kroužek ${city.name} pro děti`;
   const schedule = city.sessions.map((s) => `${s.venue}, ${s.when}`).join(' · ');
-  const description = `Parkour kroužek pro děti ${city.inCity} — ${schedule}. První lekce zdarma, certifikovaní trenéři, děti od 6 do 14 let. Permanentka od ${city.priceFrom.toLocaleString('cs-CZ')} Kč.`;
+  const description = `Parkour kroužek pro děti ${city.inCity} — ${schedule}. První lekce zdarma, certifikovaní trenéři, děti ${city.ageRange}. Permanentka od ${city.priceFrom.toLocaleString('cs-CZ')} Kč.`;
 
   return {
     title,
@@ -67,7 +67,7 @@ function faqFor(city: City) {
     },
     {
       q: 'Pro jak staré děti je kroužek vhodný?',
-      a: 'Kroužek je pro děti zhruba od 6 do 14 let a předchozí zkušenost není potřeba. Začínáme od úplných základů — bezpečných dopadů, kotoulů a odhadu vlastních sil.',
+      a: `Kroužek ${city.inCity} je pro děti ${city.ageRange} a předchozí zkušenost není potřeba. Začínáme od úplných základů — bezpečných dopadů, kotoulů a odhadu vlastních sil.`,
     },
     {
       q: 'Není parkour nebezpečný?',
@@ -152,7 +152,7 @@ export default async function CityPage({ params }: Props) {
         <p className="max-w-[62ch] text-lg leading-relaxed text-white/70">{city.intro}</p>
         <p className="mt-4 max-w-[62ch] text-lg leading-relaxed text-white/70">
           <strong className="font-semibold text-white">První lekce je zdarma</strong> a k ničemu
-          nezavazuje. Učíme děti od 6 do 14 let bezpečné dopady, kotouly a triky krok za krokem — na
+          nezavazuje. Učíme děti {city.ageRange} bezpečné dopady, kotouly a triky krok za krokem — na
           zkušenostech nezáleží, většina dětí k nám přichází úplně od nuly.
         </p>
       </section>
