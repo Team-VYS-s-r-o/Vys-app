@@ -6182,6 +6182,96 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
     .filter((invoice) => invoice.zaplaceno && !isCoordinatorRewardInvoice(invoice))
     .reduce((sum, invoice) => sum + parseInvoiceAmount(invoice.castka), 0);
 
+  // ── Nájmy hal: gym_rents (Kč/h) × skutečně odtrénované lekce v kraji. Lekce
+  // se pozná z trenérského zápisu (id nese kroužek + den; dva trenéři na jedné
+  // lekci = jedna lekce). Čipnuté dny bez trenérského zápisu se počítají
+  // opatrně jako jedna hodina na místo a den.
+  const { data: gymRents, error: gymRentsError } = await supabase
+    .from('gym_rents')
+    .select('location_key,hourly_rate')
+    .eq('org_id', orgId);
+  if (gymRentsError) throw gymRentsError;
+  const rentKey = (value) => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const rentRateByKey = new Map((gymRents || []).map((row) => [row.location_key, Number(row.hourly_rate) || 0]));
+  const rentRateFor = (place) => rentRateByKey.get(rentKey(place)) || 0;
+  const isoFromText = (value) => {
+    const parsed = parseFlexibleDate(value);
+    return parsed ? `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}` : null;
+  };
+  const rentLessons = new Map();
+  for (const record of regionAttendance) {
+    const idMatch = /^coach-att-[0-9a-f-]{36}-(.+)-(\d{4}-\d{2}-\d{2})$/i.exec(record.id || '');
+    const courseId = idMatch ? idMatch[1].replace(/-15$/, '') : null;
+    const dateIso = (idMatch && idMatch[2]) || isoFromText(record.date_text) || isoFromText(record.created_at);
+    if (!dateIso) continue;
+    const lessonKey = `${courseId || rentKey(record.place)}|${dateIso}`;
+    const hours = Number(record.duration_hours) > 0 ? Number(record.duration_hours) : 1;
+    const existing = rentLessons.get(lessonKey);
+    if (!existing || hours > existing.hours) rentLessons.set(lessonKey, { place: record.place, hours, dateIso });
+  }
+  const rentCoveredDays = new Set(Array.from(rentLessons.values()).map((lesson) => `${rentKey(lesson.place)}|${lesson.dateIso}`));
+  for (const record of regionChildAttendance) {
+    const dateIso = isoFromText(record.date_text) || isoFromText(record.created_at);
+    if (!dateIso) continue;
+    const dayKey = `${rentKey(record.location)}|${dateIso}`;
+    if (rentCoveredDays.has(dayKey)) continue;
+    rentCoveredDays.add(dayKey);
+    rentLessons.set(`chip-${dayKey}`, { place: record.location, hours: 1, dateIso });
+  }
+  const rentCost = Math.round(Array.from(rentLessons.values()).reduce((sum, lesson) => sum + lesson.hours * rentRateFor(lesson.place), 0));
+
+  // ── Marketing: celoorganizační marketingové faktury (bez kraje) se do kraje
+  // promítají poměrem jeho tržeb na tržbách organizace; faktury přiřazené
+  // přímo kraji už sedí v invoiceCost, takže se nepočítají dvakrát.
+  const { data: orgInvoices, error: orgInvoicesError } = await supabase
+    .from('invoices')
+    .select('id,castka,kategorie,popis,zaplaceno,datum_zaplaceni,created_at')
+    .eq('org_id', orgId)
+    .is('region', null);
+  if (orgInvoicesError) throw orgInvoicesError;
+  const isMarketingInvoice = (invoice) => `${invoice.kategorie || ''}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('marketing');
+  const { data: orgPaidPurchases, error: orgPurchasesError } = await supabase
+    .from('parent_purchases')
+    .select('amount,status')
+    .eq('org_id', orgId)
+    .in('status', ['Zaplaceno', 'Placeno']);
+  if (orgPurchasesError) throw orgPurchasesError;
+  const orgRevenue = (orgPaidPurchases || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const revenueShare = orgRevenue > 0 ? Math.min(revenue / orgRevenue, 1) : 0;
+  const orgMarketingInvoices = (orgInvoices || []).filter((invoice) => invoice.zaplaceno && !isCoordinatorRewardInvoice(invoice) && isMarketingInvoice(invoice));
+  const marketingCost = Math.round(orgMarketingInvoices.reduce((sum, invoice) => sum + parseInvoiceAmount(invoice.castka), 0) * revenueShare);
+
+  // ── Měsíční poplatek za systém (appka, Stripe, AI, podpora) — strhává se ze
+  // zisku kraje před dělením. Výše je org nastavení `region_system_fee_czk`,
+  // default odpovídá SaaS ceníku (2 490 Kč/měs), 0 = vypnuto.
+  const orgFlags = await orgFeatureFlags(orgId);
+  const systemFeeRaw = Number(orgFlags?.region_system_fee_czk);
+  const systemFeeCzk = Number.isFinite(systemFeeRaw) && systemFeeRaw >= 0 ? Math.round(systemFeeRaw) : 2490;
+
+  // Klesající pásma provize z MĚSÍČNÍHO čistého zisku, marginálně (jako daň).
+  // Sazby i hranice jsou org nastavení (admin → okno „Pásma provize"); default
+  // dle Davida: do 100 000 Kč → 30 %, do 250 000 → 25 %, nad → 20 %.
+  const tierNumber = (key, fallback) => {
+    const value = Number(orgFlags?.[key]);
+    return Number.isFinite(value) && value >= 0 ? value : fallback;
+  };
+  const tier1Limit = tierNumber('commission_tier1_limit_czk', 100000);
+  const tier2Limit = Math.max(tierNumber('commission_tier2_limit_czk', 250000), tier1Limit);
+  const commissionTiers = {
+    tier1Limit,
+    tier2Limit,
+    tier1Percent: tierNumber('commission_tier1_percent', 30),
+    tier2Percent: tierNumber('commission_tier2_percent', 25),
+    tier3Percent: tierNumber('commission_tier3_percent', 20),
+  };
+  const monthlyCommission = (monthNet) => {
+    if (!commissionEnabled || monthNet <= 0) return 0;
+    const band1 = Math.min(monthNet, tier1Limit);
+    const band2 = Math.min(Math.max(monthNet - tier1Limit, 0), tier2Limit - tier1Limit);
+    const band3 = Math.max(monthNet - tier2Limit, 0);
+    return Math.round((band1 * commissionTiers.tier1Percent + band2 * commissionTiers.tier2Percent + band3 * commissionTiers.tier3Percent) / 100);
+  };
+
   const { data: payouts, error: payoutsError } = await supabase
     .from('coordinator_payouts')
     .select('id,coordinator_id,coordinator_name,amount,note,period_label,created_at')
@@ -6189,15 +6279,12 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
     .order('created_at', { ascending: false });
   if (payoutsError) throw payoutsError;
 
-  const net = revenue - coachCost - invoiceCost;
-  const commission = commissionEnabled && net > 0 ? Math.round((net * percent) / 100) : 0;
   const paidOut = (payouts || []).reduce((sum, payout) => sum + (Number(payout.amount) || 0), 0);
-  const owed = commissionEnabled ? Math.max(commission - paidOut, 0) : 0;
 
   // Měsíční rozpad pro přehlednou výplatu na konci měsíce.
   const monthlyMap = new Map();
   const monthBucket = (key) => {
-    if (!monthlyMap.has(key)) monthlyMap.set(key, { key, revenue: 0, coachCost: 0, invoiceCost: 0, paidOut: 0 });
+    if (!monthlyMap.has(key)) monthlyMap.set(key, { key, revenue: 0, coachCost: 0, invoiceCost: 0, rentCost: 0, marketingCost: 0, paidOut: 0 });
     return monthlyMap.get(key);
   };
   for (const purchase of purchases) {
@@ -6218,15 +6305,34 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
     const key = monthKeyFromPeriodLabel(payout.period_label) || monthKeyFromDate(parseFlexibleDate(payout.created_at));
     if (key) monthBucket(key).paidOut += Number(payout.amount) || 0;
   }
-  const monthly = Array.from(monthlyMap.values())
+  for (const lesson of rentLessons.values()) {
+    const key = lesson.dateIso.slice(0, 7);
+    monthBucket(key).rentCost += Math.round(lesson.hours * rentRateFor(lesson.place));
+  }
+  for (const invoice of orgMarketingInvoices) {
+    const key = monthKeyFromDate(parseFlexibleDate(invoice.datum_zaplaceni) || parseFlexibleDate(invoice.created_at));
+    if (key) monthBucket(key).marketingCost += Math.round(parseInvoiceAmount(invoice.castka) * revenueShare);
+  }
+
+  // Poplatek za systém se účtuje jen měsícům, kdy kraj reálně běžel; čistý zisk
+  // i provize jsou součtem měsíců (pásma se počítají z měsíčního zisku).
+  const monthHasActivity = (bucket) => bucket.revenue > 0 || bucket.coachCost > 0 || bucket.rentCost > 0 || bucket.invoiceCost > 0 || bucket.marketingCost > 0;
+  const monthNetOf = (bucket) => bucket.revenue - bucket.coachCost - bucket.invoiceCost - bucket.rentCost - bucket.marketingCost - (monthHasActivity(bucket) ? systemFeeCzk : 0);
+  const allBuckets = Array.from(monthlyMap.values());
+  const net = allBuckets.reduce((sum, bucket) => sum + monthNetOf(bucket), 0);
+  const commission = allBuckets.reduce((sum, bucket) => sum + monthlyCommission(monthNetOf(bucket)), 0);
+  const owed = commissionEnabled ? Math.max(commission - paidOut, 0) : 0;
+
+  const monthly = allBuckets
     .sort((a, b) => (a.key < b.key ? 1 : -1))
     .slice(0, 12)
     .map((bucket) => {
-      const monthNet = bucket.revenue - bucket.coachCost - bucket.invoiceCost;
-      const monthCommission = commissionEnabled && monthNet > 0 ? Math.round((monthNet * percent) / 100) : 0;
+      const monthNet = monthNetOf(bucket);
+      const monthCommission = monthlyCommission(monthNet);
       const [yearPart, monthPart] = bucket.key.split('-');
       return {
         ...bucket,
+        systemFee: monthHasActivity(bucket) ? systemFeeCzk : 0,
         label: `${CZECH_MONTH_NAMES[Number(monthPart) - 1]} ${yearPart}`,
         net: monthNet,
         commission: monthCommission,
@@ -6243,7 +6349,7 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
     participants: regionParticipants,
     invoices: invoices || [],
     payouts: payouts || [],
-    finance: { revenue, coachCost, invoiceCost, net, percent, commissionEnabled, commission, paidOut, owed },
+    finance: { revenue, coachCost, invoiceCost, rentCost, marketingCost, systemFeeCzk, net, percent, commissionEnabled, commission, paidOut, owed, commissionTiers },
   };
 }
 
@@ -7403,7 +7509,7 @@ const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set([
   'coordinator_city_research',
 ]);
 // Číselná nastavení v témže jsonb (0 = funkce vypnutá, zůstane jen žebříček).
-const ADMIN_NUMERIC_FEATURE_SETTINGS = new Set(['coach_attendance_bonus_czk', 'coach_rating_reward_czk']);
+const ADMIN_NUMERIC_FEATURE_SETTINGS = new Set(['coach_attendance_bonus_czk', 'coach_rating_reward_czk', 'region_system_fee_czk', 'commission_tier1_percent', 'commission_tier2_percent', 'commission_tier3_percent', 'commission_tier1_limit_czk', 'commission_tier2_limit_czk']);
 
 app.patch('/api/admin/feature-flags', asyncRoute(async (request, response) => {
   requireServices();
