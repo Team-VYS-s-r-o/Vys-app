@@ -42,7 +42,7 @@ const LABEL_POS: Record<'top' | 'bottom' | 'left' | 'right', string> = {
   right: 'left:13px;top:0;transform:translateY(-50%);',
 };
 
-type MapLocation = { city: string; venue: string };
+type MapLocation = { city: string; venue: string; latitude?: number; longitude?: number };
 
 export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLocation[]; onCityPick?: (cityKey: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,11 +52,15 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
   const pickRef = useRef(onCityPick);
   pickRef.current = onCityPick;
 
-  const byCity = new Map<string, { key: string; city: string; venues: string[] }>();
+  const byCity = new Map<string, { key: string; city: string; venues: string[]; point: { lat: number; lng: number } }>();
   for (const loc of locations) {
     const key = normalizeCity(loc.city);
-    if (!CITY_POINTS[key]) continue;
-    const entry = byCity.get(key) ?? { key, city: loc.city, venues: [] };
+    // Nové město se na mapě objeví samo — stačí, když má produkt v adminu souřadnice.
+    const point =
+      CITY_POINTS[key] ??
+      (loc.latitude != null && loc.longitude != null ? { lat: loc.latitude, lng: loc.longitude } : undefined);
+    if (!point) continue;
+    const entry = byCity.get(key) ?? { key, city: loc.city, venues: [], point };
     if (!entry.venues.includes(loc.venue)) entry.venues.push(loc.venue);
     byCity.set(key, entry);
   }
@@ -123,7 +127,7 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
 
       const bounds = L.latLngBounds([]);
       for (const pin of pins) {
-        const point = CITY_POINTS[pin.key];
+        const point = pin.point;
         bounds.extend([point.lat, point.lng]);
         const icon = L.divIcon({
           className: '',

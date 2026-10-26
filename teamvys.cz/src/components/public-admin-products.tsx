@@ -429,7 +429,7 @@ export function PublicCourseCatalog() {
 
       {courseGroups.length > 0 ? (
         <Reveal>
-          <CourseLocationsMap locations={courseGroups.map((group) => ({ city: group[0].city, venue: group[0].venue }))} onCityPick={handleCityPick} />
+          <CourseLocationsMap locations={courseGroups.map((group) => ({ city: group[0].city, venue: group[0].venue, latitude: group[0].latitude, longitude: group[0].longitude }))} onCityPick={handleCityPick} />
         </Reveal>
       ) : null}
     </section>

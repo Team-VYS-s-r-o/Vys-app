@@ -1939,7 +1939,7 @@ app.get('/api/public/products', asyncRoute(async (_request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,org_id')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,org_id,map_query,latitude,longitude')
     .eq('is_published', true)
     .eq('org_id', VYS_ORG_ID)
     .order('created_at', { ascending: false });
