@@ -528,6 +528,16 @@ async function requireParentOrAdmin(request) {
   return profile;
 }
 
+// Nákupy produktů smí dělat jen rodič (nebo admin) — účastnický účet ne,
+// ať už ho dítě používá samo, nebo ho založil rodič (case Mishkina, 10/2026).
+async function requirePurchaser(request) {
+  const profile = await requireAuthenticatedProfile(request);
+  if (profile.role !== 'admin' && profile.role !== 'parent') {
+    throw httpError('Nákupy jdou jen přes rodičovský účet. Přihlas se jako rodič, nebo požádej rodiče o nákup.', 403);
+  }
+  return profile;
+}
+
 function parentProfileIdForActor(actor, requestedParentProfileId) {
   const requested = optionalString(requestedParentProfileId);
   if (actor.role === 'admin') return requested || actor.id;
@@ -3089,7 +3099,7 @@ async function siblingDiscountForPurchase(parentProfileId, participantId, produc
 
 app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
   requireServices();
-  const actor = await requireParentOrAdmin(request);
+  const actor = await requirePurchaser(request);
   requireStripe();
 
   const productId = requiredString(request.body.productId, 'productId');
@@ -3328,7 +3338,7 @@ async function assertRequiredDocumentsSigned(product, participantId, participant
 
 app.post('/api/payments/payment-intent', asyncRoute(async (request, response) => {
   requireServices();
-  const actor = await requireParentOrAdmin(request);
+  const actor = await requirePurchaser(request);
   requireStripe();
 
   const productId = requiredString(request.body.productId, 'productId');
