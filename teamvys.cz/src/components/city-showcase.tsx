@@ -10,7 +10,7 @@ import type { CitySession } from '@/lib/cities';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-/** Galerie školy/tělocvičny s maskotem — hned pod úvodem lokální stránky. */
+/** Galerie školy/tělocvičny — hned pod úvodem lokální stránky. */
 export function CityGallery({ photos, cityName }: { photos: string[]; cityName: string }) {
   if (!photos.length) return null;
   const [main, ...rest] = photos;
@@ -57,23 +57,6 @@ export function CityGallery({ photos, cityName }: { photos: string[]; cityName: 
           </motion.div>
         ))}
       </div>
-
-      {/* Maskot vykukuje zpoza galerie. */}
-      <motion.div
-        aria-hidden
-        initial={{ opacity: 0, y: 30, rotate: 8 }}
-        whileInView={{ opacity: 1, y: 0, rotate: 0 }}
-        viewport={{ once: true, margin: '-40px' }}
-        transition={{ duration: 0.7, delay: 0.25, ease }}
-        className="pointer-events-none absolute -bottom-8 -right-3 w-24 select-none drop-shadow-[0_12px_24px_rgba(139,29,255,0.35)] md:-bottom-12 md:-right-8 md:w-36"
-      >
-        <motion.div
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <Image src="/cats/parkour.png" alt="" width={240} height={221} className="h-auto w-full" />
-        </motion.div>
-      </motion.div>
     </div>
   );
 }
@@ -157,23 +140,12 @@ export function CitySessionCard({
   );
 }
 
-/** Animovaný akordeon častých dotazů s přemýšlejícím maskotem. */
+/** Animovaný akordeon častých dotazů. */
 export function CityFaq({ items }: { items: { q: string; a: string }[] }) {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
     <div className="relative mt-8">
-      <motion.div
-        aria-hidden
-        initial={{ opacity: 0, x: 30 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true, margin: '-60px' }}
-        transition={{ duration: 0.6, delay: 0.2, ease }}
-        className="pointer-events-none absolute -top-24 right-2 hidden w-28 select-none md:block"
-      >
-        <Image src="/cats/premyslim.png" alt="" width={220} height={220} className="h-auto w-full" />
-      </motion.div>
-
       <div className="divide-y divide-white/10 overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.04]">
         {items.map((f, i) => {
           const isOpen = open === i;
