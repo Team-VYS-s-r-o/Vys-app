@@ -628,11 +628,13 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
                 ))}
               </div>
             ) : null}
-            {product.mapQuery ? (
+            {typeof product.latitude === 'number' && typeof product.longitude === 'number' ? (
+              // OSM embed neumí hledat podle adresy (parametr query neexistuje — ukázal by celý svět),
+              // mapa se proto staví z bboxu kolem souřadnic produktu s markerem na tělocvičně.
               <div className="overflow-hidden rounded-brand shadow-brand-soft">
                 <iframe
                   title="Mapa místa"
-                  src={`https://www.openstreetmap.org/export/embed.html?query=${encodeURIComponent(product.mapQuery)}&layer=mapnik`}
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${product.longitude - 0.006},${product.latitude - 0.003},${product.longitude + 0.006},${product.latitude + 0.003}&layer=mapnik&marker=${product.latitude},${product.longitude}`}
                   className="h-64 w-full border-0"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
