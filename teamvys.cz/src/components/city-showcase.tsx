@@ -14,6 +14,16 @@ const ease = [0.22, 1, 0.36, 1] as const;
 export function CityGallery({ photos, cityName }: { photos: string[]; cityName: string }) {
   if (!photos.length) return null;
   const [main, ...rest] = photos;
+  const side = rest.slice(0, 2);
+
+  // Výška hlavní fotky se na md+ řídí vedlejšími — bez nich by se zbortila na proužek,
+  // takže s jednou fotkou drží poměr stran přes celou šířku.
+  const mainClass =
+    side.length === 2
+      ? 'aspect-[16/10] md:col-span-2 md:row-span-2 md:aspect-auto'
+      : side.length === 1
+        ? 'aspect-[16/10] md:col-span-2'
+        : 'aspect-[16/10] md:col-span-3 md:aspect-[21/9]';
 
   return (
     <div className="relative">
@@ -23,7 +33,7 @@ export function CityGallery({ photos, cityName }: { photos: string[]; cityName: 
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-70px' }}
           transition={{ duration: 0.6, ease }}
-          className="group relative aspect-[16/10] overflow-hidden rounded-[22px] border border-white/10 md:col-span-2 md:row-span-2 md:aspect-auto"
+          className={`group relative overflow-hidden rounded-[22px] border border-white/10 ${mainClass}`}
         >
           <Image
             src={main}
@@ -38,14 +48,14 @@ export function CityGallery({ photos, cityName }: { photos: string[]; cityName: 
           </p>
         </motion.div>
 
-        {rest.slice(0, 2).map((src, i) => (
+        {side.map((src, i) => (
           <motion.div
             key={src}
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-70px' }}
             transition={{ duration: 0.55, delay: 0.1 + i * 0.08, ease }}
-            className="group relative aspect-[16/10] overflow-hidden rounded-[22px] border border-white/10"
+            className={`group relative aspect-[16/10] overflow-hidden rounded-[22px] border border-white/10 ${side.length === 1 ? 'md:aspect-auto md:h-full' : ''}`}
           >
             <Image
               src={src}
