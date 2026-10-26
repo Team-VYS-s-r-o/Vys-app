@@ -14,7 +14,7 @@ export const metadata = {
   openGraph: {
     title: 'Parkour kroužky pro děti · Team VYS',
     description:
-      'Pravidelné parkour kroužky pro děti v 6 městech. Permanentky 10 nebo 15 vstupů, certifikovaní trenéři a bezpečný progres od základů.',
+      'Pravidelné parkour kroužky pro děti po celém Česku. Permanentky 10 nebo 15 vstupů, certifikovaní trenéři a bezpečný progres od základů.',
     url: '/krouzky',
     type: 'website',
     locale: 'cs_CZ',

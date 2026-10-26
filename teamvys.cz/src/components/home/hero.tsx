@@ -31,7 +31,7 @@ const chapters: Chapter[] = [
   {
     key: 'krouzky',
     label: 'Kroužky',
-    copy: 'Trénink každý týden v šesti městech s certifikovanými trenéry. Permanentka na 10 nebo 15 vstupů — žádný závazek na celý rok.',
+    copy: 'Trénink každý týden po celém Česku s certifikovanými trenéry. Permanentka na 10 nebo 15 vstupů — žádný závazek na celý rok.',
     cta: { label: 'Vybrat kroužek', href: '/krouzky' },
     color: 'rgba(235,225,205,0.24)',
     mascot: '/cats/parkour.png',

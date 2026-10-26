@@ -3,12 +3,12 @@ import { HomeHero } from '@/components/home/hero';
 export const metadata = {
   title: { absolute: 'Team VYS — parkour kroužky, tábory a workshopy s youtuberem pro děti' },
   description:
-    'Parkour kroužky pro děti, příměstské tábory a workshopy s youtuberem v šesti městech. Certifikovaní trenéři, bezpečný progres a appka pro děti, rodiče i trenéry.',
+    'Parkour kroužky pro děti, příměstské tábory a workshopy s youtuberem po celém Česku. Certifikovaní trenéři, bezpečný progres a appka pro děti, rodiče i trenéry.',
   alternates: { canonical: '/' },
   openGraph: {
     title: 'Team VYS — parkour kroužky, tábory a workshopy s youtuberem pro děti',
     description:
-      'Parkour kroužky pro děti, příměstské tábory a workshopy s youtuberem v šesti městech. Certifikovaní trenéři, bezpečný progres a appka pro děti i rodiče.',
+      'Parkour kroužky pro děti, příměstské tábory a workshopy s youtuberem po celém Česku. Certifikovaní trenéři, bezpečný progres a appka pro děti i rodiče.',
     url: '/',
     type: 'website',
     locale: 'cs_CZ',

@@ -65,7 +65,7 @@ export const metadata: Metadata = {
     siteName: 'Team VYS',
     title: 'Team VYS — parkour kroužky, tábory a workshopy s youtuberem pro děti',
     description:
-      'Parkour kroužky, příměstské tábory a workshopy s youtuberem pro děti v 6 městech. Certifikovaní trenéři, bezpečný progres a appka, kde dítě vidí svůj pokrok.',
+      'Parkour kroužky, příměstské tábory a workshopy s youtuberem pro děti po celém Česku. Certifikovaní trenéři, bezpečný progres a appka, kde dítě vidí svůj pokrok.',
     type: 'website',
     url: '/',
     locale: 'cs_CZ',
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Team VYS — parkour kroužky, tábory a workshopy s youtuberem pro děti',
     description:
-      'Parkour kroužky, příměstské tábory a workshopy s youtuberem pro děti v 6 městech. Certifikovaní trenéři a bezpečný progres.',
+      'Parkour kroužky, příměstské tábory a workshopy s youtuberem pro děti po celém Česku. Certifikovaní trenéři a bezpečný progres.',
     images: ['/cats/parkour.png'],
   },
   icons: {

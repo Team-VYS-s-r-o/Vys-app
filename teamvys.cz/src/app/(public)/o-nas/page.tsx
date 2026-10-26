@@ -9,12 +9,12 @@ import { aboutPillars, stats } from '@shared/content';
 export const metadata = {
   title: 'O nás — parkourová komunita pro děti',
   description:
-    'Team VYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři, skill tree, NFC docházka a kroužky v šesti městech.',
+    'Team VYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři, skill tree, NFC docházka a kroužky po celém Česku.',
   alternates: { canonical: '/o-nas' },
   openGraph: {
     title: 'O nás · Team VYS',
     description:
-      'Team VYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři a kroužky v šesti městech.',
+      'Team VYS je parkourová komunita pro děti, teenagery a rodiče. Certifikovaní trenéři a kroužky po celém Česku.',
     url: '/o-nas',
     type: 'website',
     locale: 'cs_CZ',
@@ -26,6 +26,8 @@ const icons = [<ShieldCheck key="s" size={20} />, <Trophy key="t" size={20} />, 
 
 // Refresh the live community count at most once per hour.
 export const revalidate = 3600;
+
+const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
 
 async function loadPeopleCount(): Promise<number | null> {
   if (!hasSupabaseAdminConfig()) return null;
@@ -42,11 +44,31 @@ async function loadPeopleCount(): Promise<number | null> {
   }
 }
 
+/** Počet měst s vypsaným kroužkem — živě z DB, ať číslo nezastarává jako dřív natvrdo zapsaná „6". */
+async function loadCityCount(): Promise<number | null> {
+  if (!hasSupabaseAdminConfig()) return null;
+  try {
+    const supabase = createAdminSupabaseClient();
+    const { data, error } = await supabase
+      .from('products')
+      .select('city')
+      .eq('org_id', VYS_ORG_ID)
+      .eq('type', 'Kroužek')
+      .eq('is_published', true);
+    if (error || !data) return null;
+    const cities = new Set(data.map((row) => (row.city ?? '').trim()).filter(Boolean));
+    return cities.size > 0 ? cities.size : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function AboutPage() {
-  const peopleCount = await loadPeopleCount();
+  const [peopleCount, cityCount] = await Promise.all([loadPeopleCount(), loadCityCount()]);
   const displayStats = [
     { value: peopleCount != null ? String(peopleCount) : stats[0].value, label: 'lidí ve VYS' },
-    ...stats.slice(1),
+    { value: cityCount != null ? String(cityCount) : stats[1].value, label: stats[1].label },
+    ...stats.slice(2),
   ];
 
   return (

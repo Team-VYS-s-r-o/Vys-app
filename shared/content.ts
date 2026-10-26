@@ -93,7 +93,7 @@ export const aboutPillars: AboutPillar[] = [
 
 export const stats: Stat[] = [
   { value: '500+', label: 'aktivních dětí' },
-  { value: '6', label: 'měst po Česku' },
+  { value: '10', label: 'měst po Česku' }, // fallback — O nás si počet měst počítá živě z DB
   { value: '46', label: 'triků v skill tree' },
   { value: '8', label: 'let zkušeností' },
 ];
