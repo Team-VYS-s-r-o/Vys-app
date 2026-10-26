@@ -10,6 +10,8 @@
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://server-psi-ochre-40.vercel.app';
 
 export type CitySession = {
+  /** Id produktu v adminu — vede na detail kroužku `/krouzky/<id>`. */
+  productId: string;
   venue: string;
   /** „Pondělí 17:00–18:00“ */
   when: string;
@@ -191,6 +193,8 @@ export async function loadCities(): Promise<City[]> {
       const key = `${venue}|${when}`;
       if (seen.has(key)) continue;
       seen.set(key, {
+        // Varianty 10/15 vstupů jsou dva produkty `<id>` a `<id>-15` — detail vede na základní.
+        productId: String(row.id).replace(/-15$/, ''),
         venue,
         when,
         startsOn: row.event_date ? czechDate(row.event_date) : undefined,

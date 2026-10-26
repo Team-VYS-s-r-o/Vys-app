@@ -1,4 +1,4 @@
-import { CalendarDays, MapPin, ShieldCheck, Sparkles, Trophy, Users } from 'lucide-react';
+import { ShieldCheck, Trophy, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,7 +7,9 @@ import { PageHero } from '@/components/page-hero';
 import { SubpageCta } from '@/components/subpage-cta';
 import { FeatureCard, SectionIntro } from '@/components/subpage-feature-card';
 import { GoogleReviewCta } from '@/components/google-review';
+import { CityFaq, CityGallery, CitySessionCard } from '@/components/city-showcase';
 import { freeSpots, loadCities, loadCity, type City } from '@/lib/cities';
+import { cityPhotos } from '@/lib/photos';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https')
   ? process.env.NEXT_PUBLIC_SITE_URL
@@ -93,6 +95,7 @@ export default async function CityPage({ params }: Props) {
 
   const faq = faqFor(city);
   const free = freeSpots(city);
+  const photos = cityPhotos[city.slug] ?? [];
   const others = (await loadCities()).filter((c) => c.slug !== city.slug);
 
   const sportsLd = {
@@ -154,40 +157,19 @@ export default async function CityPage({ params }: Props) {
         </p>
       </section>
 
+      {photos.length ? (
+        <section className="section-shell pb-16 md:pb-20">
+          <CityGallery photos={photos} cityName={city.name} />
+        </section>
+      ) : null}
+
       {/* Kde a kdy — nejdůležitější blok stránky, proto hned pod úvodem. */}
       <section className="section-shell pb-16 md:pb-24">
         <SectionIntro eyebrow="Kde a kdy" title={`Tréninky ${city.inCity}`} />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
-          {city.sessions.map((s) => {
-            const volno = Math.max(0, (s.capacity ?? 0) - (s.taken ?? 0));
-            return (
-              <div
-                key={`${s.venue}-${s.when}`}
-                className="rounded-[22px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur"
-              >
-                <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/50">
-                  <MapPin size={16} /> {s.venue}
-                </div>
-                <div className="mt-3 flex items-center gap-2 text-2xl font-black tracking-tight">
-                  <CalendarDays size={22} className="text-white/60" /> {s.when}
-                </div>
-                {city.street ? <p className="mt-2 text-sm text-white/50">{city.street}</p> : null}
-                {s.startsOn ? (
-                  <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-sm font-semibold">
-                    <Sparkles size={14} /> První lekce {s.startsOn}
-                  </p>
-                ) : null}
-                {volno > 0 ? (
-                  <p className="mt-3 text-sm text-white/60">
-                    Volno pro {volno} {volno === 1 ? 'dítě' : volno < 5 ? 'děti' : 'dětí'} z{' '}
-                    {s.capacity}.
-                  </p>
-                ) : (
-                  <p className="mt-3 text-sm text-white/60">Kapacita je zatím naplněná — ozvěte se, vedeme pořadník.</p>
-                )}
-              </div>
-            );
-          })}
+          {city.sessions.map((sess, i) => (
+            <CitySessionCard key={`${sess.venue}-${sess.when}`} session={sess} street={city.street} index={i} />
+          ))}
         </div>
 
         <div className="mt-6 rounded-[22px] border border-white/10 bg-white/[0.04] p-6">
@@ -228,16 +210,7 @@ export default async function CityPage({ params }: Props) {
 
       <section className="section-shell pb-16 md:pb-24">
         <SectionIntro eyebrow="Časté dotazy" title={`Na co se rodiče ${city.inCity} ptají`} />
-        <div className="mt-8 divide-y divide-white/10 overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.04]">
-          {faq.map((f) => (
-            <details key={f.q} className="group p-6">
-              <summary className="cursor-pointer list-none text-lg font-semibold [&::-webkit-details-marker]:hidden">
-                {f.q}
-              </summary>
-              <p className="mt-3 max-w-[70ch] leading-relaxed text-white/70">{f.a}</p>
-            </details>
-          ))}
-        </div>
+        <CityFaq items={faq} />
       </section>
 
       {city.nearby.length ? (

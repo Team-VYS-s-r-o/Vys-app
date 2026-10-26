@@ -57,3 +57,48 @@ export const courseGallery: Record<string, string[]> = {
     '/courses/purkynka_Purkynova_Main.webp',
   ],
 };
+
+/**
+ * Fotky škol a tělocvičen pro lokální stránky `/parkour/<slug>`.
+ * První fotka je hlavní; klíč je slug města z `citySlug()`.
+ */
+export const cityPhotos: Record<string, string[]> = {
+  blansko: [
+    '/courses/blansko_ZS-Erbenova-Main.webp',
+    '/courses/blansko_ZS-Erbenova-Foto1.webp',
+    '/courses/blansko_ZS-Erbenova-Foto2.webp',
+  ],
+  brandys: [
+    '/courses/brandys_BR_main.webp',
+    '/courses/brandys_BR1.webp',
+    '/courses/brandys_BR2.webp',
+    '/courses/brandys_BR3.webp',
+  ],
+  jesenik: [
+    '/courses/jesenik_JS_Main.webp',
+    '/courses/jesenik_JS1.webp',
+    '/courses/jesenik_JS2.webp',
+    '/courses/jesenik_JS3.webp',
+  ],
+  prostejov: [
+    '/courses/prostejov_Prostejov_parkour_main.webp',
+    '/courses/prostejov_Prostejov_parkour_1.webp',
+    '/courses/prostejov_Prostejov_parkour_2.webp',
+    '/courses/prostejov_Prostejov_parkour_3.webp',
+  ],
+  vyskov: [
+    '/courses/nadrazka_ZS-Nadrazka-Main.webp',
+    '/courses/purkynka_Purkynova_Main.webp',
+    '/courses/nadrazka_ZS-Nadrazka-Foto1.webp',
+    '/courses/purkynka_Purkynova_1.webp',
+  ],
+  vrsovice: ['/courses/vrsovice.webp'],
+  zdimerice: [
+    '/courses/zdimerice_skola.webp',
+    '/courses/zdimerice_1.webp',
+    '/courses/zdimerice_2.webp',
+    '/courses/zdimerice_3.webp',
+  ],
+  sumperk: ['/courses/sumperk_slunecni.jpg'],
+  pisecna: ['/courses/pisecna_skola.jpg'],
+};
