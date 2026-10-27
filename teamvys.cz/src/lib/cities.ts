@@ -35,6 +35,8 @@ export type City = {
   priceTo: number;
   /** „od 6 do 14 let" — Olomouc má kroužek pro 3–6 let. */
   ageRange: string;
+  /** Město prodává členství na období místo permanentek na vstupy. */
+  membership: boolean;
 };
 
 type PublicProduct = {
@@ -50,6 +52,7 @@ type PublicProduct = {
   capacity_current?: number | null;
   interest_mode?: boolean | null;
   is_published?: boolean | null;
+  billing_model?: string | null;
 };
 
 /**
@@ -227,6 +230,7 @@ export async function loadCities(): Promise<City[]> {
       nearby: copy.nearby ?? [],
       street: copy.street,
       ageRange: copy.ageRange ?? 'od 6 do 14 let',
+      membership: rows.length > 0 && rows.every((row) => row.billing_model === 'membership'),
       sessions,
       priceFrom: prices.length ? Math.min(...prices) : 2190,
       priceTo: prices.length ? Math.max(...prices) : 3190,

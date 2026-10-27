@@ -51,6 +51,8 @@ export type ParentProduct = {
   priceLabel: string;
   originalPrice?: number;
   entriesTotal?: number;
+  /** 'membership' = členství na období (neodečítají se vstupy) */
+  billingModel?: 'entries' | 'membership';
   capacityTotal: number;
   capacityCurrent: number;
   interestCount?: number;

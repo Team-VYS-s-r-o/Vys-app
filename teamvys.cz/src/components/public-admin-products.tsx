@@ -658,7 +658,7 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
             <div>
               <p className="text-xs font-black uppercase text-brand-cyan">Rezervace kroužku</p>
               <h2 className="mt-2 text-3xl font-black text-brand-ink">{product.city} · {product.venue}</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">Permanentka 10 nebo 15 vstupů s NFC docházkou, skill tree a rodičovským přehledem.</p>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{product.billingModel === 'membership' ? 'Členství na období s NFC docházkou, skill tree a rodičovským přehledem — vstupy se nepočítají, chodí se neomezeně.' : 'Permanentka 10 nebo 15 vstupů s NFC docházkou, skill tree a rodičovským přehledem.'}</p>
             </div>
 
             <div className="mt-5 grid gap-3 text-sm font-bold text-slate-700">

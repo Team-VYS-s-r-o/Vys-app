@@ -75,7 +75,9 @@ function faqFor(city: City) {
     },
     {
       q: 'Kolik kroužek stojí?',
-      a: `Neplatí se měsíční paušál, ale permanentka na vstupy — ${city.priceFrom.toLocaleString('cs-CZ')} Kč za 10 vstupů nebo ${city.priceTo.toLocaleString('cs-CZ')} Kč za 15 vstupů. Vstupy nepropadají na konci pololetí, takže když dítě onemocní, o nic nepřijdete.`,
+      a: city.membership
+        ? `Platí se členství na období od ${city.priceFrom.toLocaleString('cs-CZ')} Kč. Po dobu členství chodí dítě na tréninky neomezeně.`
+        : `Neplatí se měsíční paušál, ale permanentka na vstupy — ${city.priceFrom.toLocaleString('cs-CZ')} Kč za 10 vstupů nebo ${city.priceTo.toLocaleString('cs-CZ')} Kč za 15 vstupů. Vstupy nepropadají na konci pololetí, takže když dítě onemocní, o nic nepřijdete.`,
     },
     {
       q: 'Kdy kroužek začíná?',
@@ -174,13 +176,21 @@ export default async function CityPage({ params }: Props) {
 
         <div className="mt-6 rounded-[22px] border border-white/10 bg-white/[0.04] p-6">
           <p className="text-lg font-semibold">Kolik to stojí</p>
-          <p className="mt-2 max-w-[62ch] text-white/70">
-            Žádný měsíční paušál. Platí se permanentka na vstupy —{' '}
-            <strong className="text-white">{city.priceFrom.toLocaleString('cs-CZ')} Kč za 10 vstupů</strong> nebo{' '}
-            <strong className="text-white">{city.priceTo.toLocaleString('cs-CZ')} Kč za 15 vstupů</strong>.
-            Vstupy nepropadají na konci pololetí, takže nemoc ani prázdniny nejsou problém. Docházku
-            i zbývající vstupy vidíte v aplikaci.
-          </p>
+          {city.membership ? (
+            <p className="mt-2 max-w-[62ch] text-white/70">
+              Platí se členství na období —{' '}
+              <strong className="text-white">od {city.priceFrom.toLocaleString('cs-CZ')} Kč</strong>. Po dobu členství
+              chodí dítě na tréninky neomezeně, docházku vidíte v aplikaci.
+            </p>
+          ) : (
+            <p className="mt-2 max-w-[62ch] text-white/70">
+              Žádný měsíční paušál. Platí se permanentka na vstupy —{' '}
+              <strong className="text-white">{city.priceFrom.toLocaleString('cs-CZ')} Kč za 10 vstupů</strong> nebo{' '}
+              <strong className="text-white">{city.priceTo.toLocaleString('cs-CZ')} Kč za 15 vstupů</strong>.
+              Vstupy nepropadají na konci pololetí, takže nemoc ani prázdniny nejsou problém. Docházku
+              i zbývající vstupy vidíte v aplikaci.
+            </p>
+          )}
         </div>
       </section>
 

@@ -161,6 +161,7 @@ function rowToProduct(row: AdminProductRow): ParentProduct {
     originalPrice: row.original_price,
     priceLabel: row.price_label,
     entriesTotal: row.entries_total,
+    billingModel: (row as { billing_model?: 'entries' | 'membership' }).billing_model ?? 'entries',
     primaryMeta: row.primary_meta,
     secondaryMeta: row.secondary_meta,
     eventDate: row.event_date ?? undefined,

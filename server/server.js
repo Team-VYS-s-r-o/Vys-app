@@ -602,7 +602,7 @@ async function getProduct(productId) {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,price,price_label,place,primary_meta,event_date,expires_at,entries_total,capacity_total,capacity_current,interest_mode,org_id')
+    .select('id,type,title,price,price_label,place,primary_meta,event_date,expires_at,entries_total,billing_model,membership_months,membership_valid_until,capacity_total,capacity_current,interest_mode,org_id')
     .eq('id', productId)
     .single();
 
@@ -1335,13 +1335,14 @@ async function participantHasActiveCoursePass(participantId) {
   if (error) throw error;
 
   return (data || []).some((pass) => {
+    const expiry = parseFlexibleDate(pass.expires_at);
+    const expired = expiry ? expiry.getTime() < Date.now() : false;
+    if (pass.pass_kind === 'membership') return !expired;
     const isCoursePass = pass.pass_kind
       ? pass.pass_kind === 'course'
       : String(pass.nfc_chip_id || '').startsWith('NFC');
     if (!isCoursePass) return false;
     const entriesLeft = Number(pass.total_entries || 0) - Number(pass.used_entries || 0) > 0;
-    const expiry = parseFlexibleDate(pass.expires_at);
-    const expired = expiry ? expiry.getTime() < Date.now() : false;
     return entriesLeft && !expired;
   });
 }
@@ -1492,10 +1493,25 @@ async function createDigitalPassForPurchase(purchase, productOverride) {
 
   const product = productOverride || await getProduct(purchase.product_id);
 
-  const totalEntries = Number(product?.entries_total || (purchase.type === 'Kroužek' ? 10 : 1));
+  const isMembership = product?.billing_model === 'membership';
+  const totalEntries = isMembership ? 0 : Number(product?.entries_total || (purchase.type === 'Kroužek' ? 10 : 1));
   const passId = `pass-${purchase.id}`;
   const passTitle = purchase.type === 'Kroužek' ? purchase.title : `${purchase.title} · ticket`;
   const chipPrefix = purchase.type === 'Kroužek' ? 'NFC' : 'QR';
+  // Členství platí do pevného data (pololetí) nebo N měsíců od zaplacení — ISO, ať to SQL porovná.
+  let membershipUntil = null;
+  if (isMembership) {
+    const fixed = parseFlexibleDate(product?.membership_valid_until);
+    if (fixed) {
+      membershipUntil = fixed;
+    } else {
+      const from = parseFlexibleDate(purchase.paid_at) || new Date();
+      membershipUntil = new Date(from.getFullYear(), from.getMonth() + Math.max(1, Number(product?.membership_months) || 1), from.getDate());
+    }
+  }
+  const membershipUntilIso = membershipUntil
+    ? `${membershipUntil.getFullYear()}-${String(membershipUntil.getMonth() + 1).padStart(2, '0')}-${String(membershipUntil.getDate()).padStart(2, '0')}`
+    : null;
 
   const { data: existingPass, error: existingPassError } = await supabase
     .from('digital_passes')
@@ -1518,6 +1534,7 @@ async function createDigitalPassForPurchase(purchase, productOverride) {
       used_entries: Number(existingPass?.used_entries || 0),
       last_scan_at: existingPass?.last_scan_at ?? null,
       last_scan_place: existingPass?.last_scan_place ?? purchase.place,
+      ...(isMembership ? { pass_kind: 'membership', expires_at: membershipUntilIso } : {}),
     }, { onConflict: 'id' });
 
   if (error) throw error;
@@ -1973,7 +1990,7 @@ app.get('/api/parent/products', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,org_id')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,org_id')
     .eq('is_published', true)
     .in('org_id', orgIds)
     .order('created_at', { ascending: false });
@@ -1988,7 +2005,7 @@ app.get('/api/public/products', asyncRoute(async (_request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,org_id,map_query,latitude,longitude')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,org_id,map_query,latitude,longitude')
     .eq('is_published', true)
     .eq('org_id', VYS_ORG_ID)
     .order('created_at', { ascending: false });
@@ -2409,7 +2426,7 @@ app.get('/api/courses', asyncRoute(async (_request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,entries_total,primary_meta,secondary_meta,description,important_info,capacity_total,capacity_current,coach_ids,badge')
+    .select('id,type,title,city,place,venue,price,price_label,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,capacity_total,capacity_current,coach_ids,badge')
     .eq('type', 'Kroužek')
     .eq('org_id', VYS_ORG_ID)
     .order('city', { ascending: true });
@@ -5805,7 +5822,7 @@ app.get('/api/admin/products', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,gym_contact,price,price_label,original_price,entries_total,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items')
+    .select('id,type,title,city,place,venue,gym_contact,price,price_label,original_price,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -5829,7 +5846,7 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
     throw new Error('Invalid product: id is required.');
   }
 
-  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'gym_contact', 'price', 'price_label', 'original_price', 'entries_total', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'interest_mode', 'map_query', 'latitude', 'longitude', 'skill_category', 'region', 'included_items', 'bring_items'];
+  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'gym_contact', 'price', 'price_label', 'original_price', 'entries_total', 'billing_model', 'membership_months', 'membership_valid_until', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'interest_mode', 'map_query', 'latitude', 'longitude', 'skill_category', 'region', 'included_items', 'bring_items'];
   const row = Object.fromEntries(Object.entries(product).filter(([key]) => allowed.includes(key)));
 
   requiredString(row.type, 'type');
@@ -6147,7 +6164,7 @@ function monthKeyFromPeriodLabel(label) {
 async function computeRegionFinance(orgId, region, percent, coordinatorId, commissionEnabled = true) {
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,gym_contact,price,price_label,entries_total,capacity_total,capacity_current,coach_ids,is_published,interest_mode,region,event_date,hero_image,primary_meta')
+    .select('id,type,title,city,place,venue,gym_contact,price,price_label,entries_total,billing_model,membership_months,membership_valid_until,capacity_total,capacity_current,coach_ids,is_published,interest_mode,region,event_date,hero_image,primary_meta')
     .eq('org_id', orgId)
     .eq('region', region)
     .order('created_at', { ascending: false });
@@ -9121,7 +9138,7 @@ async function botCatalogText() {
   try {
     const { data: rows, error } = await supabase
       .from('products')
-      .select('id,type,title,city,place,venue,price,price_label,entries_total,capacity_total,capacity_current,primary_meta,secondary_meta,event_date,interest_mode,is_published,org_id')
+      .select('id,type,title,city,place,venue,price,price_label,entries_total,billing_model,membership_months,membership_valid_until,capacity_total,capacity_current,primary_meta,secondary_meta,event_date,interest_mode,is_published,org_id')
       .eq('is_published', true);
     if (error) throw error;
     const products = (rows || []).filter((row) => (row.org_id || VYS_ORG_ID) === VYS_ORG_ID);
