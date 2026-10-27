@@ -128,8 +128,21 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     await handleChargeRefunded(event.data.object);
   }
 
+  // Členství s automatickou obnovou — platí pro VYS i cizí organizace.
+  let membershipHandled = false;
+  if (event.type === 'checkout.session.completed' && event.data.object.mode === 'subscription' && event.data.object.metadata?.membership_subscription === '1') {
+    await handleMembershipCheckoutCompleted(event.data.object, webhookClient);
+    membershipHandled = true;
+  }
+  if (event.type === 'invoice.paid' && webhookClient) {
+    membershipHandled = await handleMembershipInvoicePaid(event.data.object, webhookClient);
+  }
+  if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+    membershipHandled = await handleMembershipSubscriptionUpdated(event.data.object, event.type === 'customer.subscription.deleted');
+  }
+
   // Org subscription lifecycle — only relevant for VYS platform webhook.
-  if (!isOrgWebhook) {
+  if (!isOrgWebhook && !membershipHandled) {
     if (event.type === 'checkout.session.completed' && event.data.object.mode === 'subscription'
       && event.data.object.metadata?.org_registration === 'true') {
       if (ORG_SELF_REGISTRATION_ENABLED) {
@@ -3151,6 +3164,265 @@ async function siblingDiscountForPurchase(parentProfileId, participantId, produc
   if (rank === -1) rank = siblingOrder.length;
   // rank 0 = první dítě (plná cena), 1–2 = druhé a třetí (sleva), 3+ = plná cena
   return rank === 1 || rank === 2 ? SIBLING_DISCOUNT_CZK : 0;
+}
+
+// ─── Členství s automatickou obnovou: Stripe Subscription přes hosted Checkout ───
+// Jedno předplatné = jedno dítě × jeden kroužek. Každá zaplacená faktura
+// (invoice.paid) prodlouží členskou permanentku do konce období.
+function isoDayFromUnix(seconds) {
+  if (!seconds) return null;
+  const d = new Date(Number(seconds) * 1000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+
+app.post('/api/payments/membership-subscription', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requirePurchaser(request);
+
+  const productId = requiredString(request.body.productId, 'productId');
+  const participantId = requiredString(request.body.participantId, 'participantId');
+  await assertParticipantAccessible(actor, participantId);
+  const participantName = requiredString(request.body.participantName, 'participantName');
+  const successUrl = requiredString(request.body.successUrl, 'successUrl');
+  const cancelUrl = requiredString(request.body.cancelUrl, 'cancelUrl');
+  const parentProfileId = parentProfileIdForActor(actor, request.body.parentProfileId);
+  const receiptEmail = await profileReceiptEmail(parentProfileId, request.body.receiptEmail || actor.email);
+
+  const product = await ensureProductCapacity(productId);
+  if (product.billing_model !== 'membership') throw httpError('Automatická obnova jde jen u členství na období.', 409);
+  const months = Math.max(1, Number(product.membership_months) || 0);
+  if (!months || product.membership_valid_until) throw httpError('Tohle členství má pevné datum konce — kupuje se jednorázově.', 409);
+  await assertRequiredDocumentsSigned(product, participantId, participantName);
+
+  const amount = Math.round(Number(product.price));
+  if (!(amount > 0)) throw httpError('Produkt nemá cenu.', 409);
+  const { orgStripe, orgId } = await getProductOrgStripe(product);
+
+  const metadata = {
+    membership_subscription: '1',
+    parent_profile_id: parentProfileId,
+    product_id: product.id,
+    participant_id: participantId,
+    participant_name: participantName,
+    type: product.type,
+    title: product.title,
+    place: product.place,
+    price_label: product.price_label || `${amount} Kč`,
+    org_id: orgId,
+    receipt_email: receiptEmail || '',
+  };
+
+  const session = await orgStripe.checkout.sessions.create({
+    mode: 'subscription',
+    locale: 'cs',
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    customer_email: receiptEmail || undefined,
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: 'czk',
+        unit_amount: amount * 100,
+        recurring: { interval: 'month', interval_count: months },
+        product_data: { name: product.title, description: `${product.place} · ${participantName} · automatická obnova` },
+      },
+    }],
+    subscription_data: { metadata },
+    metadata,
+  });
+
+  response.status(201).json({ id: session.id, url: session.url });
+}));
+
+// Rodič: seznam svých předplatných (k zobrazení + zrušení).
+app.get('/api/payments/membership-subscriptions', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const { data, error } = await supabase
+    .from('membership_subscriptions')
+    .select('id,product_id,participant_id,participant_name,pass_id,status,cancel_at_period_end,current_period_end,created_at,org_id')
+    .eq('parent_profile_id', actor.id)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const productIds = Array.from(new Set((data || []).map((row) => row.product_id)));
+  const { data: products } = productIds.length > 0
+    ? await supabase.from('products').select('id,title,place,price,price_label,membership_months').in('id', productIds)
+    : { data: [] };
+  const productById = new Map((products || []).map((p) => [p.id, p]));
+  response.json({
+    subscriptions: (data || []).map((row) => ({
+      id: row.id,
+      productId: row.product_id,
+      participantId: row.participant_id,
+      participantName: row.participant_name,
+      status: row.status,
+      cancelAtPeriodEnd: row.cancel_at_period_end,
+      currentPeriodEnd: row.current_period_end,
+      title: productById.get(row.product_id)?.title || '',
+      place: productById.get(row.product_id)?.place || '',
+      price: productById.get(row.product_id)?.price || null,
+      months: productById.get(row.product_id)?.membership_months || null,
+    })),
+  });
+}));
+
+// Rodič ruší automatickou obnovu — členství doběhne do konce zaplaceného období.
+app.post('/api/payments/membership-subscriptions/:id/cancel', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const id = requiredString(request.params.id, 'id');
+  const { data: row, error } = await supabase.from('membership_subscriptions').select('id,org_id,parent_profile_id,status').eq('id', id).maybeSingle();
+  if (error) throw error;
+  if (!row || (actor.role !== 'admin' && row.parent_profile_id !== actor.id)) throw httpError('Předplatné nenalezeno.', 404);
+  const orgStripe = await requireOrgStripe(row.org_id);
+  const updated = await orgStripe.subscriptions.update(id, { cancel_at_period_end: true });
+  await supabase.from('membership_subscriptions').update({ cancel_at_period_end: true, current_period_end: isoDayFromUnix(updated.current_period_end), updated_at: new Date().toISOString() }).eq('id', id);
+  response.json({ ok: true, currentPeriodEnd: isoDayFromUnix(updated.current_period_end) });
+}));
+
+// Webhook: založení předplatného (checkout dokončen).
+async function handleMembershipCheckoutCompleted(session, stripeClient) {
+  const metadata = session.metadata || {};
+  if (metadata.membership_subscription !== '1' || !session.subscription) return;
+  const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
+  let periodEnd = null;
+  try {
+    const sub = await stripeClient.subscriptions.retrieve(subscriptionId);
+    periodEnd = isoDayFromUnix(sub.current_period_end);
+  } catch (error) {
+    console.error('membership subscription retrieve failed:', error?.message || error);
+  }
+  const { error } = await supabase.from('membership_subscriptions').upsert({
+    id: subscriptionId,
+    org_id: metadata.org_id || VYS_ORG_ID,
+    product_id: metadata.product_id,
+    participant_id: metadata.participant_id,
+    participant_name: metadata.participant_name,
+    parent_profile_id: metadata.parent_profile_id || null,
+    stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
+    status: 'active',
+    current_period_end: periodEnd,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'id' });
+  if (error) throw error;
+}
+
+// Webhook: zaplacená faktura předplatného → nákup + prodloužení členské permanentky.
+async function handleMembershipInvoicePaid(invoice, stripeClient) {
+  const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id || invoice.parent?.subscription_details?.subscription || null;
+  if (!subscriptionId) return false;
+  let sub;
+  try {
+    sub = await stripeClient.subscriptions.retrieve(subscriptionId);
+  } catch {
+    return false;
+  }
+  const metadata = sub?.metadata || {};
+  if (metadata.membership_subscription !== '1') return false;
+
+  const product = await getProduct(metadata.product_id);
+  const line = invoice.lines?.data?.[0];
+  const periodEnd = isoDayFromUnix(line?.period?.end || sub.current_period_end);
+  const amount = Math.round(Number(invoice.amount_paid || 0) / 100);
+  const purchaseId = `stripe-inv-${invoice.id}`;
+  const paymentIntentId = typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent?.id || null;
+
+  const { data: existing } = await supabase.from('parent_purchases').select('id,status').eq('id', purchaseId).maybeSingle();
+  const purchaseRow = {
+    id: purchaseId,
+    org_id: metadata.org_id || product.org_id || VYS_ORG_ID,
+    parent_profile_id: metadata.parent_profile_id || null,
+    product_id: product.id,
+    participant_id: metadata.participant_id,
+    participant_name: metadata.participant_name,
+    type: product.type,
+    title: product.title,
+    amount,
+    original_amount: amount,
+    discount_amount: 0,
+    price_label: `${product.price_label || `${amount} Kč`} · automatická obnova`,
+    place: product.place,
+    status: 'Zaplaceno',
+    paid_at: new Date().toLocaleDateString('cs-CZ'),
+    event_date: null,
+    expires_at: periodEnd,
+    stripe_payment_intent_id: paymentIntentId,
+  };
+  const { data: purchase, error } = await supabase.from('parent_purchases').upsert(purchaseRow, { onConflict: 'id' }).select().single();
+  if (error) throw error;
+
+  // Permanentka: prodloužit existující členskou, jinak založit.
+  const { data: passes } = await supabase
+    .from('digital_passes')
+    .select('id,expires_at')
+    .eq('participant_id', metadata.participant_id)
+    .eq('product_id', product.id)
+    .eq('pass_kind', 'membership')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  let passId = passes?.[0]?.id || null;
+  if (passId) {
+    const { error: extendError } = await supabase.from('digital_passes').update({ expires_at: periodEnd, purchase_id: purchaseId }).eq('id', passId);
+    if (extendError) throw extendError;
+  } else {
+    passId = `pass-${purchaseId}`;
+    const { error: passError } = await supabase.from('digital_passes').upsert({
+      id: passId,
+      participant_id: metadata.participant_id,
+      holder_name: metadata.participant_name,
+      title: product.title,
+      location: product.place,
+      nfc_chip_id: `NFC-${String(metadata.participant_id).slice(0, 8).toUpperCase()}-${String(product.id).slice(0, 8).toUpperCase()}`,
+      total_entries: 0,
+      used_entries: 0,
+      pass_kind: 'membership',
+      expires_at: periodEnd,
+      product_id: product.id,
+      purchase_id: purchaseId,
+      org_id: purchaseRow.org_id,
+    }, { onConflict: 'id' });
+    if (passError) throw passError;
+  }
+
+  await Promise.all([
+    syncProductCapacity(product),
+    syncCoachSessionEnrollment(product),
+    syncParticipantPaidPurchases(metadata.participant_id, product),
+    syncParentPaymentForPurchase(purchase),
+  ]);
+  await supabase.from('membership_subscriptions').upsert({
+    id: subscriptionId,
+    org_id: purchaseRow.org_id,
+    product_id: product.id,
+    participant_id: metadata.participant_id,
+    participant_name: metadata.participant_name,
+    parent_profile_id: metadata.parent_profile_id || null,
+    pass_id: passId,
+    stripe_customer_id: typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id || null,
+    status: 'active',
+    cancel_at_period_end: Boolean(sub.cancel_at_period_end),
+    current_period_end: periodEnd,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'id' });
+
+  if (existing?.status !== 'Zaplaceno') {
+    await safelySendPaymentConfirmationEmail(purchase, metadata.receipt_email || invoice.customer_email);
+    await safelySendMetaPurchaseEvent(purchase, metadata.receipt_email || invoice.customer_email);
+  }
+  return true;
+}
+
+// Webhook: změna/zrušení předplatného členství.
+async function handleMembershipSubscriptionUpdated(subscription, isDeleted) {
+  if (subscription?.metadata?.membership_subscription !== '1') return false;
+  const status = isDeleted ? 'canceled' : (['active', 'trialing'].includes(subscription.status) ? 'active' : subscription.status === 'past_due' || subscription.status === 'unpaid' ? 'past_due' : subscription.status === 'canceled' ? 'canceled' : 'incomplete');
+  await supabase.from('membership_subscriptions').update({
+    status,
+    cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+    current_period_end: isoDayFromUnix(subscription.current_period_end),
+    updated_at: new Date().toISOString(),
+  }).eq('id', subscription.id);
+  return true;
 }
 
 app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
@@ -9563,12 +9835,19 @@ app.get('/api/admin/memberships', asyncRoute(async (request, response) => {
     const profileById = new Map((profiles || []).map((p) => [p.id, p]));
     parentById = new Map((participants || []).map((p) => [p.id, { name: profileById.get(p.parent_profile_id)?.name || p.parent_name || '', email: profileById.get(p.parent_profile_id)?.email || null, phone: p.parent_phone || null }]));
   }
+  const passIds = (passes || []).map((p) => p.id);
+  const { data: subs } = passIds.length > 0
+    ? await supabase.from('membership_subscriptions').select('id,pass_id,status,cancel_at_period_end,current_period_end').in('pass_id', passIds)
+    : { data: [] };
+  const subByPass = new Map((subs || []).map((sub) => [sub.pass_id, sub]));
   const todayKey = pragueDayKey();
   const memberships = (passes || []).map((pass) => {
     const exp = String(pass.expires_at || '').slice(0, 10);
     const daysLeft = /^\d{4}-\d{2}-\d{2}$/.test(exp) ? Math.round((new Date(exp).getTime() - new Date(todayKey).getTime()) / 86400000) : null;
     const parent = parentById.get(pass.participant_id) || { name: '', email: null, phone: null };
-    return { id: pass.id, participantId: pass.participant_id, childName: pass.holder_name, title: pass.title, location: pass.location, visits: Number(pass.used_entries || 0), expiresAt: exp || null, daysLeft, parentName: parent.name, parentEmail: parent.email, parentPhone: parent.phone, productId: pass.product_id };
+    const sub = subByPass.get(pass.id);
+    const autoRenew = sub ? (sub.status === 'active' ? (sub.cancel_at_period_end ? 'canceling' : 'active') : sub.status) : null;
+    return { id: pass.id, participantId: pass.participant_id, childName: pass.holder_name, title: pass.title, location: pass.location, visits: Number(pass.used_entries || 0), expiresAt: exp || null, daysLeft, parentName: parent.name, parentEmail: parent.email, parentPhone: parent.phone, productId: pass.product_id, autoRenew };
   });
   response.json({ memberships, today: todayKey });
 }));
