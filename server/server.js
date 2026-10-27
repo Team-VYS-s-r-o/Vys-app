@@ -7658,19 +7658,25 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
         ? `${city} · ${courseVenue}`
         : String(payload.place || payload.city || ''),
       venue: isCourse ? courseVenue : optionalString(payload.venue),
-      description: optionalString(payload.description) || (isCourse ? 'Permanentka na 10 vstupů do parkour tréninku.' : ''),
+      description: optionalString(payload.description) || (isCourse ? (payload.billingModel === 'membership' ? 'Členství na období — tréninky bez počítání vstupů.' : 'Permanentka na 10 vstupů do parkour tréninku.') : ''),
       capacity_total: Number(payload.capacityTotal) || 0,
       capacity_current: 0,
       // U kroužku event_date nedává smysl (týdenní trénink; datum jen mátlo).
       event_date: isCourse ? null : optionalString(payload.eventDate),
       price,
       // Kroužky mají fixní strukturu 10/15 vstupů — popisek generujeme, ne z návrhu.
-      price_label: isCourse && price > 0 ? `10 vstupů · ${price.toLocaleString('cs-CZ')} Kč` : optionalString(payload.priceLabel) || '',
+      price_label: isCourse && price > 0
+        ? (payload.billingModel === 'membership'
+          ? `Členství · ${membershipMonthsLabel(payload.membershipMonths)} · ${price.toLocaleString('cs-CZ')} Kč`
+          : `10 vstupů · ${price.toLocaleString('cs-CZ')} Kč`)
+        : optionalString(payload.priceLabel) || '',
       // Sloupce jsou NOT NULL bez defaultu — bez nich insert spadne.
       primary_meta: optionalString(payload.schedule) || optionalString(payload.proposedSchedule) || optionalString(payload.primaryMeta) || '',
-      secondary_meta: isCourse ? 'Digitální permanentka přes NFC čip' : '',
+      secondary_meta: isCourse ? (payload.billingModel === 'membership' ? 'Členství na období · NFC docházka' : 'Digitální permanentka přes NFC čip') : '',
       badge: isCourse ? 'Kroužek' : String(type),
-      entries_total: isCourse ? 10 : Number(payload.entriesTotal) || null,
+      entries_total: isCourse ? (payload.billingModel === 'membership' ? null : 10) : Number(payload.entriesTotal) || null,
+      billing_model: isCourse && payload.billingModel === 'membership' ? 'membership' : 'entries',
+      membership_months: isCourse && payload.billingModel === 'membership' ? Math.max(1, Number(payload.membershipMonths) || 1) : null,
       skill_category: skillCategory,
       // Předvyplněné body „Co je v ceně" / „Co s sebou" — jen pro VYS,
       // jiné organizace startují s prázdnými poli.
@@ -7697,9 +7703,9 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
     const { error: productError } = await supabase.from('products').insert(productRow);
     if (productError) throw productError;
 
-    // Kroužek existuje vždy ve dvou variantách (10 a 15 vstupů) — druhou
-    // zakládáme automaticky stejně jako admin web; cenu doladí admin v Produktech.
-    if (isCourse) {
+    // Kroužek na vstupy existuje ve dvou variantách (10 a 15 vstupů) — druhou
+    // zakládáme automaticky stejně jako admin web; členství variantu nemá.
+    if (isCourse && productRow.billing_model !== 'membership') {
       const price15 = price > 0 ? price + 1000 : 0;
       const { error: variantError } = await supabase.from('products').insert({
         ...productRow,
@@ -9323,6 +9329,61 @@ function passReminderThreshold(entriesLeft) {
   return entriesLeft;
 }
 
+/** ISO klíč dne v Praze (YYYY-MM-DD) pro porovnání s expires_at členství. */
+function membershipMonthsLabel(months) {
+  const n = Math.max(1, Number(months) || 1);
+  return n === 1 ? '1 měsíc' : n < 5 ? `${n} měsíce` : `${n} měsíců`;
+}
+
+function pragueDayKey(date = new Date(), offsetDays = 0) {
+  const shifted = new Date(date.getTime() + offsetDays * 86400000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' }).format(shifted);
+}
+
+function membershipReminderEmailContent(pass, daysLeft) {
+  const childName = optionalString(pass.holder_name) || 'Vaše dítě';
+  const place = optionalString(pass.location) || optionalString(pass.title) || 'kroužek';
+  const until = parseFlexibleDate(pass.expires_at);
+  const untilText = until ? `${until.getDate()}. ${until.getMonth() + 1}. ${until.getFullYear()}` : String(pass.expires_at || '');
+  const buyUrl = PARENT_APP_URL;
+  const expired = daysLeft <= 0;
+
+  const subject = expired
+    ? `Členství vypršelo — ${childName}`
+    : `Členství končí za ${daysLeft} dní — ${childName}`;
+  const intro = expired
+    ? `členství pro ${escapeHtml(childName)} skončilo ${untilText}. Aby dítě mohlo na další trénink, stačí ho v aplikaci obnovit — zabere to minutu.`
+    : `jen abyste nebyli zaskočení: členství pro ${escapeHtml(childName)} končí ${untilText}. Obnovit ho můžete kdykoliv v aplikaci, nové období naváže na to stávající.`;
+  const textLines = [
+    'Dobrý den,',
+    '',
+    expired
+      ? `členství pro ${childName} skončilo ${untilText}. Aby mohlo dítě na další trénink, stačí ho v aplikaci obnovit.`
+      : `členství pro ${childName} končí ${untilText}. Obnovit ho můžete kdykoliv v aplikaci.`,
+    '',
+    `Kroužek: ${place}`,
+    `Členství do: ${untilText}`,
+    '',
+    `Obnovit členství: ${buyUrl}`,
+    '',
+    'Kdyby cokoliv, ozvěte se na 734 167 417.',
+    '',
+    'Děkujeme, Team VYS s.r.o.',
+  ];
+  const html = brandEmailHtml({
+    heading: expired ? 'Členství vypršelo' : 'Členství se blíží ke konci',
+    intro,
+    rows: [
+      ['Dítě', childName],
+      ['Kroužek', place],
+      ['Členství do', untilText],
+    ],
+    extraHtml: `<div style="margin:20px 0 4px"><a href="${buyUrl}" style="display:inline-block;background:#7C3AED;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 26px;border-radius:999px">Obnovit členství</a></div>`,
+    outro: 'Děkujeme, že s námi trénujete.',
+  });
+  return { subject, text: textLines.join('\n'), html };
+}
+
 function passReminderEmailContent(pass, entriesLeft) {
   const childName = optionalString(pass.holder_name) || 'Vaše dítě';
   const place = optionalString(pass.location) || optionalString(pass.title) || 'kroužek';
@@ -9382,28 +9443,46 @@ async function runPassReminders({ dryRun = false } = {}) {
 
   const { data: passes, error } = await supabase
     .from('digital_passes')
-    .select('id,participant_id,holder_name,title,location,total_entries,used_entries,expires_at,org_id,product_id');
+    .select('id,participant_id,holder_name,title,location,total_entries,used_entries,expires_at,org_id,product_id,pass_kind');
   if (error) throw error;
 
   const now = new Date();
   const results = { candidates: 0, sent: 0, alreadySent: 0, noEmail: 0, failed: 0, details: [] };
+  const todayKey = pragueDayKey(now);
+  const in7Key = pragueDayKey(now, 7);
+  const threeDaysAgoKey = pragueDayKey(now, -3);
 
   for (const pass of passes || []) {
-    if (isPassExpired(pass, now)) continue;
+    const isMembership = pass.pass_kind === 'membership';
+    let entriesLeft = 0;
+    let threshold = null;
+    let reminderId = null;
+    let membershipDaysLeft = null;
 
-    const entriesLeft = passEntriesLeft(pass);
-    const threshold = passReminderThreshold(entriesLeft);
-    if (threshold === null) continue;
-
-    // Permanentka, kterou nikdo nikdy nepoužil, není "docházející" — je buď
-    // čerstvě koupená, nebo dítě vůbec nedorazilo. To je jiný problém.
-    if (Number(pass.used_entries || 0) <= 0) continue;
+    if (isMembership) {
+      // Členství: 7 dní před koncem a den po vypršení (jen čerstvě vypršelá,
+      // ať se neozýváme k dávno opuštěným členstvím).
+      const exp = String(pass.expires_at || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(exp)) continue;
+      if (exp === in7Key) { threshold = 7; membershipDaysLeft = 7; }
+      else if (exp < todayKey && exp >= threeDaysAgoKey) { threshold = 0; membershipDaysLeft = 0; }
+      else continue;
+      reminderId = `${pass.id}:m${threshold}`;
+    } else {
+      if (isPassExpired(pass, now)) continue;
+      entriesLeft = passEntriesLeft(pass);
+      threshold = passReminderThreshold(entriesLeft);
+      if (threshold === null) continue;
+      // Permanentka, kterou nikdo nikdy nepoužil, není "docházející" — je buď
+      // čerstvě koupená, nebo dítě vůbec nedorazilo. To je jiný problém.
+      if (Number(pass.used_entries || 0) <= 0) continue;
+      reminderId = `${pass.id}:${threshold}`;
+    }
 
     results.candidates += 1;
-    const reminderId = `${pass.id}:${threshold}`;
 
     if (dryRun) {
-      results.details.push({ pass: pass.id, child: pass.holder_name, entriesLeft, threshold });
+      results.details.push({ pass: pass.id, child: pass.holder_name, entriesLeft, threshold, membership: isMembership, expiresAt: pass.expires_at || null });
       continue;
     }
 
@@ -9446,7 +9525,7 @@ async function runPassReminders({ dryRun = false } = {}) {
     }
 
     try {
-      const { subject, text, html } = passReminderEmailContent(pass, entriesLeft);
+      const { subject, text, html } = isMembership ? membershipReminderEmailContent(pass, membershipDaysLeft) : passReminderEmailContent(pass, entriesLeft);
       await emailer.sendMail({ from: smtpFrom, to, subject, text, html });
       results.sent += 1;
     } catch (sendError) {
@@ -9463,6 +9542,62 @@ async function runPassReminders({ dryRun = false } = {}) {
  * Spouští Vercel Cron jednou denně. Chráněno `CRON_SECRET` — bez něj by
  * kdokoliv mohl rozesílat e-maily rodičům.
  */
+// ─── Admin: členství (končící / vypršelá) + ruční prodloužení ───────────────
+app.get('/api/admin/memberships', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const { data: passes, error } = await supabase
+    .from('digital_passes')
+    .select('id,participant_id,holder_name,title,location,used_entries,expires_at,product_id,created_at')
+    .eq('org_id', orgId)
+    .eq('pass_kind', 'membership')
+    .order('expires_at', { ascending: true });
+  if (error) throw error;
+  const participantIds = Array.from(new Set((passes || []).map((p) => p.participant_id).filter(Boolean)));
+  let parentById = new Map();
+  if (participantIds.length > 0) {
+    const { data: participants } = await supabase.from('participants').select('id,parent_profile_id,parent_name,parent_phone').in('id', participantIds);
+    const parentIds = Array.from(new Set((participants || []).map((p) => p.parent_profile_id).filter(Boolean)));
+    const { data: profiles } = parentIds.length > 0 ? await supabase.from('app_profiles').select('id,name,email').in('id', parentIds) : { data: [] };
+    const profileById = new Map((profiles || []).map((p) => [p.id, p]));
+    parentById = new Map((participants || []).map((p) => [p.id, { name: profileById.get(p.parent_profile_id)?.name || p.parent_name || '', email: profileById.get(p.parent_profile_id)?.email || null, phone: p.parent_phone || null }]));
+  }
+  const todayKey = pragueDayKey();
+  const memberships = (passes || []).map((pass) => {
+    const exp = String(pass.expires_at || '').slice(0, 10);
+    const daysLeft = /^\d{4}-\d{2}-\d{2}$/.test(exp) ? Math.round((new Date(exp).getTime() - new Date(todayKey).getTime()) / 86400000) : null;
+    const parent = parentById.get(pass.participant_id) || { name: '', email: null, phone: null };
+    return { id: pass.id, participantId: pass.participant_id, childName: pass.holder_name, title: pass.title, location: pass.location, visits: Number(pass.used_entries || 0), expiresAt: exp || null, daysLeft, parentName: parent.name, parentEmail: parent.email, parentPhone: parent.phone, productId: pass.product_id };
+  });
+  response.json({ memberships, today: todayKey });
+}));
+
+app.patch('/api/admin/memberships/:passId', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const passId = requiredString(request.params.passId, 'passId');
+  const { data: pass, error } = await supabase.from('digital_passes').select('id,org_id,expires_at,pass_kind').eq('id', passId).maybeSingle();
+  if (error) throw error;
+  if (!pass || pass.org_id !== orgId || pass.pass_kind !== 'membership') throw httpError('Členství nenalezeno.', 404);
+
+  let nextIso = optionalString(request.body.validUntil);
+  if (nextIso && !/^\d{4}-\d{2}-\d{2}$/.test(nextIso)) throw httpError('Datum zadej ve formátu YYYY-MM-DD.', 400);
+  if (!nextIso) {
+    const months = Math.max(1, Number(request.body.months) || 1);
+    // Prodloužení navazuje na stávající konec (když ještě neskončilo), jinak na dnešek.
+    const todayKey = pragueDayKey();
+    const base = String(pass.expires_at || '').slice(0, 10) >= todayKey ? String(pass.expires_at).slice(0, 10) : todayKey;
+    const [y, m, d] = base.split('-').map(Number);
+    const next = new Date(y, m - 1 + months, d);
+    nextIso = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+  }
+  const { error: updateError } = await supabase.from('digital_passes').update({ expires_at: nextIso }).eq('id', passId);
+  if (updateError) throw updateError;
+  response.json({ ok: true, expiresAt: nextIso });
+}));
+
 app.get('/api/cron/pass-reminders', asyncRoute(async (request, response) => {
   // Fail closed: bez nastaveného klíče endpoint radši neběží vůbec, než aby
   // kdokoliv na internetu mohl spustit rozesílku e-mailů rodičům.
