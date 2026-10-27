@@ -6730,7 +6730,7 @@ async function coordinatorRegionRecipients(coordinator) {
   // Trenéři kraje — stejná logika jako v přehledu koordinátora.
   const { data: coachProfiles, error: coachError } = await supabase
     .from('coach_profiles')
-    .select('id,org_id,approval_status,assigned_courses')
+    .select('id,org_id,approval_status,assigned_courses,profile_photo_url')
     .eq('approval_status', 'approved');
   if (coachError) throw coachError;
   const regionPlaceSet = new Set(placesList);
@@ -6871,7 +6871,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
   // s kurzem na místě kraje nebo se zapsanou docházkou v kraji.
   const { data: coachProfiles, error: coachError } = await supabase
     .from('coach_profiles')
-    .select('id,org_id,approval_status,assigned_courses')
+    .select('id,org_id,approval_status,assigned_courses,profile_photo_url')
     .eq('approval_status', 'approved');
   if (coachError) throw coachError;
   const regionPlaceSet = new Set((financeData.products || []).map((product) => product.place).filter(Boolean));
@@ -6918,6 +6918,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
       }
       return {
         ...profileRow,
+        profile_photo_url: coachProfileById.get(profileRow.id)?.profile_photo_url ?? null,
         hourly_rate: payoutByCoach.get(profileRow.id)?.hourly_rate ?? null,
         payout_status: payoutByCoach.get(profileRow.id)?.status ?? null,
         documents: documentsByCoach.get(profileRow.id) || [],
