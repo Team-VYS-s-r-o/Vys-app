@@ -22,6 +22,8 @@ export function CookieConsent() {
     } catch {
       // ignore
     }
+    // Analytika (Pixel/GA4) čeká na souhlas — dá se jí vědět bez reloadu.
+    window.dispatchEvent(new Event('vys-consent-changed'));
     setVisible(false);
   }
 

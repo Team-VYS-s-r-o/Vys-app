@@ -1,6 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
+import { trackEvent } from '@/components/analytics';
 import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ChevronsLeft, ChevronsRight, Clock, CreditCard, MapPin, ScanLine, Search, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -545,6 +546,14 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
   useEffect(() => setLoaded(true), []);
 
   const product = products.find((item) => item.id === productId && item.type === 'Krouzek');
+
+  // Meta/GA4: zhlédnutí detailu kroužku (parametry město + kroužek pro optimalizaci reklam).
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (!product || trackedRef.current) return;
+    trackedRef.current = true;
+    trackEvent('ViewContent', { content_ids: [product.id], content_name: product.title, content_type: 'product', city: product.city, value: product.price, currency: 'CZK' });
+  }, [product]);
 
   if (!loaded) {
     return (
@@ -1103,6 +1112,7 @@ function CourseInterestForm({ productId, onDone }: { productId: string; onDone?:
     setError(null);
     try {
       await registerProductInterest({ productId, firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), phone: phone.trim() });
+      trackEvent('Lead', { content_ids: [productId], content_type: 'product' });
       setDone(true);
       onDone?.();
     } catch (submitError) {

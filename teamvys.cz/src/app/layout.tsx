@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 
+import { SiteAnalytics } from '@/components/analytics';
 import { CookieConsent, ExitGuard } from '@/components/cookie-and-exit';
 import { SubscriptionBanner } from '@/components/subscription-banner';
 
@@ -164,6 +165,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SubscriptionBanner />
         {children}
         <CookieConsent />
+        <SiteAnalytics />
         <ExitGuard />
       </body>
     </html>

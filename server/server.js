@@ -1179,6 +1179,44 @@ function purchaseRowFromPaymentIntent(paymentIntent, metadata, status = 'Čeká 
   };
 }
 
+// ── Meta Conversions API: server-side Purchase (docs/zadani-meta-pixel-ga4.md).
+// event_id = payment intent id — appka posílá browser Purchase se stejným id,
+// Meta je dedupuje. Bez tokenu v env je to no-op; chyba nikdy neshodí webhook.
+const META_PIXEL_ID = '1729085625407355';
+async function safelySendMetaPurchaseEvent(purchase, receiptEmail) {
+  try {
+    const token = process.env.META_CAPI_ACCESS_TOKEN;
+    if (!token || !purchase?.stripe_payment_intent_id) return;
+    const userData = {};
+    const email = String(receiptEmail || '').trim().toLowerCase();
+    if (email) userData.em = [crypto.createHash('sha256').update(email).digest('hex')];
+    const body = {
+      data: [{
+        event_name: 'Purchase',
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: purchase.stripe_payment_intent_id,
+        action_source: 'website',
+        event_source_url: 'https://app.aplikacevys.cz',
+        user_data: userData,
+        custom_data: {
+          currency: 'CZK',
+          value: Number(purchase.amount) || 0,
+          content_ids: [purchase.product_id],
+          content_type: 'product',
+        },
+      }],
+    };
+    const response = await fetch(`https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events?access_token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) console.error('Meta CAPI purchase failed:', response.status, await response.text().catch(() => ''));
+  } catch (error) {
+    console.error('Meta CAPI purchase error:', error?.message || error);
+  }
+}
+
 async function finalizePaymentIntent(paymentIntent) {
   requireServices();
 
@@ -1209,6 +1247,7 @@ async function finalizePaymentIntent(paymentIntent) {
   await applyExtraPlacesFromMetadata(data, metadata);
   if (existingPurchase?.status !== 'Zaplaceno') {
     await safelySendPaymentConfirmationEmail(data, metadata.receipt_email || paymentIntent.receipt_email);
+    await safelySendMetaPurchaseEvent(data, metadata.receipt_email || paymentIntent.receipt_email);
   }
   return data;
 }

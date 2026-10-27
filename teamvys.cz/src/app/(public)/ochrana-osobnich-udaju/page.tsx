@@ -152,7 +152,13 @@ export default function PrivacyPolicyPage() {
               <Item term="Vercel Inc.">Hosting webu teamvys.cz a aplikace.</Item>
               <Item term="Stripe">Zpracování platebních transakcí.</Item>
               <Item term="Meta Platforms Ireland Ltd.">
-                Pouze údaje z poptávkových formulářů na Facebooku a Instagramu, které vyplníte vy sami.
+                Údaje z poptávkových formulářů na Facebooku a Instagramu, které vyplníte vy sami, a po vašem
+                souhlasu v cookie liště také měření návštěvnosti a konverzí nástrojem Meta Pixel (včetně
+                server-side Conversions API u dokončené platby).
+              </Item>
+              <Item term="Google Ireland Ltd.">
+                Po vašem souhlasu v cookie liště anonymizované měření návštěvnosti webu a aplikace nástrojem
+                Google Analytics 4.
               </Item>
               <Item term="Poskytovatel e-mailu a účetní kancelář">
                 Doručování provozních e-mailů a vedení účetnictví.
@@ -191,8 +197,9 @@ export default function PrivacyPolicyPage() {
               <h2 className="mt-2 text-2xl font-black md:text-3xl">Soubory cookies</h2>
               <p className="mt-4 text-sm leading-7 text-white/70">
                 Na webu používáme technicky nezbytné cookies, bez kterých by nefungovalo přihlášení a základní
-                provoz stránek. Volitelné cookies nastavujeme až po vašem souhlasu v cookie liště, kterou vidíte při
-                první návštěvě. Souhlas lze kdykoli změnit vymazáním cookies v prohlížeči.
+                provoz stránek. Volitelné cookies — měření návštěvnosti a konverzí přes Meta Pixel a Google
+                Analytics 4 — nastavujeme až po vašem souhlasu v cookie liště, kterou vidíte při první návštěvě.
+                Souhlas lze kdykoli změnit vymazáním cookies v prohlížeči.
               </p>
             </Card>
 
