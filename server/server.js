@@ -7913,7 +7913,20 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
     createdProductId = `koord-${Date.now()}`;
     const type = payload.type || 'Krouzek';
     const isCourse = type === 'Krouzek' || type === 'Kroužek';
-    const price = Number(payload.price) || 0;
+    // Navržené permanentky a období členství z formuláře koordinátora — první
+    // položka je základní produkt, další se zakládají jako varianty.
+    const entryOptions = (Array.isArray(payload.entriesOptions) ? payload.entriesOptions : [])
+      .map((option) => ({ entries: Math.round(Number(option?.entries) || 0), price: Math.round(Number(option?.price) || 0) }))
+      .filter((option) => option.entries > 0 && option.price > 0)
+      .slice(0, 2);
+    const membershipOpts = (Array.isArray(payload.membershipOptions) ? payload.membershipOptions : [])
+      .map((option) => ({ months: Math.round(Number(option?.months) || 0), price: Math.round(Number(option?.price) || 0) }))
+      .filter((option) => option.months > 0 && option.price > 0)
+      .slice(0, 3);
+    const isMembership = isCourse && payload.billingModel === 'membership';
+    const baseEntries = entryOptions[0]?.entries || 10;
+    const baseMonths = isMembership ? (membershipOpts[0]?.months || Math.max(1, Number(payload.membershipMonths) || 1)) : null;
+    const price = (isMembership ? membershipOpts[0]?.price : entryOptions[0]?.price) || Number(payload.price) || 0;
     // Úroveň kurzu z návrhu koordinátora — stejné hodnoty jako admin web.
     const skillCategory = ['zacatecnici', 'pokrocili', 'smisene'].includes(payload.skillCategory)
       ? payload.skillCategory
@@ -7931,25 +7944,30 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
         ? `${city} · ${courseVenue}`
         : String(payload.place || payload.city || ''),
       venue: isCourse ? courseVenue : optionalString(payload.venue),
-      description: optionalString(payload.description) || (isCourse ? (payload.billingModel === 'membership' ? 'Členství na období — tréninky bez počítání vstupů.' : 'Permanentka na 10 vstupů do parkour tréninku.') : ''),
+      description: optionalString(payload.description) || (isCourse ? (isMembership ? 'Členství na období — tréninky bez počítání vstupů.' : `Permanentka na ${baseEntries} vstupů do tréninku.`) : ''),
       capacity_total: Number(payload.capacityTotal) || 0,
       capacity_current: 0,
       // U kroužku event_date nedává smysl (týdenní trénink; datum jen mátlo).
       event_date: isCourse ? null : optionalString(payload.eventDate),
       price,
-      // Kroužky mají fixní strukturu 10/15 vstupů — popisek generujeme, ne z návrhu.
+      // Popisek ceny generujeme z navržených vstupů / období, ať sedí s cenou.
       price_label: isCourse && price > 0
-        ? (payload.billingModel === 'membership'
-          ? `Členství · ${membershipMonthsLabel(payload.membershipMonths)} · ${price.toLocaleString('cs-CZ')} Kč`
-          : `10 vstupů · ${price.toLocaleString('cs-CZ')} Kč`)
+        ? (isMembership
+          ? `Členství · ${membershipMonthsLabel(baseMonths)} · ${price.toLocaleString('cs-CZ')} Kč`
+          : `${baseEntries} vstupů · ${price.toLocaleString('cs-CZ')} Kč`)
         : optionalString(payload.priceLabel) || '',
       // Sloupce jsou NOT NULL bez defaultu — bez nich insert spadne.
       primary_meta: optionalString(payload.schedule) || optionalString(payload.proposedSchedule) || optionalString(payload.primaryMeta) || '',
       secondary_meta: isCourse ? (payload.billingModel === 'membership' ? 'Členství na období · NFC docházka' : 'Digitální permanentka přes NFC čip') : '',
       badge: isCourse ? 'Kroužek' : String(type),
-      entries_total: isCourse ? (payload.billingModel === 'membership' ? null : 10) : Number(payload.entriesTotal) || null,
-      billing_model: isCourse && payload.billingModel === 'membership' ? 'membership' : 'entries',
-      membership_months: isCourse && payload.billingModel === 'membership' ? Math.max(1, Number(payload.membershipMonths) || 1) : null,
+      entries_total: isCourse ? (isMembership ? null : baseEntries) : Number(payload.entriesTotal) || null,
+      billing_model: isMembership ? 'membership' : 'entries',
+      membership_months: isMembership ? baseMonths : null,
+      // Poloha vybraná koordinátorem na mapě — web ji ukazuje na mapách
+      // a trenérské docházce slouží k GPS ověření na místě.
+      map_query: optionalString(payload.mapAddress),
+      latitude: payload.latitude != null && Number.isFinite(Number(payload.latitude)) ? Number(payload.latitude) : null,
+      longitude: payload.longitude != null && Number.isFinite(Number(payload.longitude)) ? Number(payload.longitude) : null,
       skill_category: skillCategory,
       // Předvyplněné body „Co je v ceně" / „Co s sebou" — jen pro VYS,
       // jiné organizace startují s prázdnými poli.
@@ -7989,20 +8007,39 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
       }
     }
 
-    // Kroužek na vstupy existuje ve dvou variantách (10 a 15 vstupů) — druhou
-    // zakládáme automaticky stejně jako admin web; členství variantu nemá.
-    if (isCourse && productRow.billing_model !== 'membership') {
-      const price15 = price > 0 ? price + 1000 : 0;
-      const { error: variantError } = await supabase.from('products').insert({
-        ...productRow,
-        id: `${createdProductId}-15`,
-        price: price15,
-        price_label: price15 > 0 ? `15 vstupů · ${price15.toLocaleString('cs-CZ')} Kč` : '',
-        entries_total: 15,
-        secondary_meta: 'Výhodnější digitální permanentka přes NFC čip',
-        description: 'Permanentka na 15 vstupů do parkour tréninku.',
-      });
-      if (variantError) throw variantError;
+    // Kroužek na vstupy existuje ve dvou variantách — druhou (výhodnější)
+    // zakládáme z návrhu; id končí -15 kvůli filtrům variant napříč weby,
+    // skutečný počet vstupů nese entries_total a popisek. Bez návrhu platí
+    // původní automatika 15 vstupů za cenu +1000.
+    if (isCourse && !isMembership) {
+      const second = entryOptions[1]
+        || (entryOptions.length === 0 ? { entries: 15, price: price > 0 ? price + 1000 : 0 } : null);
+      if (second) {
+        const { error: variantError } = await supabase.from('products').insert({
+          ...productRow,
+          id: `${createdProductId}-15`,
+          price: second.price,
+          price_label: second.price > 0 ? `${second.entries} vstupů · ${second.price.toLocaleString('cs-CZ')} Kč` : '',
+          entries_total: second.entries,
+          secondary_meta: 'Výhodnější digitální permanentka přes NFC čip',
+          description: `Permanentka na ${second.entries} vstupů do tréninku.`,
+        });
+        if (variantError) throw variantError;
+      }
+    }
+    // Každé další období členství je samostatný produkt — rodič si v nabídce
+    // vybere délku (stejné místo a čas, groupování podle venue je sloučí).
+    if (isCourse && isMembership && membershipOpts.length > 1) {
+      for (const option of membershipOpts.slice(1)) {
+        const { error: variantError } = await supabase.from('products').insert({
+          ...productRow,
+          id: `${createdProductId}-m${option.months}`,
+          price: option.price,
+          price_label: `Členství · ${membershipMonthsLabel(option.months)} · ${option.price.toLocaleString('cs-CZ')} Kč`,
+          membership_months: option.months,
+        });
+        if (variantError) throw variantError;
+      }
     }
   }
 
