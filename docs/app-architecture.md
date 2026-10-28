@@ -172,7 +172,7 @@ Verze **1.0.3**, Android versionCode **18**, iOS buildNumber **26**, bundle `com
 
 | Skupina | Role | Obrazovky |
 |---|---|---|
-| `(tabs)` | **dítě** | home, tricks, rewards, dochazka, souboj (hra kočka vs pes, `lib/battle/engine.ts`), leaderboard, tutorials |
+| `(tabs)` | **dítě** | home, tricks, rewards, dochazka, souboj (skrytá, spouští ji FIGHT u arény; hra kočka vs pes, `lib/battle/engine.ts`), leaderboard, tutorials |
 | `(parent)` | **rodič** | rodic, deti, platby, organizace, profil |
 | `(coach)` | **trenér** | coach, attendance, qr, wards, ward-detail, coach-leaderboard, coach-profile, coach-games, coach-inspiration, participant-search |
 | `(koordinator)` | **koordinátor** | koordinator, krouzky, dochazka, treneri, navrhy, ukoly, vyplaty |
