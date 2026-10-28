@@ -5,6 +5,8 @@ import { Apple, Bell, Building2, Check, ChevronDown, Gamepad2, LogIn, Play, Spar
 import Image from 'next/image';
 import { useState, type ReactNode } from 'react';
 
+import { NfcCardSpin } from '@/components/home/nfc-card-spin';
+
 const ease = [0.22, 1, 0.36, 1] as const;
 
 const WEB_APP_URL = 'https://app.aplikacevys.cz/sign-in?source=pwa';
@@ -125,6 +127,27 @@ export default function AplikacePage() {
               className="relative w-full drop-shadow-[0_40px_80px_rgba(0,0,0,0.55)] [-webkit-mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)] [mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)]"
             />
           </div>
+        </div>
+      </section>
+
+      {/* NFC kartička — otáčí se scrollováním */}
+      <section className="section-shell relative py-10 md:py-16">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(139,29,255,0.22),transparent_60%)] blur-2xl"
+        />
+        <div className="relative grid items-center gap-10 lg:grid-cols-[1fr_440px]">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">NFC docházka</p>
+            <h2 className="mt-3 max-w-[16ch] text-2xl font-black tracking-tight text-white md:text-4xl">
+              Jedna kartička, celá docházka
+            </h2>
+            <p className="mt-4 max-w-md text-sm leading-7 text-white/65 md:text-base">
+              Dítě přiloží kartičku k telefonu trenéra — vstup se odečte z digitální permanentky
+              a rodiči hned přijde zpráva, že dorazilo v pořádku.
+            </p>
+          </div>
+          <NfcCardSpin className="mx-auto w-full max-w-[440px]" />
         </div>
       </section>
 
