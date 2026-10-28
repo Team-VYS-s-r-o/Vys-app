@@ -4251,7 +4251,9 @@ app.post('/api/participants/transfer', asyncRoute(async (request, response) => {
   }
 
   // Přepsání vazeb je idempotentní — při výpadku uprostřed stačí převod spustit znovu.
-  const linkedTables = ['digital_passes', 'parent_purchases', 'parent_payments', 'parent_notifications', 'course_documents'];
+  // coach_manual_trick_awards: splněné triky (QR od trenéra) musí přejít s dítětem,
+  // jinak by po převodu na vlastní účet zmizely ze skill tree.
+  const linkedTables = ['digital_passes', 'parent_purchases', 'parent_payments', 'parent_notifications', 'course_documents', 'coach_manual_trick_awards'];
   for (const table of linkedTables) {
     const { error } = await supabase.from(table).update({ participant_id: target.id }).eq('participant_id', source.id);
     if (error) throw error;
