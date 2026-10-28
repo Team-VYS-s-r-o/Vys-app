@@ -9,10 +9,12 @@ import { useCallback, useEffect, useRef } from 'react';
  * se do canvasu podle pozice sekce ve viewportu — pružina (useSpring) dotahuje
  * cílový snímek, takže pohyb je plynulý i při trhaném scrollu.
  */
-const FRAME_COUNT = 60;
+// Všech 180 snímků videa (krok 2° rotace) — při 60 bylo při pomalém scrollu
+// znát krokování. Dohromady ~2 MB WebP, načítají se líně na pozadí.
+const FRAME_COUNT = 180;
 // Rozměr exportovaných snímků (poměr stran canvasu).
-const FRAME_W = 1000;
-const FRAME_H = 780;
+const FRAME_W = 950;
+const FRAME_H = 740;
 
 const frameSrc = (index: number) => `/nfc-card/f${String(index).padStart(3, '0')}.webp`;
 
@@ -53,7 +55,7 @@ export function NfcCardSpin({ className }: { className?: string }) {
 
   // Scroll sekce → snímek rotace. Pružina vyhladí i kolečko myši.
   const { scrollYProgress } = useScroll({ target: wrapRef, offset: ['start end', 'end start'] });
-  const smooth = useSpring(scrollYProgress, { stiffness: 55, damping: 18, mass: 0.4 });
+  const smooth = useSpring(scrollYProgress, { stiffness: 48, damping: 17, mass: 0.35 });
   useMotionValueEvent(smooth, 'change', (value) => draw(value));
 
   return (
