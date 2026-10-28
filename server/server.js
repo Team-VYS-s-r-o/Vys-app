@@ -4655,18 +4655,67 @@ async function emailBroadcastToParents(parentProfileIds, title, body) {
     outro: 'Zprávu najdete i v aplikaci v centru oznámení.',
   });
 
-  let sent = 0;
-  for (let i = 0; i < recipients.length; i += 40) {
-    const batch = recipients.slice(i, i + 40);
+  // Individuální maily místo BCC dávek: BCC po 40 padalo do spamu a selhání
+  // jedné dávky tiše zahodilo až 40 adres (stížnosti rodičů z Brandýsa 28. 10.).
+  const sendTo = async (address) => {
     try {
-      await emailer.sendMail({ from: smtpFrom, to: smtpFrom, bcc: batch, subject: title, html });
-      sent += batch.length;
-    } catch (mailError) {
-      console.error('Broadcast email batch failed:', mailError?.message || mailError);
+      await emailer.sendMail({ from: smtpFrom, to: address, subject: title, html });
+      return true;
+    } catch (firstError) {
+      try {
+        await emailer.sendMail({ from: smtpFrom, to: address, subject: title, html });
+        return true;
+      } catch (mailError) {
+        console.error(`Broadcast email failed for ${address}:`, mailError?.message || mailError);
+        return false;
+      }
     }
+  };
+
+  let sent = 0;
+  const failed = [];
+  for (let i = 0; i < recipients.length; i += 8) {
+    const batch = recipients.slice(i, i + 8);
+    const results = await Promise.all(batch.map((address) => sendTo(address)));
+    results.forEach((ok, index) => {
+      if (ok) sent += 1;
+      else failed.push(batch[index]);
+    });
   }
+  if (failed.length > 0) console.error('Broadcast email: nedoručené adresy:', failed.join(', '));
   return sent;
 }
+
+// Znovuposlání e-mailu už odeslané hromadné zprávy — všem příjemcům, nebo jen
+// vybraným (rodiče, kterým mail nedorazil / spadl do spamu).
+app.post('/api/admin/broadcasts/:id/resend-email', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const broadcastId = requiredString(request.params.id, 'broadcast id');
+
+  const { data: broadcast, error: broadcastError } = await supabase
+    .from('parent_broadcasts')
+    .select('id,org_id,title,body')
+    .eq('id', broadcastId)
+    .maybeSingle();
+  if (broadcastError) throw broadcastError;
+  if (!broadcast || (broadcast.org_id || VYS_ORG_ID) !== orgId) throw httpError('Zpráva nenalezena.', 404);
+
+  const { data: recipientRows, error: recipientsError } = await supabase
+    .from('parent_broadcast_recipients')
+    .select('parent_profile_id')
+    .eq('broadcast_id', broadcastId);
+  if (recipientsError) throw recipientsError;
+  const allIds = (recipientRows || []).map((row) => row.parent_profile_id);
+
+  const requested = Array.isArray(request.body.parentProfileIds) ? request.body.parentProfileIds.map(String) : null;
+  const targetIds = requested && requested.length > 0 ? allIds.filter((id) => requested.includes(id)) : allIds;
+  if (targetIds.length === 0) throw httpError('Žádný z vybraných rodičů není příjemcem této zprávy.', 400);
+
+  const sent = await emailBroadcastToParents(targetIds, broadcast.title, broadcast.body);
+  response.json({ ok: true, requested: targetIds.length, emailSent: sent });
+}));
 
 
 app.get('/api/admin/broadcasts', asyncRoute(async (request, response) => {
