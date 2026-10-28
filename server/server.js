@@ -7976,6 +7976,19 @@ app.post('/api/admin/coordinator-requests/:id/resolve', asyncRoute(async (reques
     const { error: productError } = await supabase.from('products').insert(productRow);
     if (productError) throw productError;
 
+    // Hodinovku tělocvičny z návrhu rovnou do Nájmů (gym_rents) — nájem se
+    // účtuje po hodinách z konaných tréninků. Existující sazbu nepřepisujeme,
+    // tu vlastní admin v sekci Nájem tělocvičen.
+    const proposedGymRate = Math.round(Number(payload.proposedGymCost) || 0);
+    if (isCourse && proposedGymRate > 0 && productRow.place) {
+      const gymKey = String(productRow.place).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+      const { data: existingRent } = await supabase.from('gym_rents').select('location_key,hourly_rate').eq('org_id', orgId).eq('location_key', gymKey).maybeSingle();
+      if (!existingRent || !(Number(existingRent.hourly_rate) > 0)) {
+        const { error: rentError } = await supabase.from('gym_rents').upsert({ org_id: orgId, location_key: gymKey, label: productRow.place, hourly_rate: proposedGymRate, updated_at: new Date().toISOString() }, { onConflict: 'org_id,location_key' });
+        if (rentError) console.error('gym_rents z návrhu se nepropsal:', rentError.message);
+      }
+    }
+
     // Kroužek na vstupy existuje ve dvou variantách (10 a 15 vstupů) — druhou
     // zakládáme automaticky stejně jako admin web; členství variantu nemá.
     if (isCourse && productRow.billing_model !== 'membership') {
