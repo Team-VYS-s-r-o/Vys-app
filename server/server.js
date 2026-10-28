@@ -6494,7 +6494,7 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
 
   const { data: invoices, error: invoicesError } = await supabase
     .from('invoices')
-    .select('id,dodavatel,castka,mena,popis,kategorie,zaplaceno,datum_zaplaceni,file_url,zdroj,coordinator_id,region,odeslal,created_at')
+    .select('id,dodavatel,castka,mena,popis,kategorie,cislo_faktury,period,zaplaceno,datum_zaplaceni,file_url,zdroj,coordinator_id,region,odeslal,created_at')
     .eq('org_id', orgId)
     .eq('region', region)
     .order('created_at', { ascending: false });
@@ -6502,6 +6502,9 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
   // Faktura za odměnu samotného koordinátora nesmí snižovat čistý zisk kraje
   // (jinak by si provizní koordinátor fakturou vlastní odměny snížil provizi).
   const isCoordinatorRewardInvoice = (invoice) => {
+    // Faktura, kterou koordinátor poslal přes appku, je jeho vlastní odměna —
+    // nesmí snižovat zisk kraje (snížila by si vlastní provizi).
+    if (invoice.zdroj === 'koordinator' && invoice.coordinator_id) return true;
     const normalized = `${invoice.kategorie || ''} ${invoice.popis || ''}`
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     return normalized.includes('odmena koordinator');
@@ -6642,6 +6645,29 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
     if (key) monthBucket(key).marketingCost += Math.round(parseInvoiceAmount(invoice.castka) * revenueShare);
   }
 
+  // Faktury, které koordinátor poslal ke konkrétnímu měsíci (sloupec period,
+  // starší bez period padají do měsíce odeslání) — admin je vidí v měsíční
+  // tabulce vedle částky k výplatě, koordinátor ve Výplatách.
+  const coordinatorInvoicesByMonth = new Map();
+  for (const invoice of invoices || []) {
+    if (invoice.zdroj !== 'koordinator' || invoice.coordinator_id !== coordinatorId) continue;
+    const key = typeof invoice.period === 'string' && /^\d{4}-\d{2}$/.test(invoice.period)
+      ? invoice.period
+      : monthKeyFromDate(parseFlexibleDate(invoice.created_at));
+    if (!key) continue;
+    const list = coordinatorInvoicesByMonth.get(key) || [];
+    list.push({
+      id: invoice.id,
+      amount: parseInvoiceAmount(invoice.castka),
+      zaplaceno: !!invoice.zaplaceno,
+      file_url: invoice.file_url,
+      cislo_faktury: invoice.cislo_faktury,
+      created_at: invoice.created_at,
+    });
+    coordinatorInvoicesByMonth.set(key, list);
+    monthBucket(key); // měsíc s fakturou se musí v tabulce ukázat i bez obratu
+  }
+
   // Poplatek za systém se účtuje jen měsícům, kdy kraj reálně běžel; čistý zisk
   // i provize jsou součtem měsíců (pásma se počítají z měsíčního zisku).
   const monthHasActivity = (bucket) => bucket.revenue > 0 || bucket.coachCost > 0 || bucket.rentCost > 0 || bucket.invoiceCost > 0 || bucket.marketingCost > 0;
@@ -6665,6 +6691,7 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
         net: monthNet,
         commission: monthCommission,
         owed: commissionEnabled ? Math.max(monthCommission - bucket.paidOut, 0) : 0,
+        coordinatorInvoices: coordinatorInvoicesByMonth.get(bucket.key) || [],
       };
     });
 
@@ -6956,6 +6983,7 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
   // Ořez dat podle oprávnění — citlivé údaje nesmí opustit server.
   if (!permissions.finance) {
     financeData.finance = { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commissionEnabled: coordinator.commissionEnabled, commission: 0, paidOut: 0, owed: 0 };
+    financeData.monthly = [];
     financeData.purchases = (financeData.purchases || []).map((purchase) => ({ ...purchase, amount: null }));
     financeData.invoices = [];
     financeData.payouts = [];
@@ -7591,6 +7619,8 @@ app.post('/api/coordinator/invoices', asyncRoute(async (request, response) => {
     region: coordinator.region,
     org_id: coordinator.orgId,
     prijato: false,
+    // Vazba na měsíc provize — admin fakturu uvidí v tabulce Platby po měsících.
+    period: typeof invoice.period === 'string' && /^\d{4}-\d{2}$/.test(invoice.period) ? invoice.period : null,
   };
 
   const { data, error } = await supabase.from('invoices').insert(row).select('id').single();
