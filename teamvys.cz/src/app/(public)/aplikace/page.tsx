@@ -1,9 +1,9 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { Apple, Bell, Building2, Check, ChevronDown, Gamepad2, LogIn, Play, Sparkles, Ticket, UserPlus, Users, X, Zap } from 'lucide-react';
+import { Apple, Bell, Building2, Check, Gamepad2, LogIn, Play, Sparkles, Ticket, UserPlus, Users, X, Zap } from 'lucide-react';
 import Image from 'next/image';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { NfcCardSpin } from '@/components/home/nfc-card-spin';
 
@@ -220,15 +220,31 @@ function Step({ n, icon, title, children }: { n: number; icon: ReactNode; title:
   );
 }
 
+/**
+ * Návod se otevírá v okně přes celou stránku s rozmazaným pozadím — rozbalená
+ * sekce byla dlouhá a nepřehledná. Blur vrstva se NEanimuje přes opacity
+ * (Chrome by překresloval backdrop po dlaždicích a probliklo by to),
+ * animuje se jen karta uvnitř.
+ */
 function HowToBuy() {
   const [open, setOpen] = useState(false);
+
+  // Escape zavírá, pozadí pod oknem nescrolluje.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [open]);
+
   return (
     <section className="section-shell pb-20 md:pb-28">
       <div className="mx-auto max-w-[880px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] shadow-[0_30px_80px_rgba(0,0,0,0.4)]">
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
+          onClick={() => setOpen(true)}
           className="flex w-full items-center gap-4 p-6 text-left transition hover:bg-white/[0.02] md:p-8"
         >
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-purple/30 bg-brand-purple/15 text-brand-purple-light">
@@ -237,22 +253,48 @@ function HowToBuy() {
           <div className="flex-1">
             <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Návod krok za krokem</p>
             <h2 className="mt-1 text-xl font-black tracking-tight text-white md:text-3xl">Jak koupit permanentku dítěti</h2>
-            <p className="mt-1 text-sm text-white/50">Od registrace k první lekci za pár minut. Rozklikni si postup.</p>
+            <p className="mt-1 text-sm text-white/50">Od registrace k první lekci za pár minut.</p>
           </div>
-          <ChevronDown className={`shrink-0 text-brand-purple-light transition-transform duration-300 ${open ? 'rotate-180' : ''}`} size={26} aria-hidden />
+          <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-brand-purple px-4 py-2.5 text-sm font-black text-white shadow-[0_14px_34px_rgba(139,29,255,0.4)] transition-transform hover:-translate-y-0.5">
+            Otevřít návod
+          </span>
         </button>
+      </div>
 
-        <AnimatePresence initial={false}>
-          {open ? (
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            key="howto-overlay"
+            initial={false}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Jak koupit permanentku dítěti"
+            onMouseDown={() => setOpen(false)}
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xl md:p-8"
+          >
             <motion.div
-              key="content"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.35, ease }}
-              className="overflow-hidden"
+              initial={{ opacity: 0, y: 24, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 18, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 30, mass: 0.8 }}
+              onMouseDown={(event) => event.stopPropagation()}
+              className="flex max-h-[calc(100dvh-32px)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#15121D] shadow-[0_40px_120px_rgba(0,0,0,0.6)]"
             >
-              <ol className="space-y-4 p-6 md:p-8">
+              <div className="flex items-start justify-between gap-4 border-b border-white/10 p-6 md:px-8">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Návod krok za krokem</p>
+                  <h2 className="mt-1 text-xl font-black tracking-tight text-white md:text-2xl">Jak koupit permanentku dítěti</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Zavřít návod"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <ol className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 md:p-8">
                 <Step n={1} icon={<UserPlus size={18} />} title="Vytvoř si profil rodiče">
                   Stáhni si aplikaci z App Storu (tlačítko nahoře) nebo ji otevři v prohlížeči a zaregistruj se jako{' '}
                   <strong className="text-white">rodič</strong>. Stačí e-mail a heslo — hotovo za minutu.
@@ -297,9 +339,9 @@ function HowToBuy() {
                 </Step>
               </ol>
             </motion.div>
-          ) : null}
-        </AnimatePresence>
-      </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </section>
   );
 }
