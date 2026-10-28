@@ -8204,7 +8204,7 @@ function battleTierForTrophies(trophies) {
 }
 
 function battleUpgradeCost(level) {
-  return 40 + 30 * Math.max(0, level);
+  return 60 + 45 * Math.max(0, level);
 }
 
 async function requireParticipantRow(request) {
