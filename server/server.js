@@ -8196,7 +8196,7 @@ const BATTLE_TROPHY_MAX = 35;
 const BATTLE_MAX_YARN = 80;
 const BATTLE_DAILY_LIMIT = 25;
 const BATTLE_MAX_UPGRADE_LEVEL = 10;
-const BATTLE_UPGRADE_STATS = ['hp', 'shield', 'dmg', 'ability'];
+const BATTLE_UPGRADE_STATS = ['hp', 'shield', 'dmg', 'ability', 'budget'];
 const BATTLE_DEFAULT_CAT = 'beige-sit';
 
 function battleTierForTrophies(trophies) {
