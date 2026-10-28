@@ -65,7 +65,7 @@ Navíc **org write lock**: organizace ve stavu `pending_approval` / `past_due` /
 mají zablokované všechny zápisové metody.
 
 **Skupiny endpointů:** veřejné (`/api/public/*`, `/api/courses`, `/api/camps`, `/api/ticket/:id`),
-autentizace (telefon + trenér), rodič, účastník, trenér, platby (`/api/payments/*`),
+autentizace (telefon + trenér), rodič, účastník, **hra Souboj maskotů** (`/api/game/profile|battle-result|upgrade|leaderboard`, sekce „Souboj maskotů“ v server.js — server losuje trofeje ±25–35, hlídá tier bota, denní limit 25 a strop granulí 80), trenér, platby (`/api/payments/*`),
 produkty, dokumenty, finance a faktury, broadcasty, koordinátoři,
 multi-tenant organizace (`/api/orgs/*`), Stripe webhook a VYS bot (`/api/bot/chat`, Anthropic API).
 
@@ -172,7 +172,7 @@ Verze **1.0.3**, Android versionCode **18**, iOS buildNumber **26**, bundle `com
 
 | Skupina | Role | Obrazovky |
 |---|---|---|
-| `(tabs)` | **dítě** | home, tricks, rewards, dochazka, leaderboard, tutorials |
+| `(tabs)` | **dítě** | home, tricks, rewards, dochazka, souboj (hra kočka vs pes, `lib/battle/engine.ts`), leaderboard, tutorials |
 | `(parent)` | **rodič** | rodic, deti, platby, organizace, profil |
 | `(coach)` | **trenér** | coach, attendance, qr, wards, ward-detail, coach-leaderboard, coach-profile, coach-games, coach-inspiration, participant-search |
 | `(koordinator)` | **koordinátor** | koordinator, krouzky, dochazka, treneri, navrhy, ukoly, vyplaty |

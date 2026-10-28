@@ -8185,6 +8185,186 @@ app.delete('/api/admin/coordinator-payouts/:payoutId', asyncRoute(async (request
 }));
 
 // ============================================================================
+// Souboj maskotů (kočka vs pes) — trofeje, granule, vylepšení, žebříček
+// ============================================================================
+// Souboj běží v appce proti botovi; server je autorita nad odměnami: losuje
+// trofeje ±25–35, přiděluje granule, hlídá denní limit soubojů, tier bota
+// (musí odpovídat trofejím hráče) a strop granulí sebraných v boji.
+// Konstanty zrcadlí vys-aplikace/lib/battle/engine.ts.
+const BATTLE_TROPHY_MIN = 25;
+const BATTLE_TROPHY_MAX = 35;
+const BATTLE_MAX_YARN = 80;
+const BATTLE_DAILY_LIMIT = 25;
+const BATTLE_MAX_UPGRADE_LEVEL = 10;
+const BATTLE_UPGRADE_STATS = ['hp', 'shield', 'dmg', 'ability'];
+const BATTLE_DEFAULT_CAT = 'beige-sit';
+
+function battleTierForTrophies(trophies) {
+  return Math.min(9, Math.max(0, Math.floor((Number(trophies) || 0) / 120)));
+}
+
+function battleUpgradeCost(level) {
+  return 40 + 30 * Math.max(0, level);
+}
+
+async function requireParticipantRow(request) {
+  const profile = await requireAuthenticatedProfile(request);
+  if (profile.role !== 'participant') throw httpError('Souboj je jen pro účastníky.', 403);
+  const { data: row, error } = await supabase
+    .from('participants')
+    .select('id,org_id,first_name,last_name,trophies,granule,mascot_upgrades,battle_stats,owned_mascots,equipped_mascot_id,attendance_done')
+    .eq('id', profile.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) throw httpError('K tomuto účtu zatím není účastnický profil.', 404);
+  return row;
+}
+
+function battleProfilePayload(row) {
+  const stats = row.battle_stats && typeof row.battle_stats === 'object' ? row.battle_stats : {};
+  return {
+    trophies: Number(row.trophies) || 0,
+    granule: Number(row.granule) || 0,
+    upgrades: row.mascot_upgrades && typeof row.mascot_upgrades === 'object' ? row.mascot_upgrades : {},
+    stats: {
+      wins: Number(stats.wins) || 0,
+      losses: Number(stats.losses) || 0,
+      streak: Number(stats.streak) || 0,
+      bestStreak: Number(stats.bestStreak) || 0,
+      battlesToday: stats.dayKey === todayIsoDate() ? Number(stats.dayCount) || 0 : 0,
+      dailyLimit: BATTLE_DAILY_LIMIT,
+    },
+    ownedMascotIds: Array.isArray(row.owned_mascots) ? row.owned_mascots.map((m) => (typeof m === 'string' ? m : m?.id)).filter(Boolean) : [],
+    equippedMascotId: row.equipped_mascot_id || null,
+    tier: battleTierForTrophies(row.trophies),
+  };
+}
+
+app.get('/api/game/profile', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  response.json(battleProfilePayload(row));
+}));
+
+app.post('/api/game/battle-result', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const won = request.body.won === true;
+  const botTier = Math.round(Number(request.body.botTier));
+  const yarnCollected = Math.min(BATTLE_MAX_YARN, Math.max(0, Math.round(Number(request.body.yarnCollected) || 0)));
+  const mascotId = optionalString(request.body.mascotId) || BATTLE_DEFAULT_CAT;
+
+  const ownedIds = battleProfilePayload(row).ownedMascotIds;
+  if (mascotId !== BATTLE_DEFAULT_CAT && !ownedIds.includes(mascotId)) {
+    throw httpError('S touhle kočkou nemůžeš bojovat — nemáš ji z bedny.', 400);
+  }
+  const myTier = battleTierForTrophies(row.trophies);
+  if (!Number.isFinite(botTier) || botTier < Math.max(0, myTier - 1) || botTier > Math.min(9, myTier + 1)) {
+    throw httpError('Neplatný soupeř pro tvoje trofeje.', 400);
+  }
+
+  const stats = row.battle_stats && typeof row.battle_stats === 'object' ? { ...row.battle_stats } : {};
+  const today = todayIsoDate();
+  const dayCount = stats.dayKey === today ? Number(stats.dayCount) || 0 : 0;
+  if (dayCount >= BATTLE_DAILY_LIMIT) {
+    throw httpError(`Dnes už máš odehráno ${BATTLE_DAILY_LIMIT} soubojů — zítra zase. Mezitím se hodí trénink na klubíčka.`, 429);
+  }
+
+  const delta = BATTLE_TROPHY_MIN + Math.floor(Math.random() * (BATTLE_TROPHY_MAX - BATTLE_TROPHY_MIN + 1));
+  const trophiesBefore = Number(row.trophies) || 0;
+  const trophiesAfter = won ? trophiesBefore + delta : Math.max(0, trophiesBefore - delta);
+  const granuleReward = (won ? 30 + botTier * 8 : 8) + yarnCollected;
+  const granuleAfter = (Number(row.granule) || 0) + granuleReward;
+
+  const streak = won ? (Number(stats.streak) || 0) + 1 : 0;
+  const nextStats = {
+    wins: (Number(stats.wins) || 0) + (won ? 1 : 0),
+    losses: (Number(stats.losses) || 0) + (won ? 0 : 1),
+    streak,
+    bestStreak: Math.max(Number(stats.bestStreak) || 0, streak),
+    lastBattleAt: new Date().toISOString(),
+    lastMascotId: mascotId,
+    dayKey: today,
+    dayCount: dayCount + 1,
+  };
+
+  const { error } = await supabase
+    .from('participants')
+    .update({ trophies: trophiesAfter, granule: granuleAfter, battle_stats: nextStats })
+    .eq('id', row.id);
+  if (error) throw error;
+
+  response.json({
+    won,
+    trophyDelta: won ? delta : -Math.min(delta, trophiesBefore),
+    trophies: trophiesAfter,
+    granuleReward,
+    granule: granuleAfter,
+    stats: { ...nextStats, battlesToday: nextStats.dayCount, dailyLimit: BATTLE_DAILY_LIMIT },
+    tier: battleTierForTrophies(trophiesAfter),
+  });
+}));
+
+app.post('/api/game/upgrade', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const mascotId = requiredString(request.body.mascotId, 'mascotId');
+  const stat = requiredString(request.body.stat, 'stat');
+  if (!BATTLE_UPGRADE_STATS.includes(stat)) throw httpError('Neznámé vylepšení.', 400);
+  const ownedIds = battleProfilePayload(row).ownedMascotIds;
+  if (mascotId !== BATTLE_DEFAULT_CAT && !ownedIds.includes(mascotId)) throw httpError('Tuhle kočku nemáš.', 400);
+
+  const upgrades = row.mascot_upgrades && typeof row.mascot_upgrades === 'object' ? { ...row.mascot_upgrades } : {};
+  const current = upgrades[mascotId] && typeof upgrades[mascotId] === 'object' ? { ...upgrades[mascotId] } : {};
+  const level = Number(current[stat]) || 0;
+  if (level >= BATTLE_MAX_UPGRADE_LEVEL) throw httpError('Tohle vylepšení už je na maximu.', 400);
+  const cost = battleUpgradeCost(level);
+  const granule = Number(row.granule) || 0;
+  if (granule < cost) throw httpError(`Chybí ti ${cost - granule} granulí. Vyhraj další souboj.`, 400);
+
+  current[stat] = level + 1;
+  upgrades[mascotId] = current;
+  const { error } = await supabase
+    .from('participants')
+    .update({ granule: granule - cost, mascot_upgrades: upgrades })
+    .eq('id', row.id);
+  if (error) throw error;
+  response.json({ granule: granule - cost, upgrades, mascotId, stat, level: level + 1 });
+}));
+
+// Žebříček trofejí v rámci organizace (top 20 + moje pozice).
+app.get('/api/game/leaderboard', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const orgId = row.org_id || VYS_ORG_ID;
+  const { data: top, error } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,trophies,equipped_mascot_id,battle_stats')
+    .eq('org_id', orgId)
+    .gt('trophies', 0)
+    .order('trophies', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  const entries = (top || [])
+    .filter((p) => !String(p.id).startsWith('demo-'))
+    .map((p, index) => ({
+      rank: index + 1,
+      id: p.id,
+      name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Účastník',
+      trophies: Number(p.trophies) || 0,
+      mascotId: p.equipped_mascot_id || null,
+      wins: Number(p.battle_stats?.wins) || 0,
+      isMe: p.id === row.id,
+    }));
+  let myRank = entries.find((e) => e.isMe)?.rank ?? null;
+  if (!myRank) {
+    const { count } = await supabase
+      .from('participants')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .gt('trophies', Number(row.trophies) || 0);
+    myRank = (count ?? 0) + 1;
+  }
+  response.json({ entries, myRank, myTrophies: Number(row.trophies) || 0 });
+}));
+
+// ============================================================================
 // Multi-tenant SaaS (Phase 5): organization registration + subscription billing
 // ============================================================================
 // Pricing: 2 490 Kč/month per organization, first 30 days free (Stripe trial).
