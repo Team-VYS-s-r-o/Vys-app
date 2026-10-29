@@ -7950,6 +7950,66 @@ app.patch('/api/admin/feature-flags', asyncRoute(async (request, response) => {
   response.json({ ok: true, featureFlags });
 }));
 
+// Nastavení denního automatu per organizace (organizations.game_settings.daily_spin).
+app.patch('/api/admin/game-settings', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const raw = request.body.dailySpin;
+  const rawPath = request.body.rewardPath;
+  if (!raw && !Array.isArray(rawPath)) throw httpError('Chybí dailySpin ani rewardPath.', 400);
+  const rewards = raw && Array.isArray(raw.rewards) ? raw.rewards.slice(0, 8) : [];
+  const cleaned = rewards
+    .filter((reward) => reward && typeof reward === 'object' && ['granule', 'coins', 'discount', 'free_lesson'].includes(String(reward.kind)))
+    .map((reward) => ({
+      kind: String(reward.kind),
+      amount: Math.max(0, Math.min(1000, Math.round(Number(reward.amount) || 0))),
+      percent: SPIN_DISCOUNT_PERCENTS.includes(Math.round(Number(reward.percent))) ? Math.round(Number(reward.percent)) : 5,
+      weight: Math.max(0, Math.min(100, Math.round(Number(reward.weight) || 0))),
+      enabled: reward.enabled !== false,
+    }));
+  const { data: org, error: orgError } = await supabase
+    .from('organizations')
+    .select('id,game_settings')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (orgError) throw orgError;
+  if (!org) throw httpError('Organizace nenalezena.', 404);
+  const gameSettings = { ...(org.game_settings && typeof org.game_settings === 'object' ? org.game_settings : {}) };
+  if (raw && typeof raw === 'object') {
+    gameSettings.daily_spin = { enabled: raw.enabled !== false, rewards: cleaned.length ? cleaned : undefined };
+  }
+  // Cesta odměn — organizace si upraví prahy a hodnoty u existujících odměn.
+  if (Array.isArray(rawPath)) {
+    gameSettings.reward_path = rawPath.slice(0, 20)
+      .filter((item) => item && typeof item === 'object' && typeof item.id === 'string')
+      .map((item) => ({
+        id: String(item.id).slice(0, 48),
+        xp: Math.max(0, Math.min(1000000, Math.round(Number(item.xp) || 0))),
+        yarnBalls: item.yarnBalls == null ? undefined : Math.max(0, Math.min(10000, Math.round(Number(item.yarnBalls) || 0))),
+        bonusXp: item.bonusXp == null ? undefined : Math.max(0, Math.min(10000, Math.round(Number(item.bonusXp) || 0))),
+        discountPercent: item.discountPercent == null ? undefined : (SPIN_DISCOUNT_PERCENTS.includes(Math.round(Number(item.discountPercent))) ? Math.round(Number(item.discountPercent)) : 5),
+        chestRarity: ['common', 'rare', 'gold'].includes(String(item.chestRarity)) ? String(item.chestRarity) : undefined,
+        enabled: item.enabled !== false,
+      }));
+  }
+  const { error: updateError } = await supabase.from('organizations').update({ game_settings: gameSettings }).eq('id', orgId);
+  if (updateError) throw updateError;
+  response.json({ ok: true, gameSettings });
+}));
+
+// Čtení pro admin UI (s doplněnými defaulty).
+app.get('/api/admin/game-settings', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const gameSettings = await orgGameSettings(orgId);
+  response.json({
+    dailySpin: dailySpinConfig(gameSettings),
+    rewardPath: Array.isArray(gameSettings.reward_path) ? gameSettings.reward_path : [],
+  });
+}));
+
 app.delete('/api/admin/coordinators/:id', asyncRoute(async (request, response) => {
   requireServices();
   const profile = await requireAdmin(request);
@@ -8191,6 +8251,45 @@ app.delete('/api/admin/coordinator-payouts/:payoutId', asyncRoute(async (request
 // trofeje ±25–35, přiděluje granule, hlídá denní limit soubojů, tier bota
 // (musí odpovídat trofejím hráče) a strop granulí sebraných v boji.
 // Konstanty zrcadlí vys-aplikace/lib/battle/engine.ts.
+// Herní nastavení organizace (denní automat…) — jsonb organizations.game_settings.
+async function orgGameSettings(orgId) {
+  const { data } = await supabase
+    .from('organizations')
+    .select('game_settings')
+    .eq('id', orgId || VYS_ORG_ID)
+    .maybeSingle();
+  return data?.game_settings && typeof data.game_settings === 'object' ? data.game_settings : {};
+}
+
+// Výchozí denní automat — admin si odměny upraví v nastavení své organizace.
+const DEFAULT_DAILY_SPIN_REWARDS = [
+  { kind: 'granule', amount: 40, weight: 45, enabled: true },
+  { kind: 'coins', amount: 15, weight: 40, enabled: true },
+  { kind: 'discount', percent: 5, weight: 15, enabled: true },
+  { kind: 'free_lesson', weight: 5, enabled: false },
+];
+const DAILY_SPIN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+// Slevové kódy jedou přes stávající pravidla (KROUZEK-5/12/20) — jiná procenta neexistují.
+const SPIN_DISCOUNT_PERCENTS = [5, 12, 20];
+
+function dailySpinConfig(gameSettings) {
+  const raw = gameSettings?.daily_spin && typeof gameSettings.daily_spin === 'object' ? gameSettings.daily_spin : {};
+  const rewards = Array.isArray(raw.rewards) && raw.rewards.length ? raw.rewards : DEFAULT_DAILY_SPIN_REWARDS;
+  return {
+    enabled: raw.enabled !== false,
+    rewards: rewards
+      .filter((reward) => reward && typeof reward === 'object')
+      .map((reward) => ({
+        kind: String(reward.kind),
+        amount: Math.max(0, Math.round(Number(reward.amount) || 0)),
+        percent: SPIN_DISCOUNT_PERCENTS.includes(Math.round(Number(reward.percent))) ? Math.round(Number(reward.percent)) : 5,
+        weight: Math.max(0, Math.min(100, Math.round(Number(reward.weight) || 0))),
+        enabled: reward.enabled !== false,
+      }))
+      .filter((reward) => ['granule', 'coins', 'discount', 'free_lesson'].includes(reward.kind)),
+  };
+}
+
 const BATTLE_TROPHY_MIN = 25;
 const BATTLE_TROPHY_MAX = 35;
 const BATTLE_MAX_YARN = 80;
@@ -8237,6 +8336,8 @@ function battleProfilePayload(row) {
     ownedMascotIds: Array.isArray(row.owned_mascots) ? row.owned_mascots.map((m) => (typeof m === 'string' ? m : m?.id)).filter(Boolean) : [],
     equippedMascotId: row.equipped_mascot_id || null,
     tier: battleTierForTrophies(row.trophies),
+    claimedTrophyRewards: Array.isArray(stats.claimedTrophyRewards) ? stats.claimedTrophyRewards : [],
+    dailySpinAvailableAt: stats.lastDailySpinAt ? new Date(Date.parse(stats.lastDailySpinAt) + DAILY_SPIN_COOLDOWN_MS).toISOString() : null,
   };
 }
 
@@ -8327,6 +8428,109 @@ app.post('/api/game/upgrade', asyncRoute(async (request, response) => {
     .eq('id', row.id);
   if (error) throw error;
   response.json({ granule: granule - cost, upgrades, mascotId, stat, level: level + 1 });
+}));
+
+// Meziodměny za trofeje: mezi arénami (po 120) jsou tři milníky na +30/+60/+90
+// trofejí; každý jde vyzvednout jednou a dá granule (víc v pozdějších arénách).
+app.post('/api/game/claim-trophy-reward', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const threshold = Math.round(Number(request.body.threshold));
+  const tier = Math.floor(threshold / 120);
+  const remainder = threshold % 120;
+  if (!Number.isFinite(threshold) || tier < 0 || tier > 8 || ![30, 60, 90].includes(remainder)) {
+    throw httpError('Neplatný milník.', 400);
+  }
+  if ((Number(row.trophies) || 0) < threshold) {
+    throw httpError('Na tenhle milník ještě nemáš dost trofejí.', 400);
+  }
+  const stats = row.battle_stats && typeof row.battle_stats === 'object' ? { ...row.battle_stats } : {};
+  const claimed = Array.isArray(stats.claimedTrophyRewards) ? [...stats.claimedTrophyRewards] : [];
+  if (claimed.includes(threshold)) throw httpError('Tahle odměna už je vyzvednutá.', 400);
+  const reward = 20 + tier * 10;
+  claimed.push(threshold);
+  stats.claimedTrophyRewards = claimed;
+  const granule = (Number(row.granule) || 0) + reward;
+  const { error } = await supabase
+    .from('participants')
+    .update({ granule, battle_stats: stats })
+    .eq('id', row.id);
+  if (error) throw error;
+  response.json({ reward, granule, claimedTrophyRewards: claimed });
+}));
+
+// Denní automat: jednou za 24 h roztočení zdarma. Odměny (granule, klubíčka,
+// sleva na kroužek, lekce zdarma) si každá organizace nastaví v adminu —
+// server losuje podle vah a odměnu rovnou připíše.
+app.post('/api/game/daily-spin', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const settings = dailySpinConfig(await orgGameSettings(row.org_id));
+  if (!settings.enabled) throw httpError('Denní automat tu není zapnutý.', 403);
+
+  const stats = row.battle_stats && typeof row.battle_stats === 'object' ? { ...row.battle_stats } : {};
+  const last = stats.lastDailySpinAt ? Date.parse(stats.lastDailySpinAt) : 0;
+  const now = Date.now();
+  if (Number.isFinite(last) && last > 0 && now - last < DAILY_SPIN_COOLDOWN_MS) {
+    throw httpError('Automat se točí jednou za 24 hodin — vrať se později.', 429);
+  }
+
+  // Lekce zdarma dává smysl jen s aktivní vstupovou permanentkou.
+  let activePass = null;
+  const { data: passes } = await supabase
+    .from('digital_passes')
+    .select('id,total_entries,used_entries,pass_kind,title')
+    .eq('participant_id', row.id)
+    .order('created_at', { ascending: false })
+    .limit(10);
+  for (const pass of passes || []) {
+    if (pass.pass_kind === 'membership') continue;
+    if (Number(pass.total_entries || 0) > Number(pass.used_entries || 0)) { activePass = pass; break; }
+  }
+
+  const pool = settings.rewards.filter((reward) => {
+    if (!reward.enabled || reward.weight <= 0) return false;
+    if (reward.kind === 'free_lesson') return Boolean(activePass);
+    if (reward.kind === 'granule' || reward.kind === 'coins') return reward.amount > 0;
+    return true;
+  });
+  if (!pool.length) throw httpError('Automat nemá nastavené žádné odměny.', 400);
+
+  const totalWeight = pool.reduce((sum, reward) => sum + reward.weight, 0);
+  let roll = Math.random() * totalWeight;
+  let picked = pool[pool.length - 1];
+  for (const reward of pool) {
+    roll -= reward.weight;
+    if (roll <= 0) { picked = reward; break; }
+  }
+
+  stats.lastDailySpinAt = new Date(now).toISOString();
+  const update = { battle_stats: stats };
+  const result = { kind: picked.kind };
+
+  if (picked.kind === 'granule') {
+    update.granule = (Number(row.granule) || 0) + picked.amount;
+    result.amount = picked.amount;
+    result.granule = update.granule;
+  } else if (picked.kind === 'coins') {
+    const { data: coinsRow } = await supabase.from('participants').select('coins').eq('id', row.id).maybeSingle();
+    update.coins = (Number(coinsRow?.coins) || 0) + picked.amount;
+    result.amount = picked.amount;
+    result.coins = update.coins;
+  } else if (picked.kind === 'discount') {
+    // Kód jede přes stávající pravidla slev (…-KROUZEK-5/12/20), zadává se při nákupu.
+    result.percent = picked.percent;
+    result.code = `AUTOMAT-KROUZEK-${picked.percent}`;
+  } else if (picked.kind === 'free_lesson' && activePass) {
+    const { error: passError } = await supabase
+      .from('digital_passes')
+      .update({ total_entries: Number(activePass.total_entries || 0) + 1 })
+      .eq('id', activePass.id);
+    if (passError) throw passError;
+    result.passTitle = activePass.title || 'permanentka';
+  }
+
+  const { error } = await supabase.from('participants').update(update).eq('id', row.id);
+  if (error) throw error;
+  response.json({ reward: result, nextSpinAt: new Date(now + DAILY_SPIN_COOLDOWN_MS).toISOString() });
 }));
 
 // Žebříček trofejí v rámci organizace (top 20 + moje pozice).
