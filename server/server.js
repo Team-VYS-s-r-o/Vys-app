@@ -8458,6 +8458,40 @@ app.post('/api/game/claim-trophy-reward', asyncRoute(async (request, response) =
   response.json({ reward, granule, claimedTrophyRewards: claimed });
 }));
 
+// Historie docházky účastníka — dítě (a jeho appka) vidí všechny tréninky,
+// kde ho trenér zapsal. Záznamy drží jen jména, takže se páruje podle jména
+// dítěte v rámci jeho organizace.
+app.get('/api/participant/attendance-history', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const fullName = `${row.first_name || ''} ${row.last_name || ''}`.trim().toLowerCase();
+  if (!fullName) return response.json({ entries: [] });
+
+  const { data: records, error } = await supabase
+    .from('child_attendance_records')
+    .select('id,date_text,location,attendees,created_at')
+    .eq('org_id', row.org_id || VYS_ORG_ID)
+    .order('created_at', { ascending: false })
+    .limit(400);
+  if (error) throw error;
+
+  const entries = [];
+  for (const record of records || []) {
+    const attendees = Array.isArray(record.attendees) ? record.attendees : [];
+    const mine = attendees.find((item) => String(item?.name || '').trim().toLowerCase() === fullName);
+    if (!mine) continue;
+    entries.push({
+      id: record.id,
+      date: record.date_text || (record.created_at ? new Date(record.created_at).toLocaleDateString('cs-CZ') : ''),
+      location: record.location || '',
+      time: mine.time || null,
+      method: mine.method || null,
+      createdAt: record.created_at,
+    });
+    if (entries.length >= 120) break;
+  }
+  response.json({ entries, total: entries.length });
+}));
+
 // Denní automat: jednou za 24 h roztočení zdarma. Odměny (granule, klubíčka,
 // sleva na kroužek, lekce zdarma) si každá organizace nastaví v adminu —
 // server losuje podle vah a odměnu rovnou připíše.
