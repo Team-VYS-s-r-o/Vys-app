@@ -8268,7 +8268,33 @@ const DEFAULT_DAILY_SPIN_REWARDS = [
   { kind: 'discount', percent: 5, weight: 15, enabled: true },
   { kind: 'free_lesson', weight: 5, enabled: false },
 ];
-const DAILY_SPIN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+// Automat se neodemyká 24 h po zatočení, ale vždy s novým dnem (půlnoc v Praze) —
+// pro dítě je to srozumitelné: „zítra zase“.
+const PRAGUE_TZ = 'Europe/Prague';
+
+/** Kalendářní den v Praze jako YYYY-MM-DD (en-CA formát dává přesně tohle). */
+function pragueDayKey(timestamp) {
+  return new Date(timestamp).toLocaleDateString('en-CA', { timeZone: PRAGUE_TZ });
+}
+
+/** Začátek následujícího dne v Praze jako ISO timestamp. */
+function nextPragueMidnightIso(timestamp) {
+  const today = pragueDayKey(timestamp);
+  // Posouváme po hodinách, dokud se den v Praze nezmění — bezpečné i přes letní čas.
+  let cursor = timestamp;
+  for (let i = 0; i < 48; i += 1) {
+    cursor += 60 * 60 * 1000;
+    if (pragueDayKey(cursor) !== today) break;
+  }
+  // Doladění na celou minutu půlnoci: ubereme po minutách, dokud je ještě nový den.
+  for (let i = 0; i < 70; i += 1) {
+    const back = cursor - 60 * 1000;
+    if (pragueDayKey(back) === today) break;
+    cursor = back;
+  }
+  // Sekundy z původního času zahodíme — odpočet pak sedí na čistou půlnoc.
+  return new Date(Math.floor(cursor / 60000) * 60000).toISOString();
+}
 // Slevové kódy jedou přes stávající pravidla (KROUZEK-5/12/20) — jiná procenta neexistují.
 const SPIN_DISCOUNT_PERCENTS = [5, 12, 20];
 
@@ -8337,7 +8363,12 @@ function battleProfilePayload(row) {
     equippedMascotId: row.equipped_mascot_id || null,
     tier: battleTierForTrophies(row.trophies),
     claimedTrophyRewards: Array.isArray(stats.claimedTrophyRewards) ? stats.claimedTrophyRewards : [],
-    dailySpinAvailableAt: stats.lastDailySpinAt ? new Date(Date.parse(stats.lastDailySpinAt) + DAILY_SPIN_COOLDOWN_MS).toISOString() : null,
+    dailySpinAvailableAt: (() => {
+      const last = stats.lastDailySpinAt ? Date.parse(stats.lastDailySpinAt) : 0;
+      if (!Number.isFinite(last) || last <= 0) return null;
+      // Už točil dnes → další až po půlnoci; točil dřív → k dispozici hned.
+      return pragueDayKey(last) === pragueDayKey(Date.now()) ? nextPragueMidnightIso(Date.now()) : null;
+    })(),
   };
 }
 
@@ -8492,7 +8523,8 @@ app.get('/api/participant/attendance-history', asyncRoute(async (request, respon
   response.json({ entries, total: entries.length });
 }));
 
-// Denní automat: jednou za 24 h roztočení zdarma. Odměny (granule, klubíčka,
+// Denní automat: jedno roztočení zdarma na kalendářní den (reset o půlnoci v Praze).
+// Odměny (granule, klubíčka,
 // sleva na kroužek, lekce zdarma) si každá organizace nastaví v adminu —
 // server losuje podle vah a odměnu rovnou připíše.
 app.post('/api/game/daily-spin', asyncRoute(async (request, response) => {
@@ -8503,8 +8535,8 @@ app.post('/api/game/daily-spin', asyncRoute(async (request, response) => {
   const stats = row.battle_stats && typeof row.battle_stats === 'object' ? { ...row.battle_stats } : {};
   const last = stats.lastDailySpinAt ? Date.parse(stats.lastDailySpinAt) : 0;
   const now = Date.now();
-  if (Number.isFinite(last) && last > 0 && now - last < DAILY_SPIN_COOLDOWN_MS) {
-    throw httpError('Automat se točí jednou za 24 hodin — vrať se později.', 429);
+  if (Number.isFinite(last) && last > 0 && pragueDayKey(last) === pragueDayKey(now)) {
+    throw httpError('Dnes už jsi točil — zkus to zase zítra.', 429);
   }
 
   // Lekce zdarma dává smysl jen s aktivní vstupovou permanentkou.
@@ -8564,7 +8596,7 @@ app.post('/api/game/daily-spin', asyncRoute(async (request, response) => {
 
   const { error } = await supabase.from('participants').update(update).eq('id', row.id);
   if (error) throw error;
-  response.json({ reward: result, nextSpinAt: new Date(now + DAILY_SPIN_COOLDOWN_MS).toISOString() });
+  response.json({ reward: result, nextSpinAt: nextPragueMidnightIso(now) });
 }));
 
 // Žebříček trofejí v rámci organizace (top 20 + moje pozice).
