@@ -15,12 +15,15 @@ export function FeatureCard({
   icon,
   title,
   body,
+  media,
   index = 0,
 }: {
-  icon: ReactNode;
+  icon?: ReactNode;
   eyebrow?: string;
-  title: string;
+  title?: string;
   body: string;
+  /** Místo ikony s titulkem ukáže vizuál (např. fotku permanentky) a pod ním jen drobný text. */
+  media?: ReactNode;
   accent?: Accent;
   index?: number;
 }) {
@@ -32,11 +35,20 @@ export function FeatureCard({
       transition={{ duration: 0.5, delay: index * 0.07, ease }}
       className="group h-full rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-colors duration-300 hover:border-brand-purple/50 md:p-7"
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/15 text-brand-purple-light ring-1 ring-inset ring-white/10">
-        {icon}
-      </span>
-      <h3 className="mt-5 text-lg font-black leading-tight text-white">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-white/55">{body}</p>
+      {media ? (
+        <>
+          {media}
+          <p className="mt-4 text-xs leading-5 text-white/45">{body}</p>
+        </>
+      ) : (
+        <>
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-purple/15 text-brand-purple-light ring-1 ring-inset ring-white/10">
+            {icon}
+          </span>
+          <h3 className="mt-5 text-lg font-black leading-tight text-white">{title}</h3>
+          <p className="mt-2 text-sm leading-6 text-white/55">{body}</p>
+        </>
+      )}
     </motion.div>
   );
 }

@@ -1,4 +1,4 @@
-import { ScanLine, ShieldCheck, Trophy } from 'lucide-react';
+import { ShieldCheck, Trophy } from 'lucide-react';
 
 import { PageHero } from '@/components/page-hero';
 import { PublicCourseCatalog } from '@/components/public-admin-products';
@@ -23,7 +23,18 @@ export const metadata = {
 };
 
 const benefits = [
-  { icon: <ScanLine size={20} />, eyebrow: '10 / 15 vstupů', title: 'Permanentka, ne závazek', body: 'Vstupy se odečítají postupně přes NFC čip. Žádný závazek na celý rok.' },
+  {
+    // Skutečná NFC permanentka místo ikonového bloku — text pod ní jen drobně.
+    media: (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src="/permanentka-karta.webp"
+        alt="NFC permanentka Team VYS"
+        className="w-full select-none rounded-xl shadow-[0_18px_40px_rgba(0,0,0,0.45)] transition-transform duration-500 group-hover:-translate-y-1 group-hover:rotate-[0.5deg]"
+      />
+    ),
+    body: 'Vstupy se odečítají postupně přes NFC čip. Žádný závazek na celý rok.',
+  },
   { icon: <ShieldCheck size={20} />, eyebrow: 'Bezpečně', title: 'Trénink od základů', body: 'Dopady, koordinace a triky krok za krokem pod dohledem certifikovaných trenérů.' },
   { icon: <Trophy size={20} />, eyebrow: 'Skill tree', title: 'Pokrok je vidět', body: 'Dítě sbírá XP, odemyká triky a postupuje barevnými náramky rovnou v appce.' },
 ];
@@ -47,7 +58,7 @@ export default function CoursesPage() {
         <SectionIntro eyebrow="Proč kroužek" title="Trénink, který má hlavu a patu" />
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {benefits.map((b, i) => (
-            <FeatureCard key={b.title} {...b} index={i} />
+            <FeatureCard key={b.title ?? `benefit-${i}`} {...b} index={i} />
           ))}
         </div>
       </section>
