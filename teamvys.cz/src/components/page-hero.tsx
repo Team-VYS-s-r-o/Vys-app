@@ -13,10 +13,12 @@ type Props = {
   ctaLabel?: string;
   /** Optional oversized outlined word echoed faintly behind the heading. */
   word?: string;
+  /** Optional visual (video/obrázek maskota) posazený k pravému spodnímu okraji hera. */
+  media?: React.ReactNode;
 };
 
 /** Premium dark page header shared across all public subpages. */
-export function PageHero({ title, ctaHref, ctaLabel, word }: Props) {
+export function PageHero({ title, ctaHref, ctaLabel, word, media }: Props) {
   return (
     <section className="relative overflow-hidden bg-[#0B0B10] pt-36 md:pt-44">
       <div
@@ -32,6 +34,18 @@ export function PageHero({ title, ctaHref, ctaLabel, word }: Props) {
         >
           {word}
         </div>
+      ) : null}
+
+      {media ? (
+        <motion.div
+          aria-hidden
+          initial={{ opacity: 0, y: 28 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.22, ease }}
+          className="pointer-events-none absolute bottom-0 right-2 z-10 md:right-[7%]"
+        >
+          {media}
+        </motion.div>
       ) : null}
 
       <div className="section-shell relative pb-16 md:pb-24">

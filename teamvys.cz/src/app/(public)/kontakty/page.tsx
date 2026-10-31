@@ -28,7 +28,26 @@ const quickLinks = [
 export default function ContactsPage() {
   return (
     <div className="bg-[#0B0B10] text-white">
-      <PageHero eyebrow="Kontakty" title="Ozvi se nám" word="kontakt" />
+      <PageHero
+        eyebrow="Kontakty"
+        title="Ozvi se nám"
+        word="kontakt"
+        media={
+          // Telefonující maskot: Safari bere HEVC s alfou (.mov přes video/quicktime,
+          // Chrome/Firefox ho přeskočí), ostatní VP9 webm s průhledností.
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            poster="/kocka-telefon-poster.webp"
+            className="h-40 w-auto select-none sm:h-56 md:h-80"
+          >
+            <source src="/kocka-telefon.mov" type="video/quicktime" />
+            <source src="/kocka-telefon.webm" type="video/webm" />
+          </video>
+        }
+      />
 
       <section className="section-shell grid gap-6 py-16 md:py-24 lg:grid-cols-2">
         {/* Kontaktní údaje */}
