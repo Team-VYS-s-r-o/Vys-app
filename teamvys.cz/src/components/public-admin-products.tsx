@@ -965,9 +965,22 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
 
   const card = (
     <div className={`flex h-full flex-col overflow-hidden rounded-[30px] shadow-brand-soft ${interestMode ? 'border-2 border-amber-400/80 bg-amber-50/70' : 'border border-brand-purple/12 bg-white'}`}>
-      <div className="relative h-[210px] shrink-0 bg-brand-paper">
-        <ProductImage src={product.heroImage} alt={product.venue} className="h-full w-full object-cover" />
-        <div aria-hidden className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(23,18,32,0)_48%,rgba(23,18,32,0.44)_100%)]" />
+      <div className="group/photo relative h-[210px] shrink-0 overflow-hidden bg-brand-paper">
+        <ProductImage src={product.heroImage} alt={product.venue} className="h-full w-full object-cover transition-transform duration-700 group-hover/photo:scale-[1.04]" />
+        {(() => {
+          // Po najetí myší se kruhem odkryje vnitřek tělocvičny — první fotka
+          // z galerie, která není venkovní hero. Bez nahraného interiéru se nic neděje.
+          const interior = products.flatMap((item) => item.gallery).find((src) => src && src !== product.heroImage);
+          if (!interior) return null;
+          return (
+            <ProductImage
+              src={interior}
+              alt={`Tělocvična — ${product.venue}`}
+              className="absolute inset-0 h-full w-full object-cover [clip-path:circle(0%_at_82%_78%)] transition-[clip-path] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/photo:[clip-path:circle(135%_at_82%_78%)]"
+            />
+          );
+        })()}
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(23,18,32,0)_48%,rgba(23,18,32,0.44)_100%)]" />
         <span className="absolute left-3 top-3 rounded-[16px] bg-white px-3 py-2 text-xs font-black uppercase text-brand-ink shadow-brand-soft">{product.city}</span>
         {interestMode ? (
           <span className="absolute right-3 top-3 rounded-[16px] bg-amber-400 px-3 py-2 text-xs font-black uppercase text-brand-ink shadow-brand-soft">Sbíráme zájem</span>

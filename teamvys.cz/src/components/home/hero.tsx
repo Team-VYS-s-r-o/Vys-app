@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from 'framer-motion';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -63,6 +63,58 @@ const chapters: Chapter[] = [
   },
 ];
 
+function ChapterMascot({ chapter, progress, range, priority }: {
+  chapter: Chapter;
+  progress: MotionValue<number>;
+  range: [number, number, number, number];
+  priority: boolean;
+}) {
+  const [inStart, inEnd, outStart, outEnd] = range;
+  const hasExit = outEnd > outStart;
+  // Podsednutí těsně před dosednutím — doskok, ne výtah.
+  const landing = inStart + (inEnd - inStart) * 0.72;
+
+  const opacity = useTransform(
+    progress,
+    hasExit ? [inStart, inStart + (inEnd - inStart) * 0.45, outStart, outEnd] : [inStart, inStart + (inEnd - inStart) * 0.45],
+    hasExit ? [0, 1, 1, 0] : [0, 1],
+  );
+  const y = useTransform(
+    progress,
+    hasExit ? [inStart, landing, inEnd, outStart, outEnd] : [inStart, landing, inEnd],
+    hasExit ? ['32dvh', '-2.5dvh', '0dvh', '0dvh', '18dvh'] : ['32dvh', '-2.5dvh', '0dvh'],
+  );
+  const rotate = useTransform(
+    progress,
+    hasExit ? [inStart, landing, inEnd, outStart, outEnd] : [inStart, landing, inEnd],
+    hasExit ? [-9, 2.5, 0, 0, 7] : [-9, 2.5, 0],
+  );
+  // Záře pod kočkou dopadne spolu s ní.
+  const glowScale = useTransform(progress, [inStart, inEnd], [0.45, 1]);
+  const glowOpacity = useTransform(progress, [inStart, landing, inEnd], [0, 0.4, 1]);
+
+  return (
+    <motion.div
+      aria-hidden
+      style={{ opacity, y, rotate }}
+      className={`pointer-events-none absolute select-none ${chapter.mascotSizeClassName ?? MASCOT_SIZE}`}
+    >
+      <motion.div
+        aria-hidden
+        style={{ scale: glowScale, opacity: glowOpacity }}
+        className="absolute inset-0 [background:radial-gradient(circle_at_50%_78%,rgba(255,255,255,0.16),transparent_60%)]"
+      />
+      <motion.div
+        animate={{ y: [0, -8, 0] }}
+        transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute inset-0"
+      >
+        <Image src={chapter.mascot} alt="" fill sizes="(min-width: 1024px) 620px, 300px" className="object-contain object-bottom sm:object-right-bottom" priority={priority} />
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export function HomeHero() {
   const prefersReducedMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -104,6 +156,14 @@ export function HomeHero() {
     { opacity: s4Opacity, y: s4Y },
   ];
 
+  // [vstup od, vstup do, odchod od, odchod do] — poslední kapitola zůstává.
+  const chapterRanges: [number, number, number, number][] = [
+    [0.05, 0.11, 0.24, 0.3],
+    [0.3, 0.36, 0.49, 0.55],
+    [0.55, 0.61, 0.74, 0.8],
+    [0.8, 0.86, 1, 1],
+  ];
+
   const words = ['Team VYS', ...chapters.map((c) => c.label)];
 
   // Šířka každého slova v em (změřeno při renderu) + rezerva. Grid sloupec se jinak
@@ -137,19 +197,19 @@ export function HomeHero() {
               />
             ))}
 
-        {/* Per-chapter mascot peeking in from the bottom-right (desktop only). */}
+        {/* Maskot každé kapitoly DOSKOČÍ na scénu jako parkourista (scrubováno
+            scrollem): zespoda s podsednutím a dotočením, záře „dopadne" s ním,
+            při odscrollování zase seskočí dolů. Aktivní kočka jemně levituje. */}
         {prefersReducedMotion
           ? null
           : chapters.map((chapter, index) => (
-              <motion.div
+              <ChapterMascot
                 key={`mascot-${chapter.key}`}
-                aria-hidden
-                style={{ opacity: slideMotion[index + 1].opacity }}
-                className={`pointer-events-none absolute select-none ${chapter.mascotSizeClassName ?? MASCOT_SIZE}`}
-              >
-                <div aria-hidden className="absolute inset-0 [background:radial-gradient(circle_at_50%_78%,rgba(255,255,255,0.16),transparent_60%)]" />
-                <Image src={chapter.mascot} alt="" fill sizes="(min-width: 1024px) 620px, 300px" className="object-contain object-bottom sm:object-right-bottom" priority={index === 0} />
-              </motion.div>
+                chapter={chapter}
+                progress={scrollYProgress}
+                range={chapterRanges[index]}
+                priority={index === 0}
+              />
             ))}
 
         <motion.div

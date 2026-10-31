@@ -5,7 +5,7 @@ export const courseHero: Record<string, string> = {
   'course-brandys-vysluni': '/courses/brandys_BR_main.webp',
   'course-brandys-vysluni-ct': '/courses/brandys_BR_main.webp',
   'course-jesenik-komenskeho': '/courses/jesenik_JS_Main.webp',
-  'course-prostejov-melantrichova': '/courses/prostejov_Prostejov_parkour_main.webp',
+  'course-prostejov-melantrichova': '/courses/prostejov_Melantrichova_Main.webp',
   'course-vyskov-nadrazni': '/courses/nadrazka_ZS-Nadrazka-Main.webp',
   'course-vyskov-purkynova': '/courses/purkynka_Purkynova_Main.webp',
 };
@@ -41,7 +41,7 @@ export const courseGallery: Record<string, string[]> = {
     '/courses/jesenik_JS3.webp',
   ],
   'course-prostejov-melantrichova': [
-    '/courses/prostejov_Prostejov_parkour_main.webp',
+    '/courses/prostejov_Melantrichova_Main.webp',
     '/courses/prostejov_Prostejov_parkour_1.webp',
     '/courses/prostejov_Prostejov_parkour_2.webp',
     '/courses/prostejov_Prostejov_parkour_3.webp',
@@ -81,7 +81,7 @@ export const cityPhotos: Record<string, string[]> = {
     '/courses/jesenik_JS3.webp',
   ],
   prostejov: [
-    '/courses/prostejov_Prostejov_parkour_main.webp',
+    '/courses/prostejov_Melantrichova_Main.webp',
     '/courses/prostejov_Prostejov_parkour_1.webp',
     '/courses/prostejov_Prostejov_parkour_2.webp',
     '/courses/prostejov_Prostejov_parkour_3.webp',
