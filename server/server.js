@@ -353,6 +353,28 @@ function rewardDiscountForCode(code, productType) {
   return rewardDiscountRules.find((rule) => normalizedCode.endsWith(rule.suffix) && rule.type === normalizedType) || null;
 }
 
+/**
+ * Výhra z automatu: unikátní jednorázový kód AUTOMAT-XXXXXX vázaný na
+ * organizaci produktu. Platí jen na kroužky; po zaplacení ho webhook označí
+ * jako použitý (finalizePaymentIntent). Vrací null = zkusí se obecná pravidla.
+ */
+async function gameVoucherDiscount(code, orgId, productType) {
+  const normalized = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!normalized.startsWith('AUTOMAT-')) return null;
+  if (normalizeActivityType(productType) !== 'Krouzek') return null;
+  const { data, error } = await supabase
+    .from('game_vouchers')
+    .select('id,percent,status,org_id,kind')
+    .eq('code', normalized)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.kind !== 'discount' || data.status !== 'active') return null;
+  if (String(data.org_id) !== String(orgId || VYS_ORG_ID)) return null;
+  const percent = Math.max(0, Math.round(Number(data.percent) || 0));
+  if (!percent) return null;
+  return { percent, voucherId: data.id };
+}
+
 const czechWeekdays = ['Neděle', 'Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota'];
 
 // Aktuální čas v Evropě/Praze v minutách od půlnoci (server běží v UTC).
@@ -1258,6 +1280,14 @@ async function finalizePaymentIntent(paymentIntent) {
   if (error) throw error;
   await syncPaidPurchaseSideEffects(data);
   await applyExtraPlacesFromMetadata(data, metadata);
+  // Výhra z automatu: zaplacením se slevový poukaz spotřebuje (jednorázový).
+  if (metadata.discount_voucher_id) {
+    await supabase
+      .from('game_vouchers')
+      .update({ status: 'used', used_at: new Date().toISOString(), used_note: `platba ${row.id}` })
+      .eq('id', metadata.discount_voucher_id)
+      .eq('status', 'active');
+  }
   if (existingPurchase?.status !== 'Zaplaceno') {
     await safelySendPaymentConfirmationEmail(data, metadata.receipt_email || paymentIntent.receipt_email);
     await safelySendMetaPurchaseEvent(data, metadata.receipt_email || paymentIntent.receipt_email);
@@ -3443,7 +3473,9 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
   await assertRequiredDocumentsSigned(product, participantId, participantName);
   const originalAmount = Math.round(Number(product.price));
   const discountCode = optionalString(request.body.discountCode);
-  const discount = discountCode ? rewardDiscountForCode(discountCode, product.type) : null;
+  // Nejdřív jednorázová výhra z automatu (unikátní kód, org produktu), pak obecná pravidla.
+  const voucher = discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type) : null;
+  const discount = voucher ?? (discountCode ? rewardDiscountForCode(discountCode, product.type) : null);
 
   if (discountCode && !discount) throw new Error('Slevový kód nejde použít pro tento produkt.');
 
@@ -3487,6 +3519,7 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
       amount: String(amount),
       original_amount: String(originalAmount),
       discount_code: discountCode || '',
+      discount_voucher_id: voucher?.voucherId || '',
       discount_percent: discount ? String(discount.percent) : '',
       discount_amount: discountAmount ? String(discountAmount) : '',
       sibling_discount: siblingDiscount ? String(siblingDiscount) : '',
@@ -3680,7 +3713,9 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
   await assertRequiredDocumentsSigned(product, participantId, participantName);
   const originalAmount = Math.round(Number(product.price));
   const discountCode = optionalString(request.body.discountCode);
-  const discount = discountCode ? rewardDiscountForCode(discountCode, product.type) : null;
+  // Nejdřív jednorázová výhra z automatu (unikátní kód, org produktu), pak obecná pravidla.
+  const voucher = discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type) : null;
+  const discount = voucher ?? (discountCode ? rewardDiscountForCode(discountCode, product.type) : null);
 
   if (discountCode && !discount) throw new Error('Slevový kód nejde použít pro tento produkt.');
 
@@ -3707,6 +3742,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
     amount: String(amount),
     original_amount: String(originalAmount),
     discount_code: discountCode || '',
+    discount_voucher_id: voucher?.voucherId || '',
     discount_percent: discount ? String(discount.percent) : '',
     discount_amount: discountAmount ? String(discountAmount) : '',
     sibling_discount: siblingDiscount ? String(siblingDiscount) : '',
@@ -7986,6 +8022,9 @@ app.patch('/api/admin/game-settings', asyncRoute(async (request, response) => {
       .map((item) => ({
         id: String(item.id).slice(0, 48),
         xp: Math.max(0, Math.min(1000000, Math.round(Number(item.xp) || 0))),
+        // Druh odměny jde v adminu přepnout (ikony na cestě).
+        kind: ['granule', 'yarn', 'chest', 'card', 'discount'].includes(String(item.kind)) ? String(item.kind) : undefined,
+        granule: item.granule == null ? undefined : Math.max(0, Math.min(10000, Math.round(Number(item.granule) || 0))),
         yarnBalls: item.yarnBalls == null ? undefined : Math.max(0, Math.min(10000, Math.round(Number(item.yarnBalls) || 0))),
         bonusXp: item.bonusXp == null ? undefined : Math.max(0, Math.min(10000, Math.round(Number(item.bonusXp) || 0))),
         discountPercent: item.discountPercent == null ? undefined : (SPIN_DISCOUNT_PERCENTS.includes(Math.round(Number(item.discountPercent))) ? Math.round(Number(item.discountPercent)) : 5),
@@ -8906,21 +8945,102 @@ app.post('/api/game/daily-spin', asyncRoute(async (request, response) => {
     result.cardId = cardId;
     result.ownedCards = update.owned_cards;
   } else if (picked.kind === 'discount') {
-    // Kód jede přes stávající pravidla slev (…-KROUZEK-5/12/20), zadává se při nákupu.
+    // Unikátní jednorázový kód vázaný na organizaci — uloží se jako poukaz
+    // a při platbě kroužku ho server ověří i spotřebuje (gameVoucherDiscount).
+    let suffix = '';
+    for (let i = 0; i < 6; i += 1) suffix += FRIEND_CODE_ALPHABET[Math.floor(Math.random() * FRIEND_CODE_ALPHABET.length)];
+    const code = `AUTOMAT-${suffix}`;
+    const { data: voucher, error: voucherError } = await supabase
+      .from('game_vouchers')
+      .insert({ org_id: row.org_id, participant_id: row.id, kind: 'discount', percent: picked.percent, code })
+      .select('id')
+      .single();
+    if (voucherError) throw voucherError;
     result.percent = picked.percent;
-    result.code = `AUTOMAT-KROUZEK-${picked.percent}`;
+    result.code = code;
+    result.voucherId = voucher.id;
   } else if (picked.kind === 'free_lesson' && activePass) {
-    const { error: passError } = await supabase
-      .from('digital_passes')
-      .update({ total_entries: Number(activePass.total_entries || 0) + 1 })
-      .eq('id', activePass.id);
-    if (passError) throw passError;
+    // Vstup zdarma se nepřipisuje hned — je to poukaz, který trenér na místě
+    // aktivuje právě jednou (POST /api/game/vouchers/:id/activate).
+    const { data: voucher, error: voucherError } = await supabase
+      .from('game_vouchers')
+      .insert({ org_id: row.org_id, participant_id: row.id, kind: 'free_lesson' })
+      .select('id')
+      .single();
+    if (voucherError) throw voucherError;
     result.passTitle = activePass.title || 'permanentka';
+    result.voucherId = voucher.id;
   }
 
   const { error } = await supabase.from('participants').update(update).eq('id', row.id);
   if (error) throw error;
   response.json({ reward: result, nextSpinAt: nextPragueMidnightIso(now) });
+}));
+
+// ── Výhry z automatu (poukazy) ────────────────────────────────────────────────
+function voucherPayload(v) {
+  return { id: v.id, kind: v.kind, percent: v.percent ?? null, code: v.code ?? null, status: v.status, createdAt: v.created_at, usedAt: v.used_at ?? null };
+}
+
+// Moje poukazy — aktivní nahoře, pak nedávno použité.
+app.get('/api/game/vouchers', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const { data, error } = await supabase
+    .from('game_vouchers')
+    .select('id,kind,percent,code,status,created_at,used_at')
+    .eq('participant_id', row.id)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  const vouchers = (data || []).sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1));
+  response.json({ vouchers: vouchers.map(voucherPayload) });
+}));
+
+// Aktivace vstupu zdarma — jen jednou (podmíněný UPDATE), přidá vstup na
+// aktivní vstupovou permanentku. Mačká trenér na místě.
+app.post('/api/game/vouchers/:id/activate', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const { data: voucher, error } = await supabase
+    .from('game_vouchers')
+    .select('id,kind,status,participant_id')
+    .eq('id', request.params.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!voucher || voucher.participant_id !== row.id) throw httpError('Poukaz nenalezen.', 404);
+  if (voucher.kind !== 'free_lesson') throw httpError('Tenhle poukaz se aktivuje při platbě kódem.', 400);
+  if (voucher.status !== 'active') throw httpError('Poukaz už byl použitý.', 409);
+
+  let activePass = null;
+  const { data: passes } = await supabase
+    .from('digital_passes')
+    .select('id,total_entries,used_entries,pass_kind,title')
+    .eq('participant_id', row.id)
+    .order('created_at', { ascending: false })
+    .limit(10);
+  for (const pass of passes || []) {
+    if (pass.pass_kind === 'membership') continue;
+    if (Number(pass.total_entries || 0) > Number(pass.used_entries || 0)) { activePass = pass; break; }
+  }
+  if (!activePass) throw httpError('Nemáš aktivní permanentku, na kterou by šel vstup přidat.', 400);
+
+  // Jednorázovost: UPDATE podmíněný statusem — druhé kliknutí nic nenajde.
+  const { data: claimed, error: claimError } = await supabase
+    .from('game_vouchers')
+    .update({ status: 'used', used_at: new Date().toISOString(), used_note: `vstup na ${activePass.title || 'permanentku'}` })
+    .eq('id', voucher.id)
+    .eq('status', 'active')
+    .select('id')
+    .maybeSingle();
+  if (claimError) throw claimError;
+  if (!claimed) throw httpError('Poukaz už byl použitý.', 409);
+
+  const { error: passError } = await supabase
+    .from('digital_passes')
+    .update({ total_entries: Number(activePass.total_entries || 0) + 1 })
+    .eq('id', activePass.id);
+  if (passError) throw passError;
+
+  response.json({ ok: true, passTitle: activePass.title || 'permanentka' });
 }));
 
 // Žebříček trofejí v rámci organizace (top 20 + moje pozice).
