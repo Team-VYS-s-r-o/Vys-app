@@ -8262,10 +8262,13 @@ async function orgGameSettings(orgId) {
 }
 
 // Výchozí denní automat — admin si odměny upraví v nastavení své organizace.
+// Default: hlavně granule, malá šance na klubíčka a na novou herní kartu
+// (pozadí za maskota). Slevy a lekce zdarma si admin zapíná sám.
 const DEFAULT_DAILY_SPIN_REWARDS = [
-  { kind: 'granule', amount: 40, weight: 45, enabled: true },
-  { kind: 'coins', amount: 15, weight: 40, enabled: true },
-  { kind: 'discount', percent: 5, weight: 15, enabled: true },
+  { kind: 'granule', amount: 40, weight: 70, enabled: true },
+  { kind: 'coins', amount: 15, weight: 16, enabled: true },
+  { kind: 'card', weight: 14, enabled: true },
+  { kind: 'discount', percent: 5, weight: 15, enabled: false },
   { kind: 'free_lesson', weight: 5, enabled: false },
 ];
 // Automat se neodemyká 24 h po zatočení, ale vždy s novým dnem (půlnoc v Praze) —
@@ -8312,7 +8315,7 @@ function dailySpinConfig(gameSettings) {
         weight: Math.max(0, Math.min(100, Math.round(Number(reward.weight) || 0))),
         enabled: reward.enabled !== false,
       }))
-      .filter((reward) => ['granule', 'coins', 'discount', 'free_lesson'].includes(reward.kind)),
+      .filter((reward) => ['granule', 'coins', 'card', 'discount', 'free_lesson'].includes(reward.kind)),
   };
 }
 
@@ -8760,9 +8763,14 @@ app.post('/api/game/daily-spin', asyncRoute(async (request, response) => {
     if (Number(pass.total_entries || 0) > Number(pass.used_entries || 0)) { activePass = pass; break; }
   }
 
+  const ownedCards = Array.isArray(row.owned_cards) ? row.owned_cards.filter((c) => typeof c === 'string') : [];
+  const unownedCards = GAME_CARD_IDS.filter((id) => !ownedCards.includes(id));
+
   const pool = settings.rewards.filter((reward) => {
     if (!reward.enabled || reward.weight <= 0) return false;
     if (reward.kind === 'free_lesson') return Boolean(activePass);
+    // Karta se losuje, jen dokud má dítě co sbírat.
+    if (reward.kind === 'card') return unownedCards.length > 0;
     if (reward.kind === 'granule' || reward.kind === 'coins') return reward.amount > 0;
     return true;
   });
@@ -8789,6 +8797,11 @@ app.post('/api/game/daily-spin', asyncRoute(async (request, response) => {
     update.coins = (Number(coinsRow?.coins) || 0) + picked.amount;
     result.amount = picked.amount;
     result.coins = update.coins;
+  } else if (picked.kind === 'card') {
+    const cardId = unownedCards[Math.floor(Math.random() * unownedCards.length)];
+    update.owned_cards = [...ownedCards, cardId];
+    result.cardId = cardId;
+    result.ownedCards = update.owned_cards;
   } else if (picked.kind === 'discount') {
     // Kód jede přes stávající pravidla slev (…-KROUZEK-5/12/20), zadává se při nákupu.
     result.percent = picked.percent;
