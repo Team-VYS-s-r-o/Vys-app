@@ -358,18 +358,31 @@ function rewardDiscountForCode(code, productType) {
  * organizaci produktu. Platí jen na kroužky; po zaplacení ho webhook označí
  * jako použitý (finalizePaymentIntent). Vrací null = zkusí se obecná pravidla.
  */
-async function gameVoucherDiscount(code, orgId, productType) {
+async function gameVoucherDiscount(code, orgId, productType, family = {}) {
   const normalized = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
   if (!normalized.startsWith('AUTOMAT-')) return null;
-  if (normalizeActivityType(productType) !== 'Krouzek') return null;
   const { data, error } = await supabase
     .from('game_vouchers')
-    .select('id,percent,status,org_id,kind')
+    .select('id,percent,status,org_id,kind,participant_id')
     .eq('code', normalized)
     .maybeSingle();
   if (error) throw error;
-  if (!data || data.kind !== 'discount' || data.status !== 'active') return null;
-  if (String(data.org_id) !== String(orgId || VYS_ORG_ID)) return null;
+  // Neznámý kód → null = zkusí se obecná pravidla (…-KROUZEK-5 apod.).
+  if (!data || data.kind !== 'discount') return null;
+  if (normalizeActivityType(productType) !== 'Krouzek') throw new Error('Slevový kód z automatu platí jen na kroužek.');
+  if (data.status !== 'active') throw new Error('Tenhle slevový kód už byl použitý.');
+  if (String(data.org_id) !== String(orgId || VYS_ORG_ID)) throw new Error('Tenhle slevový kód platí jen u organizace, která ho vydala.');
+  // Výhra patří dítěti a jeho sourozencům pod stejným rodičem — cizí rodina ji nepoužije.
+  if (family.participantId && data.participant_id !== family.participantId) {
+    const { data: owner } = await supabase
+      .from('participants')
+      .select('parent_profile_id')
+      .eq('id', data.participant_id)
+      .maybeSingle();
+    if (!family.parentProfileId || !owner?.parent_profile_id || owner.parent_profile_id !== family.parentProfileId) {
+      throw new Error('Tenhle slevový kód patří jinému dítěti.');
+    }
+  }
   const percent = Math.max(0, Math.round(Number(data.percent) || 0));
   if (!percent) return null;
   return { percent, voucherId: data.id };
@@ -3474,7 +3487,7 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
   const originalAmount = Math.round(Number(product.price));
   const discountCode = optionalString(request.body.discountCode);
   // Nejdřív jednorázová výhra z automatu (unikátní kód, org produktu), pak obecná pravidla.
-  const voucher = discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type) : null;
+  const voucher = discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type, { participantId, parentProfileId }) : null;
   const discount = voucher ?? (discountCode ? rewardDiscountForCode(discountCode, product.type) : null);
 
   if (discountCode && !discount) throw new Error('Slevový kód nejde použít pro tento produkt.');
@@ -3714,7 +3727,7 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
   const originalAmount = Math.round(Number(product.price));
   const discountCode = optionalString(request.body.discountCode);
   // Nejdřív jednorázová výhra z automatu (unikátní kód, org produktu), pak obecná pravidla.
-  const voucher = discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type) : null;
+  const voucher = discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type, { participantId, parentProfileId }) : null;
   const discount = voucher ?? (discountCode ? rewardDiscountForCode(discountCode, product.type) : null);
 
   if (discountCode && !discount) throw new Error('Slevový kód nejde použít pro tento produkt.');
@@ -9278,6 +9291,8 @@ async function provisionOrganizationFromCheckout(session) {
         shared_mascots: true,
         shared_attendance_quest_map: true,
         shared_leaderboard: true,
+        // Hra (souboj, automat, kamarádi, výhry) jede i cizím organizacím.
+        shared_game: true,
         coordinator_forgotten_attendance: true,
         coordinator_training_ratings: true,
         coordinator_attendance_stats: true,

@@ -22,6 +22,9 @@ export type FeatureFlagKey =
   | 'shared_mascots'
   | 'shared_attendance_quest_map'
   | 'shared_leaderboard'
+  // Hra pro děti: souboj maskotů, denní automat, kamarádi, výhry, HUD trofejí a
+  // granulí. Jede všem organizacím — admin si odměny i cestu nastaví sám.
+  | 'shared_game'
   // Koordinátor smí zapsat trenérům zapomenutou docházku (admin může vypnout).
   | 'coordinator_forgotten_attendance'
   // Koordinátor vidí hodnocení tréninků od trenérů (admin může vypnout).
@@ -56,6 +59,7 @@ export const VYS_FEATURE_FLAGS: FeatureFlags = {
   shared_mascots: true,
   shared_attendance_quest_map: true,
   shared_leaderboard: true,
+  shared_game: true,
   coordinator_forgotten_attendance: true,
   coordinator_training_ratings: true,
   coordinator_attendance_stats: true,
@@ -82,6 +86,7 @@ export const EXTERNAL_FEATURE_FLAGS: FeatureFlags = {
   shared_mascots: true,
   shared_attendance_quest_map: true,
   shared_leaderboard: true,
+  shared_game: true,
   coordinator_forgotten_attendance: true,
   coordinator_training_ratings: true,
   coordinator_attendance_stats: true,
