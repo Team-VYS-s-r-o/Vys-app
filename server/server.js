@@ -8337,7 +8337,7 @@ async function requireParticipantRow(request) {
   if (profile.role !== 'participant') throw httpError('Souboj je jen pro účastníky.', 403);
   const { data: row, error } = await supabase
     .from('participants')
-    .select('id,org_id,first_name,last_name,trophies,granule,mascot_upgrades,battle_stats,owned_mascots,equipped_mascot_id,attendance_done')
+    .select('id,org_id,first_name,last_name,trophies,granule,mascot_upgrades,battle_stats,owned_mascots,equipped_mascot_id,attendance_done,owned_cards,equipped_card')
     .eq('id', profile.id)
     .maybeSingle();
   if (error) throw error;
@@ -8361,6 +8361,8 @@ function battleProfilePayload(row) {
     },
     ownedMascotIds: Array.isArray(row.owned_mascots) ? row.owned_mascots.map((m) => (typeof m === 'string' ? m : m?.id)).filter(Boolean) : [],
     equippedMascotId: row.equipped_mascot_id || null,
+    ownedCards: Array.isArray(row.owned_cards) ? row.owned_cards.filter((c) => typeof c === 'string') : [],
+    equippedCard: typeof row.equipped_card === 'string' ? row.equipped_card : null,
     tier: battleTierForTrophies(row.trophies),
     claimedTrophyRewards: Array.isArray(stats.claimedTrophyRewards) ? stats.claimedTrophyRewards : [],
     dailySpinAvailableAt: (() => {
@@ -8375,6 +8377,66 @@ function battleProfilePayload(row) {
 app.get('/api/game/profile', asyncRoute(async (request, response) => {
   const row = await requireParticipantRow(request);
   response.json(battleProfilePayload(row));
+}));
+
+// ─── Sběratelské herní karty (pozadí za maskotem) ────────────────────────────
+// Tři náhodné karty se každý den prodávají za granule. Nabídka dne je
+// deterministická podle data v Praze (mulberry32) — klient počítá tutéž trojici.
+const GAME_CARD_IDS = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20'];
+const GAME_CARD_PRICE_GRANULE = 150;
+
+function dailyCardShopIds(dateKey = pragueDayKey(Date.now())) {
+  let seed = 0;
+  for (const ch of dateKey) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+  let a = seed >>> 0;
+  const rand = () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const shuffled = [...GAME_CARD_IDS];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, 3);
+}
+
+// Nákup karty z denní nabídky za granule — server hlídá cenu, nabídku i duplicitu.
+app.post('/api/game/buy-card', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const cardId = requiredString(request.body.cardId, 'cardId');
+  if (!GAME_CARD_IDS.includes(cardId)) throw httpError('Taková karta neexistuje.', 400);
+  if (!dailyCardShopIds().includes(cardId)) throw httpError('Tahle karta dnes v nabídce není.', 400);
+
+  const owned = Array.isArray(row.owned_cards) ? row.owned_cards.filter((c) => typeof c === 'string') : [];
+  if (owned.includes(cardId)) throw httpError('Tuhle kartu už máš.', 400);
+
+  const granule = Number(row.granule) || 0;
+  if (granule < GAME_CARD_PRICE_GRANULE) throw httpError('Nemáš dost granulí.', 400);
+
+  const nextOwned = [...owned, cardId];
+  const { error } = await supabase
+    .from('participants')
+    .update({ granule: granule - GAME_CARD_PRICE_GRANULE, owned_cards: nextOwned })
+    .eq('id', row.id);
+  if (error) throw error;
+
+  response.json({ ok: true, granule: granule - GAME_CARD_PRICE_GRANULE, ownedCards: nextOwned });
+}));
+
+// Nasazení karty (null = sundat). Karta musí být vlastněná.
+app.post('/api/game/equip-card', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const cardId = optionalString(request.body.cardId) || null;
+  if (cardId) {
+    const owned = Array.isArray(row.owned_cards) ? row.owned_cards : [];
+    if (!owned.includes(cardId)) throw httpError('Tuhle kartu zatím nemáš.', 400);
+  }
+  const { error } = await supabase.from('participants').update({ equipped_card: cardId }).eq('id', row.id);
+  if (error) throw error;
+  response.json({ ok: true, equippedCard: cardId });
 }));
 
 app.post('/api/game/battle-result', asyncRoute(async (request, response) => {
