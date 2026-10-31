@@ -94,24 +94,25 @@ function ChapterMascot({ chapter, progress, range, priority }: {
   const glowOpacity = useTransform(progress, [inStart, landing, inEnd], [0, 0.4, 1]);
 
   return (
-    <motion.div
-      aria-hidden
-      style={{ opacity, y, rotate }}
-      className={`pointer-events-none absolute select-none ${chapter.mascotSizeClassName ?? MASCOT_SIZE}`}
-    >
-      <motion.div
-        aria-hidden
-        style={{ scale: glowScale, opacity: glowOpacity }}
-        className="absolute inset-0 [background:radial-gradient(circle_at_50%_78%,rgba(255,255,255,0.16),transparent_60%)]"
-      />
-      <motion.div
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute inset-0"
-      >
-        <Image src={chapter.mascot} alt="" fill sizes="(min-width: 1024px) 620px, 300px" className="object-contain object-bottom sm:object-right-bottom" priority={priority} />
+    // Pozicování (vč. mobilního centrování přes -translate-x-1/2) drží vnější
+    // div BEZ motion stylů — framer by mu transform přepsal a kočka by na
+    // telefonu ujela doprava. Animace běží až na vnitřní vrstvě.
+    <div aria-hidden className={`pointer-events-none absolute select-none ${chapter.mascotSizeClassName ?? MASCOT_SIZE}`}>
+      <motion.div style={{ opacity, y, rotate }} className="absolute inset-0">
+        <motion.div
+          aria-hidden
+          style={{ scale: glowScale, opacity: glowOpacity }}
+          className="absolute inset-0 [background:radial-gradient(circle_at_50%_78%,rgba(255,255,255,0.16),transparent_60%)]"
+        />
+        <motion.div
+          animate={{ y: [0, -8, 0] }}
+          transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute inset-0"
+        >
+          <Image src={chapter.mascot} alt="" fill sizes="(min-width: 1024px) 620px, 300px" className="object-contain object-bottom sm:object-right-bottom" priority={priority} />
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
 
