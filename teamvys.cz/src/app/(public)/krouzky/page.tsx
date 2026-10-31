@@ -55,7 +55,6 @@ export default function CoursesPage() {
       <GoogleReviewCta />
 
       <SubpageCta
-        eyebrow="Přidej se"
         title="Místa v kroužcích mizí rychle."
         highlight="Rezervuj včas."
         ctaHref="/aplikace"

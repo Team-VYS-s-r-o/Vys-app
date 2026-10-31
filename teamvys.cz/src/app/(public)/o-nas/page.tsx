@@ -103,7 +103,6 @@ export default async function AboutPage() {
       </section>
 
       <SubpageCta
-        eyebrow="Pojď do toho"
         title="Začni s parkourem"
         highlight="bezpečně."
         ctaHref="/krouzky"

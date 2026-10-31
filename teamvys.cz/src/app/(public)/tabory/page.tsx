@@ -89,7 +89,6 @@ export default function CampsPage() {
       </section>
 
       <SubpageCta
-        eyebrow="Léto 2026"
         title="Rezervuj místo na táboře"
         highlight="včas."
         ctaHref="/aplikace"

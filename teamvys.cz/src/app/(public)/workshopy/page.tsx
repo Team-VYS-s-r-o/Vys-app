@@ -53,7 +53,6 @@ export default function WorkshopsPage() {
       </section>
 
       <SubpageCta
-        eyebrow="Jednorázové akce"
         title="Jeden workshop s youtuberem, viditelný posun."
         highlight="Vyzkoušej to."
         ctaHref="/aplikace"

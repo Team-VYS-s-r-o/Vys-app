@@ -250,7 +250,6 @@ export default async function CityPage({ params }: Props) {
       <GoogleReviewCta city={city.inCity} />
 
       <SubpageCta
-        eyebrow="První lekce zdarma"
         title={`Přijďte si parkour ${city.inCity} zkusit.`}
         highlight="Nic za to nedáte."
         ctaHref="/krouzky"

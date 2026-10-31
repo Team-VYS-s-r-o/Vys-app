@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useRef } from 'react';
 
 type Props = {
-  eyebrow: string;
   title: string;
   highlight?: string;
   ctaHref: string;
@@ -16,7 +15,7 @@ type Props = {
 };
 
 /** Closing CTA — a phone that smoothly rises out of the footer line as you scroll. */
-export function SubpageCta({ eyebrow, title, highlight, ctaHref, ctaLabel, secondaryHref, secondaryLabel }: Props) {
+export function SubpageCta({ title, highlight, ctaHref, ctaLabel, secondaryHref, secondaryLabel }: Props) {
   const prefersReducedMotion = useReducedMotion();
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -56,16 +55,13 @@ export function SubpageCta({ eyebrow, title, highlight, ctaHref, ctaLabel, secon
                 aria-hidden
                 className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_50%_0%,rgba(139,29,255,0.3),transparent_60%)]"
               />
-              <div className="relative flex h-full flex-col px-[8%] pt-[14%] text-center">
-                <p className="text-[clamp(0.5rem,1.05vw,0.75rem)] font-bold uppercase tracking-[0.25em] text-brand-purple-light">
-                  {eyebrow}
-                </p>
-                <h2 className="mx-auto mt-[5%] max-w-[16ch] text-[clamp(0.95rem,2.4vw,1.75rem)] font-black leading-[1.08] tracking-tight text-white">
+              <div className="relative flex h-full flex-col px-[9%] pt-[24%] text-center">
+                <h2 className="mx-auto max-w-[15ch] text-[clamp(0.95rem,2.4vw,1.75rem)] font-black leading-[1.12] tracking-tight text-white">
                   {title}
                   {highlight ? <span className="text-brand-purple-light"> {highlight}</span> : null}
                 </h2>
 
-                <div className="mt-[9%] flex flex-col items-stretch gap-[3.5%]">
+                <div className="mt-[16%] flex flex-col items-stretch gap-[6%]">
                   <Link
                     href={ctaHref}
                     className="group inline-flex h-[clamp(2rem,4.2vw,3rem)] items-center justify-center gap-2 rounded-full bg-brand-purple px-[6%] text-[clamp(0.6rem,1.25vw,0.875rem)] font-black text-white transition-transform hover:-translate-y-0.5"
