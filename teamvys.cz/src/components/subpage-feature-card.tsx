@@ -33,12 +33,17 @@ export function FeatureCard({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-70px' }}
       transition={{ duration: 0.5, delay: index * 0.07, ease }}
-      className="group h-full rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-colors duration-300 hover:border-brand-purple/50 md:p-7"
+      className={
+        media
+          ? // Vizuál bez „krabičky“ — samotná fotka je karta, text jen drobně pod ní.
+            'group flex h-full flex-col justify-center'
+          : 'group h-full rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-colors duration-300 hover:border-brand-purple/50 md:p-7'
+      }
     >
       {media ? (
         <>
           {media}
-          <p className="mt-4 text-xs leading-5 text-white/45">{body}</p>
+          <p className="mt-3 px-1 text-xs leading-5 text-white/45">{body}</p>
         </>
       ) : (
         <>

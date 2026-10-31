@@ -5,6 +5,7 @@ import { Apple, Bell, Building2, Check, Gamepad2, LogIn, Play, Sparkles, Ticket,
 import Image from 'next/image';
 import { useEffect, useState, type ReactNode } from 'react';
 
+import { AppShowcase } from '@/components/app-showcase';
 import { NfcCardSpin } from '@/components/home/nfc-card-spin';
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -20,35 +21,6 @@ const WAITLIST_MAILTO =
     'Dobrý den,\n\ndejte mi prosím vědět e-mailem, jakmile bude aplikace Team VYS ke stažení na Google Play.\n\nDěkuji.'
   );
 
-const audiences = [
-  {
-    title: 'Účastník',
-    label: 'pro dítě',
-    bullets: [
-      'Skill tree, XP a animovaný progres náramků',
-      'Digitální permanentka přes NFC čip',
-      'Notifikace o dalším tréninku a odměnách',
-    ],
-  },
-  {
-    title: 'Rodič',
-    label: 'pro rodiče',
-    bullets: [
-      'Přehled dětí, docházky a aktivních nákupů',
-      'Platby kroužků, táborů a workshopů s youtuberem online',
-      'Správa organizací, profilu a hodnocení trenérů',
-    ],
-  },
-  {
-    title: 'Trenér',
-    label: 'pro trenéra',
-    bullets: [
-      'Docházka přes NFC i ručně, kontrola lokality',
-      'QR potvrzení splněných triků',
-      'Přehled výplaty, bonusů a DPP dokumentů',
-    ],
-  },
-] as const;
 
 const steps = [
   'iPhone: stáhni si aplikaci VYS z App Storu. Android: brzy na Google Play, zatím funguje prohlížeč.',
@@ -151,36 +123,13 @@ export default function AplikacePage() {
         </div>
       </section>
 
-      {/* Pro koho */}
-      <section className="section-shell py-16 md:py-24">
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Pro všechny</p>
-        <h2 className="mt-3 text-2xl font-black tracking-tight text-white md:text-4xl">Jedna aplikace, tři pohledy</h2>
-
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {audiences.map((role, index) => (
-            <motion.div
-              key={role.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-70px' }}
-              transition={{ duration: 0.5, delay: index * 0.08, ease }}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-7"
-            >
-              <p className="text-xs font-bold uppercase tracking-wider text-brand-purple-light">{role.label}</p>
-              <h3 className="mt-1 text-2xl font-black text-white">{role.title}</h3>
-              <ul className="mt-6 space-y-3">
-                {role.bullets.map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-purple/20 text-brand-purple-light">
-                      <Check size={13} strokeWidth={3} />
-                    </span>
-                    <span className="text-sm leading-6 text-white/65">{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          ))}
+      {/* Ukázky z aplikace — scroll-pinned telefony s videem */}
+      <section>
+        <div className="section-shell pt-16 md:pt-24">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Pro všechny</p>
+          <h2 className="mt-3 text-2xl font-black tracking-tight text-white md:text-4xl">Jedna aplikace, tři pohledy</h2>
         </div>
+        <AppShowcase />
       </section>
 
       {/* Jak to funguje */}
