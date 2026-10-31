@@ -31,7 +31,7 @@ export function SubpageCta({ eyebrow, title, highlight, ctaHref, ctaLabel, secon
     <section ref={sectionRef} className="section-shell overflow-hidden pt-16 md:pt-24">
       <motion.div
         style={prefersReducedMotion ? undefined : { y, opacity }}
-        className="relative mx-auto w-full max-w-[460px]"
+        className="relative mx-auto w-full max-w-[760px]"
       >
         {/* Glow spilling from behind the phone onto the page */}
         <div
@@ -39,45 +39,57 @@ export function SubpageCta({ eyebrow, title, highlight, ctaHref, ctaLabel, secon
           className="pointer-events-none absolute -inset-x-28 bottom-0 top-8 [background:radial-gradient(ellipse_at_50%_100%,rgba(139,29,255,0.35),transparent_65%)]"
         />
 
-        {/* Phone bezel — no bottom edge, it sinks into the footer line */}
-        <div className="relative rounded-t-[52px] border border-b-0 border-white/20 bg-[#211d2e] px-[10px] pt-[10px] shadow-[0_-20px_80px_rgba(139,29,255,0.2)]">
-          {/* Screen */}
-          <div className="relative overflow-hidden rounded-t-[42px] bg-[#141020] px-6 pb-16 pt-20 text-center md:px-10 md:pb-20">
+        <div className="relative">
+          {/*
+            Obsah leží v průhledném výřezu displeje kočičího telefonu.
+            Souřadnice odpovídají díře v obrázku (x 282–789 z 1073,
+            y 109–1208 z 1465) — při změně obrázku je přepočítat.
+          */}
+          <div
+            className="absolute z-0 overflow-hidden rounded-[6%/4%] bg-[#141020]"
+            style={{ left: '26.28%', top: '7.44%', width: '47.34%', height: '75.09%' }}
+          >
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_50%_0%,rgba(139,29,255,0.25),transparent_60%)]"
+              className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_50%_0%,rgba(139,29,255,0.3),transparent_65%)]"
             />
-            {/* Dynamic island with camera */}
-            <div aria-hidden className="absolute left-1/2 top-4 flex h-8 w-28 -translate-x-1/2 items-center justify-end rounded-full bg-black pr-3">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#1b2430] ring-1 ring-white/10" />
-            </div>
+            <div className="relative flex h-full flex-col justify-center px-[7%] pb-[14%] text-center">
+              <p className="text-[clamp(0.5rem,1.1vw,0.75rem)] font-bold uppercase tracking-[0.25em] text-brand-purple-light">
+                {eyebrow}
+              </p>
+              <h2 className="mx-auto mt-[4%] max-w-[16ch] text-[clamp(0.95rem,2.6vw,1.75rem)] font-black leading-[1.08] tracking-tight text-white">
+                {title}
+                {highlight ? <span className="text-brand-purple-light"> {highlight}</span> : null}
+              </h2>
 
-            <div className="relative">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-purple-light">{eyebrow}</p>
-            <h2 className="mx-auto mt-4 max-w-[16ch] text-2xl font-black leading-[1.08] tracking-tight text-white md:text-3xl">
-              {title}
-              {highlight ? <span className="text-brand-purple-light"> {highlight}</span> : null}
-            </h2>
-
-            <div className="mt-9 flex flex-col items-stretch gap-3">
-              <Link
-                href={ctaHref}
-                className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-brand-purple px-8 text-sm font-black text-white transition-transform hover:-translate-y-0.5"
-              >
-                {ctaLabel}
-                <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
-              </Link>
-              {secondaryHref && secondaryLabel ? (
+              <div className="mt-[9%] flex flex-col items-stretch gap-[4%]">
                 <Link
-                  href={secondaryHref}
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-8 text-sm font-black text-white/85 transition-colors hover:bg-white/10"
+                  href={ctaHref}
+                  className="group inline-flex h-[clamp(2rem,4.4vw,3rem)] items-center justify-center gap-2 rounded-full bg-brand-purple px-[6%] text-[clamp(0.6rem,1.3vw,0.875rem)] font-black text-white transition-transform hover:-translate-y-0.5"
                 >
-                  {secondaryLabel}
+                  {ctaLabel}
+                  <ArrowRight className="h-[1em] w-[1em] transition-transform group-hover:translate-x-0.5" />
                 </Link>
-              ) : null}
+                {secondaryHref && secondaryLabel ? (
+                  <Link
+                    href={secondaryHref}
+                    className="inline-flex h-[clamp(2rem,4.4vw,3rem)] items-center justify-center rounded-full border border-white/15 px-[6%] text-[clamp(0.6rem,1.3vw,0.875rem)] font-black text-white/85 transition-colors hover:bg-white/10"
+                  >
+                    {secondaryLabel}
+                  </Link>
+                ) : null}
               </div>
             </div>
           </div>
+
+          {/* Kočičí packa s telefonem — leží nad obsahem, proklik jde skrz. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/kocka-telefon.webp"
+            alt=""
+            aria-hidden
+            className="pointer-events-none relative z-10 w-full select-none drop-shadow-[0_30px_60px_rgba(0,0,0,0.5)]"
+          />
         </div>
       </motion.div>
     </section>
