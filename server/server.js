@@ -8439,6 +8439,152 @@ app.post('/api/game/equip-card', asyncRoute(async (request, response) => {
   response.json({ ok: true, equippedCard: cardId });
 }));
 
+// ─── Online souboje (matchmaking + log tahů) ─────────────────────────────────
+// Klient hledá soupeře ve stejné organizaci; když se do pár sekund nikdo
+// nenajde, hraje proti psovi (offline). Tahy se přenáší jako log akcí —
+// oba klienti je přehrávají stejným enginem (symboly + seed ability jedou
+// s akcí, takže výsledek je deterministický na obou stranách).
+const MATCH_WAITING_TTL_MS = 25 * 1000;
+const MATCH_ACTION_TYPES = ['spin', 'turn-end', 'surrender', 'defeat'];
+const MATCH_SYMBOLS = ['paw', 'energy', 'blast', 'shield', 'heart', 'yarn', 'fish', 'coin'];
+const MATCH_BETS = [0.5, 1, 2, 3];
+
+function matchPlayerPayload(row, catId) {
+  const upgrades = row.mascot_upgrades && typeof row.mascot_upgrades === 'object' ? row.mascot_upgrades : {};
+  return {
+    participantId: row.id,
+    name: String(row.first_name || 'Soupeř').trim().split(' ')[0] || 'Soupeř',
+    catId,
+    upgrades: upgrades[catId] && typeof upgrades[catId] === 'object' ? upgrades[catId] : {},
+    card: typeof row.equipped_card === 'string' ? row.equipped_card : null,
+    trophies: Number(row.trophies) || 0,
+  };
+}
+
+function matchSideOf(match, participantId) {
+  if (match.p1?.participantId === participantId) return 'p1';
+  if (match.p2?.participantId === participantId) return 'p2';
+  return null;
+}
+
+async function requireMatch(request, matchId) {
+  const row = await requireParticipantRow(request);
+  const { data: match, error } = await supabase.from('game_matches').select('*').eq('id', matchId).maybeSingle();
+  if (error) throw error;
+  if (!match) throw httpError('Souboj nenalezen.', 404);
+  const side = matchSideOf(match, row.id);
+  if (!side) throw httpError('Tenhle souboj není tvůj.', 403);
+  return { row, match, side };
+}
+
+// Najít/založit souboj: buď se připojím k čekajícímu, nebo čekám sám.
+app.post('/api/game/match/find', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const catId = optionalString(request.body.catId) || BATTLE_DEFAULT_CAT;
+  const ownedIds = battleProfilePayload(row).ownedMascotIds;
+  if (catId !== BATTLE_DEFAULT_CAT && !ownedIds.includes(catId)) throw httpError('S touhle kočkou nemůžeš bojovat.', 400);
+  const me = matchPlayerPayload(row, catId);
+
+  // Moje staré čekající zápasy zrušit — platí vždy jen ten poslední.
+  await supabase.from('game_matches').update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('org_id', row.org_id).eq('status', 'waiting').filter('p1->>participantId', 'eq', row.id);
+
+  const freshAfter = new Date(Date.now() - MATCH_WAITING_TTL_MS).toISOString();
+  const { data: waiting, error: findError } = await supabase
+    .from('game_matches')
+    .select('id,p1')
+    .eq('org_id', row.org_id)
+    .eq('status', 'waiting')
+    .gt('created_at', freshAfter)
+    .neq('p1->>participantId', row.id)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (findError) throw findError;
+
+  if (waiting && waiting.length) {
+    // Připojení chráněné podmínkou na status — když mě někdo předběhl, čekám sám.
+    const { data: claimed, error: claimError } = await supabase
+      .from('game_matches')
+      .update({ p2: me, status: 'active', updated_at: new Date().toISOString() })
+      .eq('id', waiting[0].id)
+      .eq('status', 'waiting')
+      .select('id,p1')
+      .maybeSingle();
+    if (claimError) throw claimError;
+    if (claimed) {
+      response.json({ matchId: claimed.id, role: 'p2', opponent: claimed.p1 });
+      return;
+    }
+  }
+
+  const { data: created, error: insertError } = await supabase
+    .from('game_matches')
+    .insert({ org_id: row.org_id, p1: me })
+    .select('id')
+    .single();
+  if (insertError) throw insertError;
+  response.json({ matchId: created.id, role: 'p1', opponent: null });
+}));
+
+// Stav zápasu + nové akce od pozice `after` (klient si drží počítadlo).
+app.get('/api/game/match/:id/state', asyncRoute(async (request, response) => {
+  const { match, side } = await requireMatch(request, request.params.id);
+  const after = Math.max(0, Math.round(Number(request.query.after) || 0));
+  const actions = Array.isArray(match.actions) ? match.actions : [];
+  response.json({
+    status: match.status,
+    side,
+    opponent: side === 'p1' ? match.p2 || null : match.p1 || null,
+    actions: actions.slice(after),
+    total: actions.length,
+    winner: match.winner || null,
+  });
+}));
+
+// Zápis vlastní akce (spin / konec tahu / vzdání / prohra bez mincí).
+app.post('/api/game/match/:id/action', asyncRoute(async (request, response) => {
+  const { match, side } = await requireMatch(request, request.params.id);
+  if (match.status !== 'active') throw httpError('Souboj už neběží.', 409);
+  const type = requiredString(request.body.type, 'type');
+  if (!MATCH_ACTION_TYPES.includes(type)) throw httpError('Neznámá akce.', 400);
+  const action = { side, type, at: new Date().toISOString() };
+  if (type === 'spin') {
+    const symbols = Array.isArray(request.body.symbols) ? request.body.symbols.map(String) : [];
+    if (symbols.length !== 4 || symbols.some((s) => !MATCH_SYMBOLS.includes(s))) throw httpError('Neplatné symboly.', 400);
+    const bet = Number(request.body.bet);
+    if (!MATCH_BETS.includes(bet)) throw httpError('Neplatná sázka.', 400);
+    action.symbols = symbols;
+    action.bet = bet;
+    action.abilitySeed = Math.max(0, Math.round(Number(request.body.abilitySeed) || 0)) >>> 0;
+  }
+  const actions = Array.isArray(match.actions) ? match.actions : [];
+  const { error } = await supabase
+    .from('game_matches')
+    .update({ actions: [...actions, action], updated_at: new Date().toISOString() })
+    .eq('id', match.id);
+  if (error) throw error;
+  response.json({ ok: true, total: actions.length + 1 });
+}));
+
+// Zrušení vlastního čekání (uplynul limit hledání) / zápis vítěze.
+app.post('/api/game/match/:id/cancel', asyncRoute(async (request, response) => {
+  const { match, side } = await requireMatch(request, request.params.id);
+  if (side === 'p1' && match.status === 'waiting') {
+    await supabase.from('game_matches').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', match.id).eq('status', 'waiting');
+  }
+  response.json({ ok: true });
+}));
+
+app.post('/api/game/match/:id/finish', asyncRoute(async (request, response) => {
+  const { match } = await requireMatch(request, request.params.id);
+  const winner = optionalString(request.body.winner);
+  if (winner !== 'p1' && winner !== 'p2') throw httpError('Neplatný vítěz.', 400);
+  if (match.status === 'active') {
+    await supabase.from('game_matches').update({ status: 'finished', winner, updated_at: new Date().toISOString() }).eq('id', match.id).eq('status', 'active');
+  }
+  response.json({ ok: true });
+}));
+
 app.post('/api/game/battle-result', asyncRoute(async (request, response) => {
   const row = await requireParticipantRow(request);
   const won = request.body.won === true;
