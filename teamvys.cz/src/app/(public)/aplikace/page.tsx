@@ -2,7 +2,6 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { Apple, Bell, Building2, Check, Gamepad2, LogIn, Play, Sparkles, Ticket, UserPlus, Users, X, Zap } from 'lucide-react';
-import Image from 'next/image';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { AppShowcase } from '@/components/app-showcase';
@@ -22,94 +21,69 @@ const WAITLIST_MAILTO =
   );
 
 
-const steps = [
-  'iPhone: stáhni si aplikaci VYS z App Storu. Android: brzy na Google Play, zatím funguje prohlížeč.',
-  'Přihlas se jako účastník, rodič nebo trenér — jde to i rovnou v prohlížeči bez stahování.',
-  'Účastník vidí progres, rodič spravuje děti a platby, trenér řeší docházku a QR potvrzení triků.',
-] as const;
 
 export default function AplikacePage() {
   return (
     <div className="bg-[#0B0B10] text-white">
-      {/* Hero */}
-      <section className="relative overflow-hidden pt-36 md:pt-44">
+      {/* Ukázky z aplikace — scroll-pinned telefony s videem, hned jako první */}
+      <section>
+        <div className="section-shell pt-32 md:pt-40">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-purple-light">Aplikace</p>
+          <h1 className="mt-4 max-w-[18ch] text-3xl font-black leading-[1.05] tracking-tight text-white md:text-6xl">
+            Celý Team VYS v telefonu
+          </h1>
+        </div>
+        <AppShowcase />
+      </section>
+
+      {/* Stáhnout / přihlásit — statický telefon už nahradila videa výš */}
+      <section className="relative overflow-hidden py-16 md:py-24">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_15%_0%,rgba(139,29,255,0.20),transparent_45%),radial-gradient(circle_at_90%_20%,rgba(178,59,255,0.12),transparent_45%)]"
         />
-        <div className="section-shell relative grid items-center gap-14 pb-16 md:pb-24 lg:grid-cols-[1fr_360px]">
-          <div>
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease }}
-              className="text-xs font-bold uppercase tracking-[0.25em] text-brand-purple-light"
-            >
-              Aplikace
-            </motion.p>
-            <motion.h1
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.06, ease }}
-              className="mt-5 max-w-[14ch] text-4xl font-black leading-[1.02] tracking-tight text-white md:text-7xl"
-            >
-              Celý Team VYS v telefonu
-            </motion.h1>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <AppStoreButton />
-              <WebSignInButton />
-            </div>
-
-            <div className="mt-5 max-w-[620px] rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <Play className="mt-0.5 shrink-0 fill-brand-purple-light text-brand-purple-light" size={20} aria-hidden />
-                  <div>
-                    <h2 className="text-sm font-black text-white">Android: brzy na Google Play</h2>
-                    <p className="mt-1 text-xs leading-5 text-white/60">
-                      Aplikaci právě schvalujeme. Nechte nám e-mail a dáme vám vědět, jakmile půjde stáhnout.
-                    </p>
-                  </div>
-                </div>
-                <a
-                  href={WAITLIST_MAILTO}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-brand-purple/40 bg-brand-purple/15 px-4 py-2.5 text-xs font-black text-white transition hover:bg-brand-purple/25"
-                  aria-label="Dejte mi vědět e-mailem, až bude aplikace na Google Play"
-                >
-                  <Bell size={15} />
-                  Dejte mi vědět
-                </a>
-              </div>
-            </div>
-
+        <div className="section-shell relative">
+          <h2 className="max-w-[16ch] text-2xl font-black leading-tight tracking-tight text-white md:text-5xl">
+            Stáhni si ji, nebo jeď rovnou v prohlížeči
+          </h2>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <AppStoreButton />
+            <WebSignInButton />
           </div>
 
-          <div className="pointer-events-none relative mx-auto w-full max-w-[300px] lg:max-w-[360px]">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -inset-10 rounded-full bg-[radial-gradient(circle,rgba(139,29,255,0.25),transparent_60%)] blur-2xl"
-            />
-            <Image
-              src="/telefon-web.png"
-              alt="Ukázka aplikace VYS v telefonu"
-              width={760}
-              height={960}
-              priority
-              sizes="(min-width: 1024px) 360px, 80vw"
-              className="relative w-full drop-shadow-[0_40px_80px_rgba(0,0,0,0.55)] [-webkit-mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)] [mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)]"
-            />
+          <div className="mt-5 max-w-[620px] rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Play className="mt-0.5 shrink-0 fill-brand-purple-light text-brand-purple-light" size={20} aria-hidden />
+                <div>
+                  <h3 className="text-sm font-black text-white">Android: brzy na Google Play</h3>
+                  <p className="mt-1 text-xs leading-5 text-white/60">
+                    Aplikaci právě schvalujeme. Nechte nám e-mail a dáme vám vědět, jakmile půjde stáhnout.
+                  </p>
+                </div>
+              </div>
+              <a
+                href={WAITLIST_MAILTO}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-brand-purple/40 bg-brand-purple/15 px-4 py-2.5 text-xs font-black text-white transition hover:bg-brand-purple/25"
+                aria-label="Dejte mi vědět e-mailem, až bude aplikace na Google Play"
+              >
+                <Bell size={15} />
+                Dejte mi vědět
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* NFC kartička — otáčí se scrollováním */}
+      {/* NFC kartička — otáčí se scrollováním; karta vlevo, text vpravo */}
       <section className="section-shell relative py-10 md:py-16">
         <div
           aria-hidden
           className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(139,29,255,0.22),transparent_60%)] blur-2xl"
         />
-        <div className="relative grid items-center gap-10 lg:grid-cols-[1fr_440px]">
-          <div>
+        <div className="relative grid items-center gap-10 lg:grid-cols-[440px_1fr]">
+          <NfcCardSpin className="mx-auto w-full max-w-[440px]" />
+          <div className="lg:pl-6">
             <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">NFC docházka</p>
             <h2 className="mt-3 max-w-[16ch] text-2xl font-black tracking-tight text-white md:text-4xl">
               Jedna kartička, celá docházka
@@ -119,34 +93,7 @@ export default function AplikacePage() {
               a rodiči hned přijde zpráva, že dorazilo v pořádku.
             </p>
           </div>
-          <NfcCardSpin className="mx-auto w-full max-w-[440px]" />
         </div>
-      </section>
-
-      {/* Ukázky z aplikace — scroll-pinned telefony s videem */}
-      <section>
-        <div className="section-shell pt-16 md:pt-24">
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Pro všechny</p>
-          <h2 className="mt-3 text-2xl font-black tracking-tight text-white md:text-4xl">Jedna aplikace, tři pohledy</h2>
-        </div>
-        <AppShowcase />
-      </section>
-
-      {/* Jak to funguje */}
-      <section className="section-shell pb-16 md:pb-24">
-        <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Jak to funguje</p>
-        <h2 className="mt-3 text-2xl font-black tracking-tight text-white md:text-4xl">Tři kroky a jedeš</h2>
-
-        <ol className="mt-10 grid gap-4 md:grid-cols-3">
-          {steps.map((step, index) => (
-            <li key={step} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-purple text-sm font-black text-white">
-                {index + 1}
-              </span>
-              <p className="mt-5 text-sm leading-6 text-white/65">{step}</p>
-            </li>
-          ))}
-        </ol>
       </section>
 
       <HowToBuy />
