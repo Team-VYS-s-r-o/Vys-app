@@ -8031,6 +8031,13 @@ app.patch('/api/admin/game-settings', asyncRoute(async (request, response) => {
         chestRarity: ['common', 'rare', 'gold'].includes(String(item.chestRarity)) ? String(item.chestRarity) : undefined,
         enabled: item.enabled !== false,
       }));
+    // Ochrana prahů: pole výš na cestě nesmí mít míň trofejí než pole pod ním.
+    let prevXp = -1;
+    gameSettings.reward_path = gameSettings.reward_path.map((item) => {
+      const xp = Math.max(item.xp, prevXp + 1);
+      prevXp = xp;
+      return { ...item, xp };
+    });
   }
   const { error: updateError } = await supabase.from('organizations').update({ game_settings: gameSettings }).eq('id', orgId);
   if (updateError) throw updateError;
