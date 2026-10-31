@@ -8449,7 +8449,8 @@ app.post('/api/game/equip-card', asyncRoute(async (request, response) => {
 // s akcí, takže výsledek je deterministický na obou stranách).
 const MATCH_WAITING_TTL_MS = 25 * 1000;
 const MATCH_ACTION_TYPES = ['spin', 'turn-end', 'surrender', 'defeat'];
-const MATCH_SYMBOLS = ['paw', 'energy', 'blast', 'shield', 'heart', 'yarn', 'fish', 'coin'];
+// `thief` nahradil `yarn` (31. 10.) — yarn se nechává kvůli starším klientům.
+const MATCH_SYMBOLS = ['paw', 'energy', 'blast', 'shield', 'heart', 'thief', 'yarn', 'fish', 'coin'];
 const MATCH_BETS = [0.5, 1, 2, 3];
 
 function matchPlayerPayload(row, catId) {
@@ -8480,28 +8481,130 @@ async function requireMatch(request, matchId) {
   return { row, match, side };
 }
 
-// Najít/založit souboj: buď se připojím k čekajícímu, nebo čekám sám.
+// ── Kamarádi ──────────────────────────────────────────────────────────────────
+// Přidávají se kódem (sdílí se odkazem); dvojice se ukládá obousměrně.
+const FRIEND_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+async function ensureFriendCode(row) {
+  const stats = row.battle_stats && typeof row.battle_stats === 'object' ? { ...row.battle_stats } : {};
+  if (typeof stats.friendCode === 'string' && stats.friendCode.length >= 6) return stats.friendCode;
+  let code = '';
+  for (let i = 0; i < 6; i += 1) code += FRIEND_CODE_ALPHABET[Math.floor(Math.random() * FRIEND_CODE_ALPHABET.length)];
+  stats.friendCode = code;
+  await supabase.from('participants').update({ battle_stats: stats }).eq('id', row.id);
+  return code;
+}
+
+function friendEntry(p) {
+  return {
+    id: p.id,
+    name: String(p.first_name || 'Kamarád').trim().split(' ')[0] || 'Kamarád',
+    mascotId: p.equipped_mascot_id || null,
+    trophies: Number(p.trophies) || 0,
+  };
+}
+
+// Seznam kamarádů + můj kód + čekající výzvy na souboj.
+app.get('/api/game/friends', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const code = await ensureFriendCode(row);
+
+  const { data: links, error: linksError } = await supabase
+    .from('game_friends').select('friend_id').eq('participant_id', row.id);
+  if (linksError) throw linksError;
+  const ids = (links || []).map((l) => l.friend_id);
+  let friends = [];
+  if (ids.length) {
+    const { data: rows, error } = await supabase
+      .from('participants').select('id,first_name,equipped_mascot_id,trophies').in('id', ids);
+    if (error) throw error;
+    friends = (rows || []).map(friendEntry).sort((a, b) => b.trophies - a.trophies);
+  }
+
+  // Výzvy: čekající zápasy mířené na mě (posledních 10 minut).
+  const freshAfter = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { data: pending, error: pendingError } = await supabase
+    .from('game_matches')
+    .select('id,p1,created_at')
+    .eq('org_id', row.org_id)
+    .eq('status', 'waiting')
+    .gt('created_at', freshAfter)
+    .filter('p1->>targetId', 'eq', row.id)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  if (pendingError) throw pendingError;
+  const challenges = (pending || []).map((m) => ({
+    matchId: m.id,
+    friendId: m.p1?.participantId,
+    name: m.p1?.name || 'Kamarád',
+    at: m.created_at,
+  }));
+
+  response.json({ code, friends, challenges });
+}));
+
+// Přidání kamaráda kódem — zapíše obě strany najednou.
+app.post('/api/game/friends/add', asyncRoute(async (request, response) => {
+  const row = await requireParticipantRow(request);
+  const code = requiredString(request.body.code, 'code').trim().toUpperCase();
+  const { data: candidates, error } = await supabase
+    .from('participants')
+    .select('id,first_name,equipped_mascot_id,trophies')
+    .eq('org_id', row.org_id)
+    .filter('battle_stats->>friendCode', 'eq', code)
+    .limit(1);
+  if (error) throw error;
+  const friend = candidates?.[0];
+  if (!friend) throw httpError('Takový kód nikdo nemá. Zkontroluj překlepy.', 404);
+  if (friend.id === row.id) throw httpError('To je tvůj vlastní kód. 🙂', 400);
+
+  const { error: upsertError } = await supabase.from('game_friends').upsert([
+    { participant_id: row.id, friend_id: friend.id, org_id: row.org_id },
+    { participant_id: friend.id, friend_id: row.id, org_id: row.org_id },
+  ], { onConflict: 'participant_id,friend_id', ignoreDuplicates: true });
+  if (upsertError) throw upsertError;
+
+  response.json({ ok: true, friend: friendEntry(friend) });
+}));
+
+// Najít/založit souboj: náhodný soupeř, NEBO výzva kamarádovi (friendId).
 app.post('/api/game/match/find', asyncRoute(async (request, response) => {
   const row = await requireParticipantRow(request);
   const catId = optionalString(request.body.catId) || BATTLE_DEFAULT_CAT;
+  const friendId = optionalString(request.body.friendId) || null;
   const ownedIds = battleProfilePayload(row).ownedMascotIds;
   if (catId !== BATTLE_DEFAULT_CAT && !ownedIds.includes(catId)) throw httpError('S touhle kočkou nemůžeš bojovat.', 400);
   const me = matchPlayerPayload(row, catId);
+
+  if (friendId) {
+    const { data: link } = await supabase.from('game_friends').select('friend_id')
+      .eq('participant_id', row.id).eq('friend_id', friendId).maybeSingle();
+    if (!link) throw httpError('Nejdřív si ho přidej do kamarádů.', 400);
+  }
 
   // Moje staré čekající zápasy zrušit — platí vždy jen ten poslední.
   await supabase.from('game_matches').update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('org_id', row.org_id).eq('status', 'waiting').filter('p1->>participantId', 'eq', row.id);
 
-  const freshAfter = new Date(Date.now() - MATCH_WAITING_TTL_MS).toISOString();
-  const { data: waiting, error: findError } = await supabase
+  // Výzvy kamarádovi žijí déle než náhodné hledání (kamarád musí stihnout přijít).
+  const ttl = friendId ? 10 * 60 * 1000 : MATCH_WAITING_TTL_MS;
+  const freshAfter = new Date(Date.now() - ttl).toISOString();
+  let finder = supabase
     .from('game_matches')
     .select('id,p1')
     .eq('org_id', row.org_id)
     .eq('status', 'waiting')
     .gt('created_at', freshAfter)
-    .neq('p1->>participantId', row.id)
     .order('created_at', { ascending: true })
     .limit(1);
+  if (friendId) {
+    // Hledám výzvu od konkrétního kamaráda mířenou na mě.
+    finder = finder.filter('p1->>participantId', 'eq', friendId).filter('p1->>targetId', 'eq', row.id);
+  } else {
+    // Náhodné párování nikdy nebere cizí výzvy.
+    finder = finder.neq('p1->>participantId', row.id).is('p1->>targetId', null);
+  }
+  const { data: waiting, error: findError } = await finder;
   if (findError) throw findError;
 
   if (waiting && waiting.length) {
@@ -8522,7 +8625,7 @@ app.post('/api/game/match/find', asyncRoute(async (request, response) => {
 
   const { data: created, error: insertError } = await supabase
     .from('game_matches')
-    .insert({ org_id: row.org_id, p1: me })
+    .insert({ org_id: row.org_id, p1: friendId ? { ...me, targetId: friendId } : me })
     .select('id')
     .single();
   if (insertError) throw insertError;
