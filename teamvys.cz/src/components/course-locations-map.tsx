@@ -87,7 +87,9 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
         dragging: !coarse,
         touchZoom: true,
         keyboard: false,
-        scrollWheelZoom: true,
+        // Kolečko nezoomuje, dokud uživatel do mapy neklikne — jinak mapa
+        // chytala scroll stránky a nešlo přes ni pohodlně projet.
+        scrollWheelZoom: false,
         // Mírnější citlivost zoomu kolečkem
         wheelPxPerZoomLevel: 160,
         zoomSnap: 0.5,
@@ -96,6 +98,9 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
         maxZoom: 17,
       });
       mapRef.current = map;
+      // Klik do mapy zoom kolečkem probudí, odjetí myši ho zase uspí.
+      map.on('click', () => map.scrollWheelZoom.enable());
+      map.on('mouseout', () => map.scrollWheelZoom.disable());
       if (coarse) {
         // Jistota: jedním prstem projde scroll stránky, pinch chytá Leaflet
         containerRef.current.style.touchAction = 'pan-y';
