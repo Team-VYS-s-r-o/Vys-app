@@ -70,7 +70,7 @@ export function AppShowcase() {
   }
 
   return (
-    <div ref={wrapRef} className="relative h-[340dvh]">
+    <div ref={wrapRef} className="relative h-[480dvh]">
       <div className="sticky top-0 flex h-dvh items-center overflow-hidden">
         <div className="section-shell relative h-full w-full">
           {CHAPTERS.map((chapter, index) => (
@@ -117,8 +117,8 @@ function ChapterSlide({
 
   // Telefon: přijede zprava, chvíli drží a odjede doleva (první kapitola je
   // vidět hned, poslední už neodjíždí).
-  const enterEnd = start + span * 0.3;
-  const exitStart = end - span * 0.22;
+  const enterEnd = start + span * 0.38;
+  const exitStart = end - span * 0.3;
   const phoneX = useTransform(
     progress,
     [start, enterEnd, exitStart, end],
@@ -133,12 +133,12 @@ function ChapterSlide({
   // Text: objeví se chvilku po telefonu, mizí spolu s ním.
   const textX = useTransform(
     progress,
-    [start + span * 0.16, start + span * 0.42, exitStart, end],
+    [start + span * 0.2, start + span * 0.5, exitStart, end],
     [isFirst ? '0px' : '60px', '0px', '0px', isLast ? '0px' : '-40px'],
   );
   const textOpacity = useTransform(
     progress,
-    [start + span * 0.16, start + span * 0.42, exitStart, end],
+    [start + span * 0.2, start + span * 0.5, exitStart, end],
     [isFirst ? 1 : 0, 1, 1, isLast ? 1 : 0],
   );
 

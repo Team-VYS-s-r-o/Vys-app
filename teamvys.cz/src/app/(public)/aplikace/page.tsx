@@ -1,7 +1,8 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { Apple, Bell, Building2, Check, Gamepad2, LogIn, Play, Sparkles, Ticket, UserPlus, Users, X, Zap } from 'lucide-react';
+import { Apple, Building2, Check, Gamepad2, LogIn, Play, Sparkles, Ticket, UserPlus, Users, X, Zap } from 'lucide-react';
+import Image from 'next/image';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { AppShowcase } from '@/components/app-showcase';
@@ -11,14 +12,6 @@ const ease = [0.22, 1, 0.36, 1] as const;
 
 const WEB_APP_URL = 'https://app.aplikacevys.cz/sign-in?source=pwa';
 const APP_STORE_URL = 'https://apps.apple.com/cz/app/vys/id6816709958';
-const WAITLIST_MAILTO =
-  'mailto:info@teamvys.cz' +
-  '?subject=' +
-  encodeURIComponent('Chci vědět, až bude aplikace na Google Play') +
-  '&body=' +
-  encodeURIComponent(
-    'Dobrý den,\n\ndejte mi prosím vědět e-mailem, jakmile bude aplikace Team VYS ke stažení na Google Play.\n\nDěkuji.'
-  );
 
 
 
@@ -36,47 +29,42 @@ export default function AplikacePage() {
         <AppShowcase />
       </section>
 
-      {/* Stáhnout / přihlásit — statický telefon už nahradila videa výš */}
-      <section className="relative overflow-hidden py-16 md:py-24">
+      {/* Stáhnout / přihlásit — telefon vpravo, kolem hodně vzduchu */}
+      <section className="relative overflow-hidden py-24 md:py-40">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_15%_0%,rgba(139,29,255,0.20),transparent_45%),radial-gradient(circle_at_90%_20%,rgba(178,59,255,0.12),transparent_45%)]"
         />
-        <div className="section-shell relative">
-          <h2 className="max-w-[16ch] text-2xl font-black leading-tight tracking-tight text-white md:text-5xl">
-            Stáhni si ji, nebo jeď rovnou v prohlížeči
-          </h2>
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <AppStoreButton />
-            <WebSignInButton />
+        <div className="section-shell relative grid items-center gap-14 lg:grid-cols-[1fr_360px]">
+          <div>
+            <h2 className="max-w-[16ch] text-2xl font-black leading-tight tracking-tight text-white md:text-5xl">
+              Stáhni si ji, nebo jeď rovnou v prohlížeči
+            </h2>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <AppStoreButton />
+              <WebSignInButton />
+            </div>
           </div>
 
-          <div className="mt-5 max-w-[620px] rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left sm:p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <Play className="mt-0.5 shrink-0 fill-brand-purple-light text-brand-purple-light" size={20} aria-hidden />
-                <div>
-                  <h3 className="text-sm font-black text-white">Android: brzy na Google Play</h3>
-                  <p className="mt-1 text-xs leading-5 text-white/60">
-                    Aplikaci právě schvalujeme. Nechte nám e-mail a dáme vám vědět, jakmile půjde stáhnout.
-                  </p>
-                </div>
-              </div>
-              <a
-                href={WAITLIST_MAILTO}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-brand-purple/40 bg-brand-purple/15 px-4 py-2.5 text-xs font-black text-white transition hover:bg-brand-purple/25"
-                aria-label="Dejte mi vědět e-mailem, až bude aplikace na Google Play"
-              >
-                <Bell size={15} />
-                Dejte mi vědět
-              </a>
-            </div>
+          <div className="pointer-events-none relative mx-auto w-full max-w-[300px] lg:max-w-[360px]">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -inset-10 rounded-full bg-[radial-gradient(circle,rgba(139,29,255,0.25),transparent_60%)] blur-2xl"
+            />
+            <Image
+              src="/telefon-web.png"
+              alt="Ukázka aplikace VYS v telefonu"
+              width={760}
+              height={960}
+              sizes="(min-width: 1024px) 360px, 80vw"
+              className="relative w-full drop-shadow-[0_40px_80px_rgba(0,0,0,0.55)] [-webkit-mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)] [mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)]"
+            />
           </div>
         </div>
       </section>
 
       {/* NFC kartička — otáčí se scrollováním; karta vlevo, text vpravo */}
-      <section className="section-shell relative py-10 md:py-16">
+      <section className="section-shell relative pb-24 pt-10 md:pb-40 md:pt-16">
         <div
           aria-hidden
           className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(139,29,255,0.22),transparent_60%)] blur-2xl"
