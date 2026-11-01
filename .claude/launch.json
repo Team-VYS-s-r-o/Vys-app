@@ -39,6 +39,15 @@
         "/Users/davidkropac/Desktop/vys-aplikace"
       ],
       "port": 8081
+    },
+    {
+      "name": "vys-aplikace-real-auth",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/davidkropac/Desktop/vys-aplikace && EXPO_PUBLIC_DEV_BYPASS_AUTH=false npx expo start --web --port 8092"
+      ],
+      "port": 8092
     }
   ]
 }
