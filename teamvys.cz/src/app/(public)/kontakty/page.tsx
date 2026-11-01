@@ -41,7 +41,10 @@ export default function ContactsPage() {
             loop
             playsInline
             poster="/kocka-telefon-poster.webp"
-            className="h-40 w-auto select-none sm:h-56 md:h-80"
+            // translate-y: posledních pár řádků videa je jen měkké doznívání alfy.
+            // Posun o 1,5 % vlastní výšky je schová pod hranu sekce (ta má overflow-hidden),
+            // takže kočka dosedá na černou bez jakékoliv mezery — v každé velikosti.
+            className="h-40 w-auto translate-y-[1.5%] select-none sm:h-56 md:h-80"
           >
             <source src="/kocka-telefon.mov" type="video/quicktime" />
             <source src="/kocka-telefon.webm" type="video/webm" />
