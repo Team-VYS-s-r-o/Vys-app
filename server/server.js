@@ -8012,7 +8012,7 @@ app.patch('/api/admin/game-settings', asyncRoute(async (request, response) => {
     .filter((reward) => reward && typeof reward === 'object' && ['granule', 'coins', 'discount', 'free_lesson'].includes(String(reward.kind)))
     .map((reward) => ({
       kind: String(reward.kind),
-      amount: Math.max(0, Math.min(1000, Math.round(Number(reward.amount) || 0))),
+      amount: clampSpinAmount(String(reward.kind), reward.amount),
       percent: SPIN_DISCOUNT_PERCENTS.includes(Math.round(Number(reward.percent))) ? Math.round(Number(reward.percent)) : 5,
       weight: Math.max(0, Math.min(100, Math.round(Number(reward.weight) || 0))),
       enabled: reward.enabled !== false,
@@ -8034,20 +8034,22 @@ app.patch('/api/admin/game-settings', asyncRoute(async (request, response) => {
       .filter((item) => item && typeof item === 'object' && typeof item.id === 'string')
       .map((item) => ({
         id: String(item.id).slice(0, 48),
-        xp: Math.max(0, Math.min(1000000, Math.round(Number(item.xp) || 0))),
+        xp: Math.max(0, Math.min(REWARD_PATH_LIMITS.maxXp, Math.round(Number(item.xp) || 0))),
         // Druh odměny jde v adminu přepnout (ikony na cestě).
         kind: ['granule', 'yarn', 'chest', 'card', 'discount'].includes(String(item.kind)) ? String(item.kind) : undefined,
-        granule: item.granule == null ? undefined : Math.max(0, Math.min(10000, Math.round(Number(item.granule) || 0))),
-        yarnBalls: item.yarnBalls == null ? undefined : Math.max(0, Math.min(10000, Math.round(Number(item.yarnBalls) || 0))),
-        bonusXp: item.bonusXp == null ? undefined : Math.max(0, Math.min(10000, Math.round(Number(item.bonusXp) || 0))),
+        granule: item.granule == null ? undefined : Math.max(0, Math.min(REWARD_PATH_LIMITS.granule, Math.round(Number(item.granule) || 0))),
+        yarnBalls: item.yarnBalls == null ? undefined : Math.max(0, Math.min(REWARD_PATH_LIMITS.yarnBalls, Math.round(Number(item.yarnBalls) || 0))),
+        bonusXp: item.bonusXp == null ? undefined : Math.max(0, Math.min(REWARD_PATH_LIMITS.bonusXp, Math.round(Number(item.bonusXp) || 0))),
         discountPercent: item.discountPercent == null ? undefined : (SPIN_DISCOUNT_PERCENTS.includes(Math.round(Number(item.discountPercent))) ? Math.round(Number(item.discountPercent)) : 5),
         chestRarity: ['common', 'rare', 'gold'].includes(String(item.chestRarity)) ? String(item.chestRarity) : undefined,
         enabled: item.enabled !== false,
       }));
-    // Ochrana prahů: pole výš na cestě nesmí mít míň trofejí než pole pod ním.
-    let prevXp = -1;
+    // Ochrana prahů: první pole nesmí být skoro zadarmo a každé další pole musí
+    // být aspoň o minGapXp trofejí výš — org nemůže nasypat všechno za pár výher.
+    let prevXp = null;
     gameSettings.reward_path = gameSettings.reward_path.map((item) => {
-      const xp = Math.max(item.xp, prevXp + 1);
+      const floor = prevXp == null ? REWARD_PATH_LIMITS.minFirstXp : prevXp + REWARD_PATH_LIMITS.minGapXp;
+      const xp = Math.max(item.xp, floor);
       prevXp = xp;
       return { ...item, xp };
     });
@@ -8359,6 +8361,16 @@ function nextPragueMidnightIso(timestamp) {
 }
 // Slevové kódy jedou přes stávající pravidla (KROUZEK-5/12/20) — jiná procenta neexistují.
 const SPIN_DISCOUNT_PERCENTS = [5, 12, 20];
+// Přísné stropy odměn, aby si org nemohla nastavit nefér hru (tisíce klubíček
+// za pár trofejí). Clampuje se při zápisu v adminu I při každém čtení, takže
+// platí i pro hodnoty uložené dřív. Stejné stropy zná admin UI a appka.
+const REWARD_PATH_LIMITS = { granule: 300, yarnBalls: 150, bonusXp: 300, minFirstXp: 40, minGapXp: 60, maxXp: 20000 };
+const SPIN_AMOUNT_LIMITS = { granule: 150, coins: 50 };
+
+function clampSpinAmount(kind, value) {
+  const max = SPIN_AMOUNT_LIMITS[kind] ?? 0;
+  return Math.max(0, Math.min(max, Math.round(Number(value) || 0)));
+}
 
 function dailySpinConfig(gameSettings) {
   const raw = gameSettings?.daily_spin && typeof gameSettings.daily_spin === 'object' ? gameSettings.daily_spin : {};
@@ -8369,7 +8381,7 @@ function dailySpinConfig(gameSettings) {
       .filter((reward) => reward && typeof reward === 'object')
       .map((reward) => ({
         kind: String(reward.kind),
-        amount: Math.max(0, Math.round(Number(reward.amount) || 0)),
+        amount: clampSpinAmount(String(reward.kind), reward.amount),
         percent: SPIN_DISCOUNT_PERCENTS.includes(Math.round(Number(reward.percent))) ? Math.round(Number(reward.percent)) : 5,
         weight: Math.max(0, Math.min(100, Math.round(Number(reward.weight) || 0))),
         enabled: reward.enabled !== false,
