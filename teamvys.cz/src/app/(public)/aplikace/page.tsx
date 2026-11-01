@@ -126,20 +126,24 @@ function HowToBuy() {
   return (
     <section className="section-shell pb-20 md:pb-28">
       <div className="mx-auto max-w-[880px] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] shadow-[0_30px_80px_rgba(0,0,0,0.4)]">
+        {/* Na telefonu se karta skládá pod sebe (ikona + texty, tlačítko přes
+            celou šířku) — v řádku se tlačítko nevešlo a přetékalo z karty. */}
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex w-full items-center gap-4 p-6 text-left transition hover:bg-white/[0.02] md:p-8"
+          className="flex w-full flex-col gap-5 p-6 text-left transition hover:bg-white/[0.02] sm:flex-row sm:items-center sm:gap-4 md:p-8"
         >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-purple/30 bg-brand-purple/15 text-brand-purple-light">
-            <Sparkles size={22} />
-          </span>
-          <div className="flex-1">
-            <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Návod krok za krokem</p>
-            <h2 className="mt-1 text-xl font-black tracking-tight text-white md:text-3xl">Jak koupit permanentku dítěti</h2>
-            <p className="mt-1 text-sm text-white/50">Od registrace k první lekci za pár minut.</p>
+          <div className="flex items-start gap-4 sm:flex-1 sm:items-center">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-brand-purple/30 bg-brand-purple/15 text-brand-purple-light">
+              <Sparkles size={22} />
+            </span>
+            <div className="flex-1">
+              <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Návod krok za krokem</p>
+              <h2 className="mt-1 text-xl font-black tracking-tight text-white md:text-3xl">Jak koupit permanentku dítěti</h2>
+              <p className="mt-1 text-sm text-white/50">Od registrace k první lekci za pár minut.</p>
+            </div>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-brand-purple px-4 py-2.5 text-sm font-black text-white shadow-[0_14px_34px_rgba(139,29,255,0.4)] transition-transform hover:-translate-y-0.5">
+          <span className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-purple px-4 py-3 text-sm font-black text-white shadow-[0_14px_34px_rgba(139,29,255,0.4)] transition-transform hover:-translate-y-0.5 sm:w-auto sm:shrink-0 sm:py-2.5">
             Otevřít návod
           </span>
         </button>
