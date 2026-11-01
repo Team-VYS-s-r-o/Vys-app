@@ -104,13 +104,12 @@ function ChapterMascot({ chapter, progress, range, priority }: {
           style={{ scale: glowScale, opacity: glowOpacity }}
           className="absolute inset-0 [background:radial-gradient(circle_at_50%_78%,rgba(255,255,255,0.16),transparent_60%)]"
         />
-        <motion.div
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute inset-0"
-        >
+        {/* Žádné plovoucí levitování: obrázky maskotů jsou dole oříznuté (beton,
+            nohy), takže každé nadzvednutí odhalí useknutou hranu nad okrajem sekce.
+            Kočka po doskoku pevně sedí na spodní hraně. */}
+        <div className="absolute inset-0">
           <Image src={chapter.mascot} alt="" fill sizes="(min-width: 1024px) 620px, 300px" className="object-contain object-bottom sm:object-right-bottom" priority={priority} />
-        </motion.div>
+        </div>
       </motion.div>
     </div>
   );
@@ -200,7 +199,7 @@ export function HomeHero() {
 
         {/* Maskot každé kapitoly DOSKOČÍ na scénu jako parkourista (scrubováno
             scrollem): zespoda s podsednutím a dotočením, záře „dopadne" s ním,
-            při odscrollování zase seskočí dolů. Aktivní kočka jemně levituje. */}
+            při odscrollování zase seskočí dolů. */}
         {prefersReducedMotion
           ? null
           : chapters.map((chapter, index) => (
