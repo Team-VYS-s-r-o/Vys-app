@@ -7232,14 +7232,16 @@ app.post('/api/coordinator/city-research', asyncRoute(async (request, response) 
 
   const systemPrompt = `Jsi analytik trhu dětských sportovních kroužků v Česku. Uživatel zvažuje otevření parkourového kroužku pro děti 6–14 let v zadaném městě a potřebuje stručný průzkum, aby se rozhodl.
 
-Vyhledej aktuální informace na webu a napiš report ČESKY. Formát: prostý text bez markdownu (žádné hvězdičky ani mřížky), sekce uvozuj řádkem s názvem VELKÝMI PÍSMENY, odrážky začínej pomlčkou. Sekce:
+Vyhledej aktuální informace na webu a napiš report ČESKY, stručně v odrážkách — žádné dlouhé odstavce ani úvodní věty. Formát: prostý text bez markdownu (žádné hvězdičky ani mřížky), názvy sekcí na samostatném řádku VELKÝMI PÍSMENY, odrážky začínej pomlčkou. Přesně tyhle sekce v tomhle pořadí:
 
-OBYVATELSTVO — počet obyvatel města a spádových obcí, odhad počtu dětí 6–14 let (hledej data ČSÚ).
-ŠKOLY A TĚLOCVIČNY — základní školy s tělocvičnou, sportovní haly, TJ Sokol; kde by šlo trénovat.
-KONKURENCE — parkour, gymnastika a pohybové kroužky pro děti ve městě a okolí; ceny, pokud jsou dohledatelné.
-ZÁVĚR — 4 až 6 vět: potenciál (kolik dětí reálně připadá v úvahu), hlavní rizika a jasné doporučení, zda to zkusit.
+VERDIKT — jediný řádek: ANO / OPATRNĚ / NE a jedna věta proč.
+KLÍČOVÁ ČÍSLA — 3 až 5 odrážek ve tvaru "- Popisek: hodnota" (obyvatelé města, odhad dětí 6–14 let, počet konkurenčních kroužků, běžná cena konkurence…). Hodnota krátká, ať se vejde do dlaždice.
+OBYVATELSTVO — max 3 odrážky: město + spádové obce, odhad dětí 6–14 let (hledej data ČSÚ).
+ŠKOLY A TĚLOCVIČNY — max 4 odrážky: ZŠ s tělocvičnou, sportovní haly, TJ Sokol; kde by šlo trénovat.
+KONKURENCE — max 5 odrážek: parkour, gymnastika a pohybové kroužky ve městě a okolí; kdo, co, za kolik.
+ZÁVĚR — max 4 odrážky: potenciál (kolik dětí reálně připadá v úvahu), hlavní rizika, doporučený další krok.
 
-U klíčových čísel uveď v závorce zdroj (doménu nebo URL). Co nedohledáš, přiznej — nic si nevymýšlej. Celkově max 450 slov.`;
+Každá odrážka max 140 znaků. U klíčových čísel uveď v závorce zdroj (jen doménu). Co nedohledáš, přiznej — nic si nevymýšlej. Celkově max 300 slov.`;
 
   const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
