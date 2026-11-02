@@ -4677,8 +4677,11 @@ app.post('/api/admin/broadcasts', asyncRoute(async (request, response) => {
   }
 
   // SMS jen na výslovné přání (stojí peníze) a jen se zapojenou bránou.
+  // Brána je zatím globální (kredit Team VYS) → cizí organizace SMS nemají;
+  // per-org brána se doplní, až o ni některá org požádá.
+  const smsAvailable = smsConfigured() && orgId === VYS_ORG_ID;
   let smsSent = 0;
-  if (request.body.sendSms === true) {
+  if (request.body.sendSms === true && smsAvailable) {
     smsSent = await sendSmsToParents(parentProfileIds, title, body);
   }
 
@@ -4689,7 +4692,7 @@ app.post('/api/admin/broadcasts', asyncRoute(async (request, response) => {
     pushed,
     emailed,
     smsSent,
-    smsConfigured: smsConfigured(),
+    smsConfigured: smsAvailable,
     skipped: requestedParentProfileIds.length - parentProfileIds.length,
   });
 }));
@@ -8188,6 +8191,9 @@ app.patch('/api/admin/game-settings', asyncRoute(async (request, response) => {
       prevXp = xp;
       return { ...item, xp };
     });
+    // Férovost druhů: zlatá truhla 1× a až v závěru cesty atd. — jinak 400.
+    const violation = rewardPathKindViolation(gameSettings.reward_path);
+    if (violation) throw httpError(violation, 400);
   }
   const { error: updateError } = await supabase.from('organizations').update({ game_settings: gameSettings }).eq('id', orgId);
   if (updateError) throw updateError;
@@ -8500,6 +8506,40 @@ const SPIN_DISCOUNT_PERCENTS = [5, 12, 20];
 // za pár trofejí). Clampuje se při zápisu v adminu I při každém čtení, takže
 // platí i pro hodnoty uložené dřív. Stejné stropy zná admin UI a appka.
 const REWARD_PATH_LIMITS = { granule: 300, yarnBalls: 150, bonusXp: 300, minFirstXp: 40, minGapXp: 60, maxXp: 20000 };
+// Férovost druhů odměn na cestě: vzácné odměny mají strop počtu a minimální
+// práh trofejí — org nesmí dát zlatou truhlu na každé pole ani hned na první.
+// Stejná pravidla zná admin UI (PATH_KIND_RULES) a appka je vynucuje při čtení.
+const REWARD_PATH_KIND_RULES = {
+  'chest-gold': { max: 1, minXp: 1000, label: 'Zlatá truhla' },
+  'chest-rare': { max: 2, minXp: 400, label: 'Vzácná bedna' },
+  'chest-common': { max: 3, minXp: 100, label: 'Obyčejná bedna' },
+  card: { max: 2, minXp: 400, label: 'Herní karta' },
+  discount: { max: 1, minXp: 200, label: 'Sleva' },
+};
+
+function rewardPathKindKey(item) {
+  if (item.kind === 'chest') return `chest-${item.chestRarity || 'common'}`;
+  return item.kind;
+}
+
+// Vrátí českou chybovou hlášku, nebo null když cesta pravidla splňuje.
+function rewardPathKindViolation(path) {
+  const counts = {};
+  for (const item of path) {
+    if (item.enabled === false) continue;
+    const key = rewardPathKindKey(item);
+    const rule = REWARD_PATH_KIND_RULES[key];
+    if (!rule) continue;
+    counts[key] = (counts[key] || 0) + 1;
+    if (counts[key] > rule.max) {
+      return `${rule.label} může být na cestě nejvýš ${rule.max}× — ať je hra fér.`;
+    }
+    if (item.xp < rule.minXp) {
+      return `${rule.label} může být až od ${rule.minXp} trofejí, ne na začátku cesty.`;
+    }
+  }
+  return null;
+}
 const SPIN_AMOUNT_LIMITS = { granule: 150, coins: 50 };
 
 function clampSpinAmount(kind, value) {
