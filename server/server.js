@@ -6634,7 +6634,7 @@ async function requireCoordinator(request) {
 
 // Per-koordinátorská oprávnění (nastavuje admin): jiné organizace nemusí chtít,
 // aby koordinátor viděl finance, osobní údaje dětí nebo údaje trenérů.
-const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data', 'forgotten_attendance', 'training_ratings', 'attendance_stats', 'broadcasts', 'meta_ad_requests'];
+const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data', 'forgotten_attendance', 'training_ratings', 'attendance_stats', 'broadcasts', 'meta_ad_requests', 'delete_coach_attendance'];
 function normalizeCoordinatorPermissions(raw) {
   const permissions = {};
   for (const key of COORDINATOR_PERMISSION_KEYS) {
@@ -7418,6 +7418,52 @@ Každá odrážka max 140 znaků. U klíčových čísel uveď v závorce zdroj 
   if (saveError) throw saveError;
 
   response.status(201).json({ enabled: true, report: saved, usage: { used: usage.used + 1, limit: usage.limit } });
+}));
+
+// Koordinátor smaže chybný zápis docházky trenéra (oprávnění delete_coach_attendance,
+// admin ho přepíná v kartě koordinátora). Po smazání se přepočítá podklad výplaty
+// stejně, jako to dělá admin v dashboardu.
+app.delete('/api/coordinator/coach-attendance/:id', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  if (coordinator.permissions.delete_coach_attendance === false) {
+    throw httpError('Mazání docházky trenérů ti admin vypnul.', 403);
+  }
+  const recordId = requiredString(request.params.id, 'record id');
+
+  const { data: record, error } = await supabase
+    .from('coach_attendance_records')
+    .select('id,coach_id')
+    .eq('id', recordId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!record) throw httpError('Záznam docházky nenalezen.', 404);
+
+  const { data: coachProfile } = await supabase
+    .from('coach_profiles')
+    .select('org_id')
+    .eq('id', record.coach_id)
+    .maybeSingle();
+  if ((coachProfile?.org_id || VYS_ORG_ID) !== coordinator.orgId) {
+    throw httpError('Záznam nepatří k tvé organizaci.', 403);
+  }
+
+  const { error: deleteError } = await supabase.from('coach_attendance_records').delete().eq('id', recordId);
+  if (deleteError) throw deleteError;
+
+  const { data: rest } = await supabase
+    .from('coach_attendance_records')
+    .select('duration_hours,amount')
+    .eq('coach_id', record.coach_id);
+  const remaining = rest || [];
+  const loggedHours = remaining.reduce((sum, row) => sum + (Number(row.duration_hours) || 0), 0);
+  const baseAmount = remaining.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  await supabase
+    .from('coach_payouts')
+    .update({ logged_hours: loggedHours, base_amount: baseAmount, updated_at: new Date().toISOString() })
+    .eq('coach_id', record.coach_id);
+
+  response.json({ ok: true, coachId: record.coach_id, loggedHours, baseAmount });
 }));
 
 // ─── Plán rozjezdu nového města ──────────────────────────────────────────────
