@@ -4676,12 +4676,20 @@ app.post('/api/admin/broadcasts', asyncRoute(async (request, response) => {
     emailed = await emailBroadcastToParents(parentProfileIds, title, body);
   }
 
+  // SMS jen na výslovné přání (stojí peníze) a jen se zapojenou bránou.
+  let smsSent = 0;
+  if (request.body.sendSms === true) {
+    smsSent = await sendSmsToParents(parentProfileIds, title, body);
+  }
+
   response.status(201).json({
     ok: true,
     broadcastId: broadcast.id,
     recipients: parentProfileIds.length,
     pushed,
     emailed,
+    smsSent,
+    smsConfigured: smsConfigured(),
     skipped: requestedParentProfileIds.length - parentProfileIds.length,
   });
 }));
@@ -4735,6 +4743,81 @@ Z admina dostaneš zadání a vrátíš POUZE JSON {"title": "...", "body": "...
   if (!title || !body) throw httpError('Zprávu se nepodařilo vygenerovat, zkus to za chvíli.', 502);
   response.json({ title, body });
 }));
+
+// ── SMS brána (BulkGate) — čtvrtý kanál hromadných zpráv ────────────────────
+// Aktivuje se env proměnnými SMS_BULKGATE_APP_ID + SMS_BULKGATE_TOKEN; bez
+// nich je vše no-op a admin UI ukáže, že SMS ještě nejsou zapojené.
+const smsBulkgateAppId = envValue('SMS_BULKGATE_APP_ID');
+const smsBulkgateToken = envValue('SMS_BULKGATE_TOKEN');
+
+function smsConfigured() {
+  return Boolean(smsBulkgateAppId && smsBulkgateToken);
+}
+
+// SMS s diakritikou jede v unicode = jen 70 znaků na segment (dražší);
+// čeština bez háčků má 160 znaků/segment a je pořád dobře čitelná.
+function smsPlainText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^\x20-\x7E\n]/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+}
+
+function normalizePhoneForSms(value) {
+  const cleaned = String(value || '').replace(/[^\d+]/g, '');
+  if (!cleaned) return null;
+  if (cleaned.startsWith('+')) return cleaned;
+  if (cleaned.startsWith('00')) return `+${cleaned.slice(2)}`;
+  if (/^\d{9}$/.test(cleaned)) return `+420${cleaned}`;
+  return null;
+}
+
+async function sendSmsToParents(parentProfileIds, title, body) {
+  if (!smsConfigured() || parentProfileIds.length === 0) return 0;
+  const { data: profiles, error } = await supabase
+    .from('app_profiles')
+    .select('phone')
+    .in('id', parentProfileIds);
+  if (error) throw error;
+  const numbers = Array.from(new Set((profiles || []).map((row) => normalizePhoneForSms(row.phone)).filter(Boolean)));
+  if (numbers.length === 0) return 0;
+
+  // Max 2 segmenty (318 znaků) — delší text patří do appky a e-mailu.
+  const text = smsPlainText(`${title}: ${body}`).slice(0, 318);
+
+  let sent = 0;
+  for (let i = 0; i < numbers.length; i += 8) {
+    const batch = numbers.slice(i, i + 8);
+    const results = await Promise.all(batch.map(async (number) => {
+      try {
+        const response = await fetch('https://portal.bulkgate.com/api/2.0/advanced/transactional', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            application_id: smsBulkgateAppId,
+            application_token: smsBulkgateToken,
+            number,
+            text,
+            sender_id: 'gSystem',
+            country: 'cz',
+          }),
+        });
+        if (!response.ok) {
+          const detail = await response.text().catch(() => '');
+          console.error(`Broadcast SMS failed for ${number}:`, response.status, detail.slice(0, 200));
+        }
+        return response.ok;
+      } catch (smsError) {
+        console.error(`Broadcast SMS failed for ${number}:`, smsError?.message || smsError);
+        return false;
+      }
+    }));
+    sent += results.filter(Boolean).length;
+  }
+  return sent;
+}
 
 async function emailBroadcastToParents(parentProfileIds, title, body) {
   const emailer = paymentEmailer();
