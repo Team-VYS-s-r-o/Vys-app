@@ -18,28 +18,22 @@ const APP_STORE_URL = 'https://apps.apple.com/cz/app/vys/id6816709958';
 export default function AplikacePage() {
   return (
     <div className="bg-[#0B0B10] text-white">
-      {/* Ukázky z aplikace — scroll-pinned telefony s videem, hned jako první */}
-      <section>
-        <div className="section-shell pt-32 md:pt-40">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-purple-light">Aplikace</p>
-          <h1 className="mt-4 max-w-[18ch] text-3xl font-black leading-[1.05] tracking-tight text-white md:text-6xl">
-            Celý Team VYS v telefonu
-          </h1>
-        </div>
-        <AppShowcase />
-      </section>
-
-      {/* Stáhnout / přihlásit — telefon vpravo, kolem hodně vzduchu */}
-      <section className="relative overflow-hidden py-24 md:py-40">
+      {/* Stažení / přihlášení je první, co návštěvník uvidí — hero stránky.
+          Nese H1, telefon stojí vpravo, kolem hodně vzduchu. */}
+      <section className="relative overflow-hidden pt-32 pb-24 md:pt-40 md:pb-40">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_15%_0%,rgba(139,29,255,0.20),transparent_45%),radial-gradient(circle_at_90%_20%,rgba(178,59,255,0.12),transparent_45%)]"
         />
         <div className="section-shell relative grid items-center gap-14 lg:grid-cols-[1fr_360px]">
           <div>
-            <h2 className="max-w-[16ch] text-2xl font-black leading-tight tracking-tight text-white md:text-5xl">
-              Stáhni si ji, nebo jeď rovnou v prohlížeči
-            </h2>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-purple-light">Aplikace</p>
+            <h1 className="mt-4 max-w-[18ch] text-3xl font-black leading-[1.05] tracking-tight text-white md:text-6xl">
+              Celý Team VYS v telefonu
+            </h1>
+            <p className="mt-5 max-w-[46ch] text-sm leading-7 text-white/65 md:text-base">
+              Stáhni si ji do iPhonu, nebo se přihlas rovnou v prohlížeči — bez stahování.
+            </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <AppStoreButton />
               <WebSignInButton />
@@ -56,11 +50,21 @@ export default function AplikacePage() {
               alt="Ukázka aplikace VYS v telefonu"
               width={760}
               height={960}
+              priority
               sizes="(min-width: 1024px) 360px, 80vw"
               className="relative w-full drop-shadow-[0_40px_80px_rgba(0,0,0,0.55)] [-webkit-mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)] [mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)]"
             />
           </div>
         </div>
+      </section>
+
+      {/* Ukázky z aplikace — scroll-pinned telefony s videem */}
+      <section>
+        <div className="section-shell">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Pro všechny</p>
+          <h2 className="mt-3 text-2xl font-black tracking-tight text-white md:text-4xl">Jedna aplikace, tři pohledy</h2>
+        </div>
+        <AppShowcase />
       </section>
 
       {/* NFC kartička — otáčí se scrollováním; karta vlevo, text vpravo */}
