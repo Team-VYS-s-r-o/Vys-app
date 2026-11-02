@@ -4686,6 +4686,56 @@ app.post('/api/admin/broadcasts', asyncRoute(async (request, response) => {
   });
 }));
 
+// AI koncept hromadné zprávy: admin napíše zadání („trénink v Blansku se zítra
+// ruší kvůli turnaji") a Claude vrátí hotový titulek + text. Podpis se bere
+// z názvu organizace — každá org podepisuje sebe, ne Team VYS.
+app.post('/api/admin/broadcasts/compose', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  if (!anthropicApiKey) throw httpError('AI psaní zpráv není na serveru nakonfigurované.', 503);
+  const prompt = requiredString(request.body.prompt, 'zadání').slice(0, 600);
+
+  const { data: org } = await supabase.from('organizations').select('name').eq('id', orgId).maybeSingle();
+  const orgName = org?.name || 'Vaše organizace';
+
+  const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 700,
+      system: `Píšeš hromadné zprávy rodičům dětí ze sportovního klubu „${orgName}". Zpráva jde do aplikace, push notifikací a e-mailem.
+
+Z admina dostaneš zadání a vrátíš POUZE JSON {"title": "...", "body": "..."} bez markdownu okolo.
+- title: max 70 znaků, věcný, smí začínat jedním vhodným emoji (⚠️ zrušení, 🎉 radost, ℹ️ info). Obsahuje den a místo, pokud je znáš ze zadání.
+- body: 3–6 vět česky, vykání, oslovení „Milí rodiče,". Jen fakta ze zadání — nic si nevymýšlej (časy, data a důvody, které v zadání nejsou, nepřidávej). U zrušeného tréninku připomeň, že vstup z permanentky se neodečítá. Zakonči poděkováním a podpisem „${orgName}".`,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!anthropicResponse.ok) {
+    const detail = await anthropicResponse.text().catch(() => '');
+    console.error('Broadcast compose API error:', anthropicResponse.status, detail.slice(0, 300));
+    throw httpError('Zprávu se nepodařilo vygenerovat, zkus to za chvíli.', 502);
+  }
+  const result = await anthropicResponse.json();
+  const text = (result.content || []).filter((block) => block.type === 'text').map((block) => block.text).join('').trim();
+  let draft;
+  try {
+    draft = JSON.parse(text.replace(/^```json?\s*/i, '').replace(/```\s*$/, ''));
+  } catch {
+    throw httpError('Zprávu se nepodařilo vygenerovat, zkus to za chvíli.', 502);
+  }
+  const title = optionalString(draft?.title)?.slice(0, 120);
+  const body = optionalString(draft?.body)?.slice(0, 2000);
+  if (!title || !body) throw httpError('Zprávu se nepodařilo vygenerovat, zkus to za chvíli.', 502);
+  response.json({ title, body });
+}));
+
 async function emailBroadcastToParents(parentProfileIds, title, body) {
   const emailer = paymentEmailer();
   if (!emailer || parentProfileIds.length === 0) return 0;
