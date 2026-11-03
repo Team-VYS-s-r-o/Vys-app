@@ -373,7 +373,7 @@ function giftVoucherCode() {
  * Poukaz zůstává `active`, dokud webhook nepotvrdí zaplacení — teprve pak se
  * označí jako použitý (stejně jako kódy z automatu).
  */
-async function giftVoucherDiscount(code, orgId, productType) {
+async function loadGiftVoucher(code) {
   const normalized = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
   if (!normalized.startsWith(`${GIFT_VOUCHER_PREFIX}-`)) return null;
   const { data, error } = await supabase
@@ -382,11 +382,26 @@ async function giftVoucherDiscount(code, orgId, productType) {
     .eq('code', normalized)
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error('Takový dárkový poukaz neexistuje. Zkontroluj kód z poukazu.');
-  if (data.status !== 'active') throw new Error('Tenhle dárkový poukaz už byl uplatněný.');
-  if (String(data.org_id) !== String(orgId || VYS_ORG_ID)) throw new Error('Tenhle poukaz platí jen u organizace, která ho vydala.');
-  if (normalizeActivityType(productType) !== 'Krouzek') throw new Error('Dárkový poukaz platí jen na kroužek s permanentkou.');
-  return { fixedAmount: Math.max(0, Math.round(Number(data.amount_czk) || 0)), giftVoucherId: data.id, entries: data.entries };
+  if (!data) throw httpError('Takový dárkový poukaz neexistuje. Zkontroluj kód z poukazu.', 404);
+  if (data.status !== 'active') throw httpError('Tenhle dárkový poukaz už byl uplatněný.', 409);
+  return data;
+}
+
+/**
+ * Poukaz pokrývá CELOU permanentku na daný počet vstupů — nedoplácí se nic.
+ * Musí sedět počet vstupů: poukaz na 10 se neuplatní na permanentku na 15.
+ */
+function assertGiftVoucherFitsProduct(voucher, product) {
+  if (String(voucher.org_id) !== String(product.org_id || VYS_ORG_ID)) {
+    throw httpError('Tenhle poukaz platí jen u organizace, která ho vydala.', 403);
+  }
+  if (normalizeActivityType(product.type) !== 'Krouzek' || product.billing_model === 'membership') {
+    throw httpError('Dárkový poukaz platí jen na kroužek s permanentkou.', 409);
+  }
+  const productEntries = Number(product.entries_total) || 0;
+  if (productEntries !== Number(voucher.entries)) {
+    throw httpError(`Tenhle poukaz je na permanentku s ${voucher.entries} vstupy — vyber u kroužku variantu na ${voucher.entries} vstupů.`, 409);
+  }
 }
 
 /**
@@ -1655,43 +1670,51 @@ async function finalizeGiftVoucherPurchase(paymentIntent) {
 
   if (voucher.delivered_at || !buyerEmail) return voucher;
 
-  const emailer = paymentEmailer();
-  if (!emailer) {
-    console.error('Gift voucher: SMTP není nakonfigurované, poukaz', voucher.code);
-    return voucher;
-  }
-
-  const pdf = await giftVoucherPdf({
+  await sendGiftVoucherEmail(voucher.id, {
     code: voucher.code,
     entries,
+    amount,
+    email: buyerEmail,
     recipientName: optionalString(metadata.recipient_name),
     giftMessage: optionalString(metadata.gift_message),
   });
+  return voucher;
+}
 
+/** Pošle poukaz e-mailem s PDF přílohou a označí ho jako doručený. */
+async function sendGiftVoucherEmail(voucherId, { code, entries, amount, email, recipientName, giftMessage }) {
+  const emailer = paymentEmailer();
+  if (!emailer) {
+    console.error('Gift voucher: SMTP není nakonfigurované, poukaz', code);
+    return false;
+  }
+
+  const pdf = await giftVoucherPdf({ code, entries, recipientName, giftMessage });
   const html = brandEmailHtml({
-    heading: 'Váš dárkový poukaz je připravený 🎁',
-    intro: `Děkujeme! V příloze najdete poukaz na permanentku (${entries} vstupů) k vytištění nebo přeposlání.`,
+    heading: 'Dárkový poukaz je připravený 🎁',
+    intro: `V příloze najdete poukaz na permanentku (${entries} vstupů) k vytištění nebo přeposlání.`,
     rows: [
-      ['Kód poukazu', voucher.code],
-      ['Hodnota', `${entries} vstupů · ${amount.toLocaleString('cs-CZ')} Kč`],
+      ['Kód poukazu', code],
+      ['Hodnota', `${entries} vstupů · ${Number(amount || 0).toLocaleString('cs-CZ')} Kč`],
       ['Platnost', 'bez omezení, uplatnit lze jednou'],
     ],
-    outro: 'Obdarovaný kód zadá v aplikaci u platby za kroužek — vybere si město i dítě sám.',
+    outro: 'Obdarovaný zadá kód v aplikaci, vybere si město i dítě a permanentka mu naskočí zdarma.',
   });
 
   try {
     await emailer.sendMail({
       from: smtpFrom,
-      to: buyerEmail,
-      subject: `Dárkový poukaz Team VYS — kód ${voucher.code}`,
+      to: email,
+      subject: `Dárkový poukaz Team VYS — kód ${code}`,
       html,
-      attachments: [{ filename: `darkovy-poukaz-${voucher.code}.pdf`, content: pdf }],
+      attachments: [{ filename: `darkovy-poukaz-${code}.pdf`, content: pdf }],
     });
-    await supabase.from('gift_vouchers').update({ delivered_at: new Date().toISOString() }).eq('id', voucher.id);
+    await supabase.from('gift_vouchers').update({ delivered_at: new Date().toISOString() }).eq('id', voucherId);
+    return true;
   } catch (mailError) {
     console.error('Gift voucher e-mail selhal:', mailError?.message || mailError);
+    return false;
   }
-  return voucher;
 }
 
 async function finalizeNfcFeePayment(paymentIntent) {
@@ -3735,6 +3758,144 @@ app.post('/api/gift-vouchers/checkout', asyncRoute(async (request, response) => 
   response.json({ id: session.id, url: session.url });
 }));
 
+// Ověření poukazu před uplatněním — appka podle toho ukáže, na kolik vstupů je.
+app.post('/api/gift-vouchers/check', asyncRoute(async (request, response) => {
+  requireServices();
+  await requirePurchaser(request);
+  const voucher = await loadGiftVoucher(requiredString(request.body.code, 'code'));
+  if (!voucher) throw httpError('Tohle není kód dárkového poukazu.', 400);
+  response.json({ code: voucher.code, entries: voucher.entries, amount: voucher.amount_czk });
+}));
+
+/**
+ * Uplatnění poukazu — permanentka ZDARMA, bez Stripe. Poukaz musí sedět na
+ * počet vstupů produktu; po uplatnění se zapíše nákup se stavem Zaplaceno
+ * (částka 0) a spustí se stejné následné kroky jako po reálné platbě
+ * (permanentka, kapacita, zápis do kroužku).
+ */
+app.post('/api/gift-vouchers/redeem', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requirePurchaser(request);
+
+  const code = requiredString(request.body.code, 'code');
+  const productId = requiredString(request.body.productId, 'productId');
+  const participantId = requiredString(request.body.participantId, 'participantId');
+  const participantName = requiredString(request.body.participantName, 'participantName');
+  await assertParticipantAccessible(actor, participantId);
+  const parentProfileId = parentProfileIdForActor(actor, request.body.parentProfileId);
+
+  const voucher = await loadGiftVoucher(code);
+  if (!voucher) throw httpError('Tohle není kód dárkového poukazu.', 400);
+
+  const product = await ensureProductCapacity(productId);
+  assertGiftVoucherFitsProduct(voucher, product);
+  await assertRequiredDocumentsSigned(product, participantId, participantName);
+
+  const purchaseId = `gift-${voucher.code.toLowerCase()}`;
+  const row = {
+    id: purchaseId,
+    org_id: product.org_id || VYS_ORG_ID,
+    parent_profile_id: parentProfileId,
+    product_id: product.id,
+    participant_id: participantId,
+    participant_name: participantName,
+    type: product.type,
+    title: product.title,
+    amount: 0,
+    original_amount: Number(product.price) || voucher.amount_czk,
+    discount_code: voucher.code,
+    discount_amount: Number(product.price) || voucher.amount_czk,
+    price_label: `Dárkový poukaz · ${voucher.entries} vstupů`,
+    place: product.place,
+    status: 'Zaplaceno',
+    paid_at: new Date().toLocaleDateString('cs-CZ'),
+    event_date: product.event_date || null,
+    training_days: Array.isArray(request.body.trainingDays) && request.body.trainingDays.length > 0
+      ? request.body.trainingDays.map(String)
+      : null,
+  };
+
+  // Poukaz zamkneme PŘED vytvořením nákupu — dvě současná uplatnění si tak
+  // nevyrobí dvě permanentky z jednoho poukazu.
+  const { data: locked, error: lockError } = await supabase
+    .from('gift_vouchers')
+    .update({
+      status: 'redeemed',
+      redeemed_at: new Date().toISOString(),
+      redeemed_purchase_id: purchaseId,
+      redeemed_by_profile_id: parentProfileId || null,
+    })
+    .eq('id', voucher.id)
+    .eq('status', 'active')
+    .select('id')
+    .maybeSingle();
+  if (lockError) throw lockError;
+  if (!locked) throw httpError('Tenhle dárkový poukaz už byl uplatněný.', 409);
+
+  try {
+    const { data, error } = await supabase.from('parent_purchases').upsert(row, { onConflict: 'id' }).select().single();
+    if (error) throw error;
+    await syncPaidPurchaseSideEffects(data);
+    response.status(201).json({ ok: true, purchase: data, entries: voucher.entries });
+  } catch (purchaseError) {
+    // Nákup selhal → poukaz vrátíme do hry, ať o něj rodič nepřijde.
+    await supabase
+      .from('gift_vouchers')
+      .update({ status: 'active', redeemed_at: null, redeemed_purchase_id: null, redeemed_by_profile_id: null })
+      .eq('id', voucher.id);
+    throw purchaseError;
+  }
+}));
+
+// Admin vystaví poukaz ručně (dárek, výhra, reklamace) — pošle se e-mailem
+// stejně jako koupený. Bez platby, proto jen pro admina organizace.
+app.post('/api/admin/gift-vouchers', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  if (String(orgId) !== String(VYS_ORG_ID)) throw httpError('Dárkové poukazy jsou zatím jen pro Team VYS.', 403);
+
+  const entries = Number(request.body.entries) === 15 ? 15 : 10;
+  const option = GIFT_VOUCHER_OPTIONS.find((item) => item.entries === entries);
+  const email = normalizedEmail(request.body.email);
+  if (!email) throw httpError('Zadej e-mail, kam poukaz poslat.', 400);
+
+  let code = giftVoucherCode();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const { data: clash } = await supabase.from('gift_vouchers').select('id').eq('code', code).maybeSingle();
+    if (!clash) break;
+    code = giftVoucherCode();
+  }
+
+  const { data: voucher, error } = await supabase
+    .from('gift_vouchers')
+    .insert({
+      code,
+      org_id: VYS_ORG_ID,
+      entries,
+      amount_czk: option.amount,
+      status: 'active',
+      buyer_email: email,
+      buyer_name: optionalString(request.body.buyerName) || profile.name || null,
+      recipient_name: optionalString(request.body.recipientName) || null,
+      gift_message: optionalString(request.body.giftMessage) || null,
+    })
+    .select('id,code,entries')
+    .single();
+  if (error) throw error;
+
+  const sent = await sendGiftVoucherEmail(voucher.id, {
+    code: voucher.code,
+    entries,
+    amount: option.amount,
+    email,
+    recipientName: optionalString(request.body.recipientName),
+    giftMessage: optionalString(request.body.giftMessage),
+  });
+
+  response.status(201).json({ ok: true, code: voucher.code, entries, emailed: sent });
+}));
+
 app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requirePurchaser(request);
@@ -3754,16 +3915,17 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
   const originalAmount = Math.round(Number(product.price));
   const discountCode = optionalString(request.body.discountCode);
   // Nejdřív jednorázová výhra z automatu (unikátní kód, org produktu), pak obecná pravidla.
-  const gift = discountCode ? await giftVoucherDiscount(discountCode, product.org_id, product.type) : null;
-  const voucher = !gift && discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type, { participantId, parentProfileId }) : null;
-  const discount = gift ?? voucher ?? (discountCode ? rewardDiscountForCode(discountCode, product.type) : null);
+  // Dárkový poukaz se neuplatňuje jako sleva — jde vlastní cestou
+  // (/api/gift-vouchers/redeem), protože permanentku dává zdarma.
+  if (discountCode && String(discountCode).trim().toUpperCase().startsWith(`${GIFT_VOUCHER_PREFIX}-`)) {
+    throw httpError('Dárkový poukaz se neplatí kartou — potvrď ho tlačítkem Uplatnit poukaz.', 409);
+  }
+  const voucher = discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type, { participantId, parentProfileId }) : null;
+  const discount = voucher ?? (discountCode ? rewardDiscountForCode(discountCode, product.type) : null);
 
   if (discountCode && !discount) throw new Error('Slevový kód nejde použít pro tento produkt.');
 
-  // Dárkový poukaz je pevná částka, slevové kódy procenta.
-  const codeDiscountAmount = discount
-    ? (discount.fixedAmount != null ? Math.min(originalAmount, discount.fixedAmount) : Math.round((originalAmount * discount.percent) / 100))
-    : 0;
+  const codeDiscountAmount = discount ? Math.round((originalAmount * discount.percent) / 100) : 0;
   const siblingDiscount = await siblingDiscountForPurchase(parentProfileId, participantId, product.type);
   const discountAmount = codeDiscountAmount + siblingDiscount;
   const amount = Math.max(0, originalAmount - discountAmount);
@@ -3804,7 +3966,6 @@ app.post('/api/payments/checkout', asyncRoute(async (request, response) => {
       original_amount: String(originalAmount),
       discount_code: discountCode || '',
       discount_voucher_id: voucher?.voucherId || '',
-      gift_voucher_id: gift?.giftVoucherId || '',
       discount_percent: discount?.percent ? String(discount.percent) : '',
       discount_amount: discountAmount ? String(discountAmount) : '',
       sibling_discount: siblingDiscount ? String(siblingDiscount) : '',
@@ -3999,16 +4160,17 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
   const originalAmount = Math.round(Number(product.price));
   const discountCode = optionalString(request.body.discountCode);
   // Nejdřív jednorázová výhra z automatu (unikátní kód, org produktu), pak obecná pravidla.
-  const gift = discountCode ? await giftVoucherDiscount(discountCode, product.org_id, product.type) : null;
-  const voucher = !gift && discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type, { participantId, parentProfileId }) : null;
-  const discount = gift ?? voucher ?? (discountCode ? rewardDiscountForCode(discountCode, product.type) : null);
+  // Dárkový poukaz se neuplatňuje jako sleva — jde vlastní cestou
+  // (/api/gift-vouchers/redeem), protože permanentku dává zdarma.
+  if (discountCode && String(discountCode).trim().toUpperCase().startsWith(`${GIFT_VOUCHER_PREFIX}-`)) {
+    throw httpError('Dárkový poukaz se neplatí kartou — potvrď ho tlačítkem Uplatnit poukaz.', 409);
+  }
+  const voucher = discountCode ? await gameVoucherDiscount(discountCode, product.org_id, product.type, { participantId, parentProfileId }) : null;
+  const discount = voucher ?? (discountCode ? rewardDiscountForCode(discountCode, product.type) : null);
 
   if (discountCode && !discount) throw new Error('Slevový kód nejde použít pro tento produkt.');
 
-  // Dárkový poukaz je pevná částka, slevové kódy procenta.
-  const codeDiscountAmount = discount
-    ? (discount.fixedAmount != null ? Math.min(originalAmount, discount.fixedAmount) : Math.round((originalAmount * discount.percent) / 100))
-    : 0;
+  const codeDiscountAmount = discount ? Math.round((originalAmount * discount.percent) / 100) : 0;
   const siblingDiscount = await siblingDiscountForPurchase(parentProfileId, participantId, product.type);
   const discountAmount = codeDiscountAmount + siblingDiscount;
   const amount = Math.max(0, originalAmount - discountAmount);
@@ -4032,7 +4194,6 @@ app.post('/api/payments/payment-intent', asyncRoute(async (request, response) =>
     original_amount: String(originalAmount),
     discount_code: discountCode || '',
     discount_voucher_id: voucher?.voucherId || '',
-    gift_voucher_id: gift?.giftVoucherId || '',
     discount_percent: discount?.percent ? String(discount.percent) : '',
     discount_amount: discountAmount ? String(discountAmount) : '',
     sibling_discount: siblingDiscount ? String(siblingDiscount) : '',
