@@ -2729,14 +2729,22 @@ app.post('/api/coach/training-rating', asyncRoute(async (request, response) => {
   const todayText = `${now.getDate()}. ${now.getMonth() + 1}. ${now.getFullYear()}`;
 
   // Podmínka: dnes zapsaná docházka tohoto trenéra na tuhle session.
-  const { data: attendance, error: attendanceError } = await supabase
+  // POZOR: `coach_attendance_records.session_id` má FK na `coach_sessions`,
+  // jenže tréninky generované z produktů (`coach-session-<coachId>-<productId>`)
+  // v té tabulce neexistují — appka proto session_id u reálných tréninků NEUKLÁDÁ
+  // (zůstane NULL) a hledání podle session_id nikdy nic nenašlo. Trenér tak měl
+  // docházku zapsanou, ale hodnocení ho odmítalo (hlášeno 3. 11. 2026).
+  // Id docházky je ale z session id odvoditelné:
+  //   session  `coach-session-<coachId>-<productId>`
+  //   docházka `coach-att-<coachId>-<productId>-<YYYY-MM-DD>`
+  const derivedAttendanceId = `coach-att-${sessionId.replace(/^coach-session-/, '')}-${isoDay}`;
+  const { data: attendanceRows, error: attendanceError } = await supabase
     .from('coach_attendance_records')
-    .select('id,place,org_id')
+    .select('id,place,org_id,session_id,date_text')
     .eq('coach_id', coachId)
-    .eq('session_id', sessionId)
-    .eq('date_text', todayText)
-    .maybeSingle();
+    .or(`session_id.eq.${sessionId},id.eq.${derivedAttendanceId}`);
   if (attendanceError) throw attendanceError;
+  const attendance = (attendanceRows || []).find((row) => row.date_text === todayText || row.id === derivedAttendanceId) || null;
   if (!attendance) throw httpError('Nejdřív si zapiš docházku k tomuhle tréninku, pak ho můžeš ohodnotit.', 403);
 
   const row = {
