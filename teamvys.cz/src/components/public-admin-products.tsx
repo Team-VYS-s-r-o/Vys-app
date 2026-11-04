@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { trackEvent } from '@/components/analytics';
 import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ChevronsLeft, ChevronsRight, Clock, CreditCard, MapPin, ScanLine, Search, Users, X } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Reveal } from '@/components/animated/reveal';
 import { CourseLocationsMap, normalizeCity } from '@/components/course-locations-map';
@@ -398,7 +398,7 @@ export function PublicCourseCatalog() {
         </p>
       </Reveal>
 
-      <CatalogState loading={loading} error={error} empty={!loading && courses.length === 0} emptyTitle="Žádné kroužky nejsou aktuálně vypsané" emptyText="Jakmile admin zveřejní lokalitu v databázi, objeví se tady s aktuální kapacitou." />
+      <CatalogState loading={loading} error={error} empty={!loading && courses.length === 0} emptyTitle="Žádné kroužky nejsou aktuálně vypsané" emptyText="Jakmile admin zveřejní lokalitu v databázi, objeví se tady s aktuální kapacitou." loadingSkeleton={<CourseCatalogSkeleton />} />
 
       {courseGroups.length > 1 ? (
         <div className="mt-6 flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">
@@ -516,8 +516,61 @@ function skillBadge(product: ParentProduct) {
   return { label: 'Pro všechny', dot: 'bg-amber-500', text: 'text-amber-600' };
 }
 
-function CatalogState({ loading, error, empty, emptyTitle, emptyText }: { loading: boolean; error: string | null; empty: boolean; emptyTitle: string; emptyText: string }) {
+/**
+ * Pulzující blok místo točícího se kolečka — stejný princip jako
+ * `components/animated/skeleton.tsx` v aplikaci: ukazuje obrys obsahu, který se
+ * načítá, a všechny bloky dýchají ve stejném rytmu (animate-pulse na rodiči).
+ */
+function SkeletonBlock({ className = '' }: { className?: string }) {
+  return <div className={`rounded-[10px] bg-brand-ink/[0.09] ${className}`} />;
+}
+
+/** Obrys karty kroužku: fotka, název, město, box s termíny a tlačítko. */
+function CourseCardSkeleton() {
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-[30px] border border-brand-purple/12 bg-white shadow-brand-soft">
+      <div className="relative h-[210px] shrink-0 bg-brand-ink/[0.07]">
+        <div className="absolute left-3 top-3 h-8 w-24 rounded-[16px] bg-white/70" />
+      </div>
+      <div className="flex flex-1 flex-col p-5">
+        <SkeletonBlock className="h-6 w-[72%]" />
+        <SkeletonBlock className="mt-3 h-4 w-[44%]" />
+        <div className="mt-4 grid gap-2.5 rounded-[22px] bg-brand-paper p-3">
+          <div className="flex items-center justify-between gap-2">
+            <SkeletonBlock className="h-4 w-[58%]" />
+            <SkeletonBlock className="h-3 w-[22%]" />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <SkeletonBlock className="h-4 w-[48%]" />
+            <SkeletonBlock className="h-3 w-[26%]" />
+          </div>
+          <SkeletonBlock className="h-4 w-[62%]" />
+        </div>
+        <div className="mt-auto pt-3">
+          <SkeletonBlock className="h-[50px] rounded-[16px]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Tři karty ve stejně širokém karuselu jako ostrý seznam, ať obsah po načtení nepřeskočí. */
+export function CourseCatalogSkeleton() {
+  return (
+    <div className="mt-4 flex animate-pulse items-stretch gap-4 overflow-hidden pb-4 pt-2 sm:gap-5" aria-hidden="true">
+      {[0, 1, 2].map((index) => (
+        <div key={index} className="w-[91%] shrink-0 sm:w-[47%] xl:w-[31.5%]">
+          <CourseCardSkeleton />
+        </div>
+      ))}
+      <span className="sr-only">Načítám aktuální nabídku kroužků…</span>
+    </div>
+  );
+}
+
+function CatalogState({ loading, error, empty, emptyTitle, emptyText, loadingSkeleton }: { loading: boolean; error: string | null; empty: boolean; emptyTitle: string; emptyText: string; loadingSkeleton?: ReactNode }) {
   if (loading) {
+    if (loadingSkeleton) return <>{loadingSkeleton}</>;
     return <div className="mt-6 rounded-brand border border-brand-purple/12 bg-white p-5 text-sm font-black text-brand-ink-soft shadow-brand-soft">Načítám aktuální nabídku...</div>;
   }
 
