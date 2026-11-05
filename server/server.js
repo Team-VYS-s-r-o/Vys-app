@@ -6661,6 +6661,141 @@ app.post('/api/admin/invoices/upload-url', asyncRoute(async (request, response) 
   response.json({ signedUrl: data.signedUrl, path: data.path });
 }));
 
+// ── Přečtení faktury AI ─────────────────────────────────────────────────────
+// Admin nahraje PDF/foto faktury a server z ní nechá vytáhnout dodavatele,
+// částku, data a — u faktur za NFC kartičky — i počet kusů. Vrácená data se
+// ve formuláři jen předvyplní, admin je pořád může přepsat.
+const INVOICE_READ_MIME = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+};
+
+app.post('/api/admin/invoices/read', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireAdmin(request);
+  if (!anthropicApiKey) throw httpError('Čtení faktur není na serveru nakonfigurované.', 503);
+
+  const path = requiredString(request.body.path, 'cesta k souboru');
+  const extension = (path.split('.').pop() || '').toLowerCase();
+  const mediaType = INVOICE_READ_MIME[extension];
+  if (!mediaType) throw httpError('Umím přečíst jen PDF nebo obrázek faktury (jpg, png, webp).', 400);
+
+  const { data: file, error: downloadError } = await supabase.storage.from('invoices').download(path);
+  if (downloadError || !file) throw httpError('Nahraný soubor se nepodařilo načíst.', 404);
+  const buffer = Buffer.from(await file.arrayBuffer());
+  if (buffer.length > 9 * 1024 * 1024) throw httpError('Soubor je moc velký (max 9 MB).', 413);
+
+  // Nápovědy z admina: existující štítky a seznam míst, ať AI trefí kategorii
+  // i tělocvičnu místo vymýšlení nových hodnot.
+  const categories = Array.isArray(request.body.categories)
+    ? request.body.categories.map((item) => optionalString(item)).filter(Boolean).slice(0, 40)
+    : [];
+  const places = Array.isArray(request.body.places)
+    ? request.body.places.map((item) => optionalString(item)).filter(Boolean).slice(0, 120)
+    : [];
+
+  const systemPrompt = `Čteš fakturu nebo účtenku sportovního klubu a vracíš POUZE JSON, bez markdownu okolo.
+
+Klíče (co nevidíš, dej null — nic si nedomýšlej):
+- "supplier": název dodavatele (kdo fakturu vystavil, ne odběratel/klub)
+- "amount": celková částka K ÚHRADĚ včetně DPH, jen číslo v Kč bez měny a mezer
+- "issuedDate": datum vystavení "YYYY-MM-DD"
+- "dueDate": datum splatnosti "YYYY-MM-DD"
+- "invoiceNumber": číslo faktury/variabilní symbol
+- "description": max 80 znaků, čeho se faktura týká
+- "category": JEDEN štítek${categories.length ? ` — nejlépe z: ${categories.join(', ')}` : ''}; když nic nesedí, vymysli krátký výstižný (např. Tělocvična, NFC kartičky, Marketing, Vybavení)
+- "place": PŘESNÝ název tělocvičny ze seznamu níž, pokud faktura patří některé z nich (poznáš to podle adresy, názvu školy nebo města na faktuře); jinak null
+- "nfcCardCount": počet kusů NFC/RFID čipových kartiček, pokud je faktura právě za ně; jinak null. Sečti všechny řádky s kartičkami. Kusy ber z množství, ne z ceny.
+
+Seznam tělocvičen:
+${places.length ? places.map((item) => `- ${item}`).join('\n') : '(žádné)'}`;
+
+  const contentBlock = mediaType === 'application/pdf'
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') } }
+    : { type: 'image', source: { type: 'base64', media_type: mediaType, data: buffer.toString('base64') } };
+
+  const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 900,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: 'Přečti fakturu a vrať JSON.' }] }],
+    }),
+  });
+  if (!anthropicResponse.ok) {
+    const detail = await anthropicResponse.text().catch(() => '');
+    console.error('Invoice read API error:', anthropicResponse.status, detail.slice(0, 300));
+    throw httpError('Fakturu se nepodařilo přečíst, vyplň údaje ručně.', 502);
+  }
+  const result = await anthropicResponse.json();
+  const text = (result.content || []).filter((block) => block.type === 'text').map((block) => block.text).join('').trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(text.replace(/^```json?\s*/i, '').replace(/```\s*$/, ''));
+  } catch {
+    throw httpError('Fakturu se nepodařilo přečíst, vyplň údaje ručně.', 502);
+  }
+
+  const toNumber = (value) => {
+    const number = Number(String(value ?? '').replace(/\s/g, '').replace(',', '.'));
+    return Number.isFinite(number) && number > 0 ? number : null;
+  };
+  const toDate = (value) => {
+    const date = optionalString(value);
+    return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+  };
+  const place = optionalString(parsed?.place);
+
+  response.json({
+    supplier: optionalString(parsed?.supplier)?.slice(0, 160) || null,
+    amount: toNumber(parsed?.amount),
+    issuedDate: toDate(parsed?.issuedDate),
+    dueDate: toDate(parsed?.dueDate),
+    invoiceNumber: optionalString(parsed?.invoiceNumber)?.slice(0, 60) || null,
+    description: optionalString(parsed?.description)?.slice(0, 200) || null,
+    category: optionalString(parsed?.category)?.slice(0, 60) || null,
+    gymPlace: places.includes(place) ? place : null,
+    nfcCardCount: toNumber(parsed?.nfcCardCount) ? Math.round(toNumber(parsed.nfcCardCount)) : null,
+  });
+}));
+
+// Připsání nakoupených NFC kartiček k org nastavení (z přečtené faktury).
+app.post('/api/admin/nfc/cards', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const delta = Math.round(Number(request.body.delta));
+  if (!Number.isFinite(delta) || delta === 0) throw httpError('Počet kartiček musí být číslo.', 400);
+
+  const { data: org, error: loadError } = await supabase
+    .from('organizations')
+    .select('nfc_cards_purchased')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (loadError) throw loadError;
+
+  const current = Math.max(0, Number(org?.nfc_cards_purchased) || 0);
+  const next = Math.max(0, current + delta);
+  const { error: updateError } = await supabase
+    .from('organizations')
+    .update({ nfc_cards_purchased: next })
+    .eq('id', orgId);
+  if (updateError) throw updateError;
+
+  response.json({ cardsPurchased: next, previous: current });
+}));
+
 app.post('/api/admin/products/video-upload-url', asyncRoute(async (request, response) => {
   requireServices();
   await requireAdmin(request);
@@ -6680,7 +6815,7 @@ app.get('/api/admin/invoices', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('invoices')
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at,gym_place,nfc_card_count,nfc_cards_applied')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -6708,6 +6843,11 @@ app.post('/api/admin/invoices', asyncRoute(async (request, response) => {
     datum_zaplaceni: invoice.paid ? optionalString(invoice.paidDate) || todayIsoDate() : null,
     kategorie: optionalString(invoice.category),
     file_url: optionalString(invoice.fileUrl),
+    gym_place: optionalString(invoice.gymPlace),
+    nfc_card_count: Number.isFinite(Number(invoice.nfcCardCount)) && Number(invoice.nfcCardCount) > 0
+      ? Math.round(Number(invoice.nfcCardCount))
+      : null,
+    nfc_cards_applied: Boolean(invoice.nfcCardsApplied),
     zdroj: 'admin',
     org_id: orgId,
   };
@@ -6715,7 +6855,7 @@ app.post('/api/admin/invoices', asyncRoute(async (request, response) => {
   const { data, error } = await supabase
     .from('invoices')
     .insert(row)
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at,gym_place,nfc_card_count,nfc_cards_applied')
     .single();
 
   if (error) throw error;
@@ -6743,6 +6883,10 @@ app.patch('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
   if (Object.prototype.hasOwnProperty.call(request.body, 'accepted')) {
     patch.prijato = Boolean(request.body.accepted);
   }
+  // Přiřazení faktury k tělocvičně (produktu) — prázdná hodnota vazbu zruší.
+  if (Object.prototype.hasOwnProperty.call(request.body, 'gymPlace')) {
+    patch.gym_place = optionalString(request.body.gymPlace) || null;
+  }
   if (Object.keys(patch).length === 0) throw new Error('Není co upravit.');
 
   const { data, error } = await supabase
@@ -6750,7 +6894,7 @@ app.patch('/api/admin/invoices/:id', asyncRoute(async (request, response) => {
     .update(patch)
     .eq('id', id)
     .eq('org_id', orgId)
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at,gym_place,nfc_card_count,nfc_cards_applied')
     .single();
 
   if (error) throw error;
