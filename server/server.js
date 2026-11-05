@@ -2916,9 +2916,19 @@ app.post('/api/coach/training-rating', asyncRoute(async (request, response) => {
   const rating = Math.round(Number(request.body.rating));
   if (!Number.isFinite(rating) || rating < 1 || rating > 10) throw httpError('Hodnocení musí být 1 až 10.', 400);
 
-  const isoDay = todayIsoDay();
-  const now = new Date();
-  const todayText = `${now.getDate()}. ${now.getMonth() + 1}. ${now.getFullYear()}`;
+  // Hodnotit šlo původně JEN v den tréninku. Trenér, který si vzpomněl večer
+  // doma nebo druhý den, neměl šanci — a odměna za 10 hodnocení tím ztrácela
+  // smysl. Nově se hodnotí trénink k vybranému dni, max 7 dní zpět; pořád jen
+  // tam, kde má trenér zapsanou vlastní docházku, a pořád jen jednou za den
+  // (unikát session_id + rating_date + coach_id).
+  const requestedDay = optionalString(request.body.date);
+  const isoDay = requestedDay && /^\d{4}-\d{2}-\d{2}$/.test(requestedDay) ? requestedDay : todayIsoDay();
+  if (isoDay > todayIsoDay()) throw httpError('Trénink v budoucnu hodnotit nejde.', 400);
+  const ageDays = Math.round((Date.parse(`${todayIsoDay()}T00:00:00Z`) - Date.parse(`${isoDay}T00:00:00Z`)) / 86400000);
+  if (ageDays > 7) throw httpError('Hodnotit jde trénink max 7 dní zpětně.', 400);
+
+  const [year, month, day] = isoDay.split('-').map(Number);
+  const todayText = `${day}. ${month}. ${year}`;
 
   // Podmínka: dnes zapsaná docházka tohoto trenéra na tuhle session.
   // POZOR: `coach_attendance_records.session_id` má FK na `coach_sessions`,
@@ -2937,7 +2947,7 @@ app.post('/api/coach/training-rating', asyncRoute(async (request, response) => {
     .or(`session_id.eq.${sessionId},id.eq.${derivedAttendanceId}`);
   if (attendanceError) throw attendanceError;
   const attendance = (attendanceRows || []).find((row) => row.date_text === todayText || row.id === derivedAttendanceId) || null;
-  if (!attendance) throw httpError('Nejdřív si zapiš docházku k tomuhle tréninku, pak ho můžeš ohodnotit.', 403);
+  if (!attendance) throw httpError('K tomuhle tréninku nemáš zapsanou docházku — nejdřív ji zapiš, pak ho můžeš ohodnotit.', 403);
 
   const row = {
     id: `trenink-rating-${sessionId}-${isoDay}-${coachId.slice(0, 8)}`,
