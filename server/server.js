@@ -3426,7 +3426,14 @@ async function siblingDiscountForPurchase(parentProfileId, participantId, produc
   let rank = siblingOrder.indexOf(participantId);
   if (rank === -1) rank = siblingOrder.length;
   // rank 0 = první dítě (plná cena), 1–2 = druhé a třetí (sleva), 3+ = plná cena
-  return rank === 1 || rank === 2 ? SIBLING_DISCOUNT_CZK : 0;
+  if (rank !== 1 && rank !== 2) return 0;
+
+  // Sleva patří SOUROZENCI, ne každé jeho permanentce: druhé a třetí dítě ji
+  // dostane jen na svůj první kroužek. Dřív měl sourozenec slevu na všechny
+  // své permanentky (Aneta Moravcová 2× 250 Kč, 5. 11. 2026) — rodina se
+  // dvěma dětmi na dvou kroužcích tak dostala dvojnásobek.
+  const childAlreadyHasCourse = (rows || []).some((row) => row.participant_id === participantId);
+  return childAlreadyHasCourse ? 0 : SIBLING_DISCOUNT_CZK;
 }
 
 // ─── Členství s automatickou obnovou: Stripe Subscription přes hosted Checkout ───
