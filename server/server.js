@@ -2975,11 +2975,15 @@ app.get('/api/coach/training-ratings', asyncRoute(async (request, response) => {
   const coachId = optionalString(request.query.coachId) || actor.id;
   if (actor.role !== 'admin' && actor.id !== coachId) throw httpError('Trenér vidí jen svoje hodnocení.', 403);
 
+  // Posledních 7 dní, ne jen dnešek — appka podle toho pozná, které starší
+  // tréninky ještě nemá ohodnocené, a nabídne je k doplnění.
+  const since = new Date(Date.parse(`${todayIsoDay()}T00:00:00Z`) - 7 * 86400000)
+    .toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from('training_ratings')
     .select('id,session_id,place,rating,rating_date')
     .eq('coach_id', coachId)
-    .eq('rating_date', todayIsoDay());
+    .gte('rating_date', since);
   if (error) throw error;
   response.json({ ratings: data || [] });
 }));
