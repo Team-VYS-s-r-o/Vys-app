@@ -366,6 +366,13 @@ function giftVoucherCode() {
   return `${GIFT_VOUCHER_PREFIX}-${pick(4)}-${pick(4)}`;
 }
 
+/** Claim code dítěte ve tvaru ABCD-EFGH (bez snadno zaměnitelných znaků). */
+function participantClaimCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRTUVWXYZ23469';
+  const pick = (n) => Array.from({ length: n }, () => alphabet[crypto.randomInt(alphabet.length)]).join('');
+  return `${pick(4)}-${pick(4)}`;
+}
+
 /**
  * Uplatnění dárkového poukazu v checkoutu. Vrací pevnou slevu v Kč.
  * Poukaz zůstává `active`, dokud webhook nepotvrdí zaplacení — teprve pak se
@@ -3105,6 +3112,78 @@ app.get('/api/coordinator/training-ratings', asyncRoute(async (request, response
   const coachIds = Array.from(new Set((data || []).map((row) => row.coach_id).filter(Boolean)));
   const rewards = coachIds.length > 0 ? await ratingRewardSummary(coordinator.orgId, coachIds) : [];
   response.json({ ratings: data || [], rewards });
+}));
+
+// ─── Záchranná brzda: účet účastníka patří ve skutečnosti rodiči ────────────
+// Při registraci si rodiče občas vyberou roli „Účastník" a vyplní jméno dítěte.
+// Takový účet nesmí nakupovat (requirePurchaser), takže rodič nemůže koupit
+// permanentku a často to vzdá (case Fedorová, 4. 11. 2026). Tenhle endpoint
+// účet převede na rodičovský a dítě z něj udělá samostatný záznam pod rodičem.
+//
+// Bezpečnostní pojistka: převést jde JEN účet, na kterém ještě nic není —
+// žádný nákup, žádná docházka, žádný herní postup. Dítě, které appku používá,
+// o nic přijít nemůže.
+app.post('/api/account/switch-to-parent', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAuthenticatedProfile(request);
+
+  if (profile.role === 'parent') {
+    response.json({ ok: true, alreadyParent: true });
+    return;
+  }
+  if (profile.role !== 'participant') {
+    throw httpError('Přepnout na rodičovský účet jde jen z účtu účastníka.', 403);
+  }
+
+  const { data: self, error: selfError } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,date_of_birth,parent_phone,org_id,xp,attendance_done,active_course,extra_courses')
+    .eq('id', profile.id)
+    .maybeSingle();
+  if (selfError) throw selfError;
+
+  // Má na účtu něco viset? Pak ruce pryč — ať to vyřeší admin ručně.
+  const [{ count: purchaseCount }, { data: passes }] = await Promise.all([
+    supabase.from('parent_purchases').select('id', { count: 'exact', head: true }).eq('parent_profile_id', profile.id),
+    supabase.from('digital_passes').select('id').eq('participant_id', profile.id).limit(1),
+  ]);
+  const hasProgress = Boolean(self && ((Number(self.xp) || 0) > 0 || (Number(self.attendance_done) || 0) > 0));
+  if ((purchaseCount || 0) > 0 || (passes || []).length > 0 || hasProgress) {
+    throw httpError('Na tomhle účtu už je nákup nebo postup ve hře. Napiš nám a převedeme ho ručně, ať o nic nepřijdeš.', 409);
+  }
+
+  const orgId = self?.org_id || profile.org_id || VYS_ORG_ID;
+  const parentName = optionalString(request.body.parentName);
+
+  const updates = { role: 'parent' };
+  if (parentName) updates.name = parentName;
+  const { error: profileError } = await supabase.from('app_profiles').update(updates).eq('id', profile.id);
+  if (profileError) throw profileError;
+
+  await supabase.from('organization_members').update({ role: 'parent' }).eq('profile_id', profile.id);
+
+  // Dítě z původního „self" záznamu přepojíme pod rodiče jako samostatné.
+  let childId = null;
+  if (self && (self.first_name || self.last_name)) {
+    childId = crypto.randomUUID();
+    const { error: childError } = await supabase.from('participants').insert({
+      id: childId,
+      first_name: self.first_name,
+      last_name: self.last_name,
+      date_of_birth: self.date_of_birth,
+      parent_phone: self.parent_phone,
+      parent_profile_id: profile.id,
+      org_id: orgId,
+      active_course: self.active_course,
+      extra_courses: self.extra_courses,
+      paid_status: 'due',
+      claim_code: participantClaimCode(),
+    });
+    if (childError) throw childError;
+    await supabase.from('participants').delete().eq('id', profile.id);
+  }
+
+  response.json({ ok: true, childId });
 }));
 
 // ─── Zpětný zápis docházky dítěte ───────────────────────────────────────────
