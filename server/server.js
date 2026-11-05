@@ -317,8 +317,6 @@ const WORKSHOP_INTEREST_THRESHOLD = 9;
 const WORKSHOP_PAYMENT_OPEN_DAYS = 2;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_COURSE_ATTENDANCE_RATE = 500;
-const SOLO_COURSE_ATTENDANCE_RATE = 750;
-const IGNORED_COACH_SESSION_IDS = new Set(['coach-demo']);
 const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
 // Výchozí body „Co je v ceně" / „Co s sebou" pro kroužky VYS — stejné texty
 // používá web i admin; jiné organizace startují s prázdnými poli.
@@ -476,46 +474,21 @@ function formatMinutes(total) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-function isWorkshopCoachSession(session) {
-  return String(session?.id || '').startsWith('coach-workshop-') || String(session?.group_name || '').startsWith('Workshop:');
-}
-
 function numericOrFallback(value, fallback) {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
 }
 
 async function resolveCoachAttendanceRate(coachId, session, requestedHourlyRate) {
-  const defaultRate = numericOrFallback(session?.hourly_rate, numericOrFallback(requestedHourlyRate, DEFAULT_COURSE_ATTENDANCE_RATE));
-
-  if (!session || isWorkshopCoachSession(session)) return defaultRate;
-
-  // External organizations set their own per-training wage on the session
-  // (coach_sessions.hourly_rate). The VYS-specific solo/shared course rates
-  // below only apply to the platform org.
-  if (session.org_id && session.org_id !== VYS_ORG_ID) {
-    return numericOrFallback(session.hourly_rate, numericOrFallback(requestedHourlyRate, DEFAULT_COURSE_ATTENDANCE_RATE));
-  }
-
-  const { data, error } = await supabase
-    .from('coach_sessions')
-    .select('id,coach_id,group_name')
-    .eq('city', session.city)
-    .eq('venue', session.venue)
-    .eq('day', session.day)
-    .eq('time', session.time);
-
-  if (error) throw error;
-
-  const assignedCoachIds = new Set(
-    (data || [])
-      .filter((row) => !isWorkshopCoachSession(row) && !IGNORED_COACH_SESSION_IDS.has(row.coach_id))
-      .map((row) => row.coach_id)
-      .filter(Boolean),
+  // Dřív tu bylo „solo" pravidlo: trenér sám na místě/dni/čase dostal 750 Kč/h
+  // místo 500. Bylo schované v kódu a nikdo o něm nevěděl — Zdiměřice tak
+  // tiše platily 750 (David 5. 11. 2026: zrušit, vždy 500). Sazba se teď bere
+  // ze session (externí org si ji nastavuje sama), jinak z požadavku, jinak
+  // z výchozí sazby.
+  return numericOrFallback(
+    session?.hourly_rate,
+    numericOrFallback(requestedHourlyRate, DEFAULT_COURSE_ATTENDANCE_RATE),
   );
-
-  if (assignedCoachIds.size === 1 && assignedCoachIds.has(coachId)) return SOLO_COURSE_ATTENDANCE_RATE;
-  return DEFAULT_COURSE_ATTENDANCE_RATE;
 }
 
 function haversineMeters(lat1, lon1, lat2, lon2) {
@@ -3132,6 +3105,167 @@ app.get('/api/coordinator/training-ratings', asyncRoute(async (request, response
   const coachIds = Array.from(new Set((data || []).map((row) => row.coach_id).filter(Boolean)));
   const rewards = coachIds.length > 0 ? await ratingRewardSummary(coordinator.orgId, coachIds) : [];
   response.json({ ratings: data || [], rewards });
+}));
+
+// ─── Zpětný zápis docházky dítěte ───────────────────────────────────────────
+// Dítě přišlo na trénink, ale nikdo ho nezapsal (zapomenutá kartička, vybitý
+// telefon, trenér zapomněl). Admin — a koordinátor, pokud mu to admin povolí
+// oprávněním `backdated_child_attendance` — může docházku doplnit zpětně
+// k danému datu. Logika kopíruje `teamvys_record_manual_attendance`, jen
+// s vybraným dnem místo dneška a s dítětem vybraným podle id.
+
+function czechDayText(isoDay) {
+  const [year, month, day] = isoDay.split('-');
+  return `${day}. ${month}. ${year}`;
+}
+
+function locationSlug(place) {
+  const slug = String(place || 'bez-lokality')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'bez-lokality';
+}
+
+app.post('/api/staff/child-attendance/backdated', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireStaff(request);
+
+  let actorOrgId = null;
+  if (actor.role === 'admin') {
+    actorOrgId = await adminOrgId(actor);
+  } else if (actor.role === 'coordinator') {
+    const coordinator = await requireCoordinator(request);
+    if (coordinator.permissions.backdated_child_attendance === false) {
+      throw httpError('Zpětné zapisování docházky ti admin vypnul.', 403);
+    }
+    actorOrgId = coordinator.orgId;
+  } else {
+    throw httpError('Zpětně zapisovat docházku může jen admin nebo koordinátor.', 403);
+  }
+
+  const participantId = requiredString(request.body.participantId, 'participantId');
+  const location = requiredString(request.body.location, 'lokalita');
+  const isoDay = requiredString(request.body.date, 'datum');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDay)) throw httpError('Datum musí být ve tvaru YYYY-MM-DD.', 400);
+
+  const today = todayIsoDate();
+  if (isoDay > today) throw httpError('Docházku nejde zapsat dopředu — vyber dnešek nebo starší den.', 400);
+
+  const { data: participant, error: participantError } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,org_id,active_course,extra_courses,attendance_done,attendance_total')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (participantError) throw participantError;
+  if (!participant) throw httpError('Dítě nenalezeno.', 404);
+  if ((participant.org_id || VYS_ORG_ID) !== actorOrgId) {
+    throw httpError('Dítě nepatří k tvé organizaci.', 403);
+  }
+
+  const childName = `${participant.first_name || ''} ${participant.last_name || ''}`.replace(/\s+/g, ' ').trim();
+  const dateText = czechDayText(isoDay);
+  const recordId = `children-manual-${locationSlug(location)}-${isoDay}`;
+
+  // Idempotence: dvakrát za stejný den na stejném místě se dítě nezapíše.
+  const { data: existing, error: existingError } = await supabase
+    .from('child_attendance_records')
+    .select('id,attendees')
+    .eq('date_text', dateText)
+    .eq('location', location);
+  if (existingError) throw existingError;
+  const alreadyThere = (existing || []).some((row) =>
+    Array.isArray(row.attendees) && row.attendees.some((item) => item?.name === childName));
+  if (alreadyThere) {
+    throw httpError(`${childName} už má na ${dateText} docházku zapsanou.`, 409);
+  }
+
+  const flags = await orgFeatureFlags(participant.org_id || VYS_ORG_ID);
+  const coinsNfcOnly = flags.attendance_coins_nfc_only === true;
+
+  if (!coinsNfcOnly) {
+    await supabase
+      .from('participants')
+      .update({ attendance_done: (Number(participant.attendance_done) || 0) + 1 })
+      .eq('id', participant.id);
+  }
+
+  const attendee = { name: childName, time: '—', method: 'Zpětně adminem' };
+  const row = (existing || []).find((item) => item.id === recordId);
+  const attendees = Array.isArray(row?.attendees)
+    ? [...row.attendees.filter((item) => item?.name !== childName), attendee]
+    : [attendee];
+
+  const { error: upsertError } = await supabase
+    .from('child_attendance_records')
+    .upsert({
+      id: recordId,
+      session_id: optionalString(request.body.sessionId) || null,
+      date_text: dateText,
+      location,
+      attendees,
+      org_id: participant.org_id || VYS_ORG_ID,
+    }, { onConflict: 'id' });
+  if (upsertError) throw upsertError;
+
+  // Odečtení vstupu z permanentky (nebo tiknutí členství), stejně jako u skenu.
+  const { data: passes, error: passError } = await supabase
+    .from('digital_passes')
+    .select('id,pass_kind,expires_at,used_entries,total_entries,manual_entries,holder_name,location')
+    .eq('participant_id', participant.id);
+  if (passError) throw passError;
+
+  const extraCourses = Array.isArray(participant.extra_courses) ? participant.extra_courses : [];
+  const usable = (passes || [])
+    .filter((pass) => pass.location === location || extraCourses.includes(location))
+    .filter((pass) => (pass.pass_kind === 'membership'
+      ? String(pass.expires_at || '') >= isoDay
+      : Number(pass.used_entries) < Number(pass.total_entries)))
+    .sort((a, b) => (a.location === location ? 0 : 1) - (b.location === location ? 0 : 1));
+
+  const pass = usable[0] || null;
+  let entriesLeft = null;
+  if (pass) {
+    const isMembership = pass.pass_kind === 'membership';
+    const usedEntries = isMembership
+      ? Number(pass.used_entries) + 1
+      : Math.min(Number(pass.used_entries) + 1, Number(pass.total_entries));
+    await supabase
+      .from('digital_passes')
+      .update({
+        used_entries: usedEntries,
+        manual_entries: (Number(pass.manual_entries) || 0) + 1,
+        last_scan_at: `${dateText} (zpětný zápis)`,
+        last_scan_place: location,
+      })
+      .eq('id', pass.id);
+    if (!isMembership) {
+      entriesLeft = Math.max(Number(pass.total_entries) - usedEntries, 0);
+      await supabase
+        .from('coach_wards')
+        .update({ entries_left: entriesLeft, last_attendance: dateText })
+        .eq('name', pass.holder_name)
+        .contains('locations', [location]);
+    } else {
+      await supabase
+        .from('coach_wards')
+        .update({ last_attendance: dateText })
+        .eq('name', pass.holder_name)
+        .contains('locations', [location]);
+    }
+  }
+
+  response.status(201).json({
+    ok: true,
+    participantId: participant.id,
+    childName,
+    dateText,
+    location,
+    passFound: Boolean(pass),
+    entriesLeft,
+  });
 }));
 
 // ─── E-mail rodiči po naskenování zvládnutého triku ──────────────────────────
@@ -7223,7 +7357,7 @@ async function requireCoordinator(request) {
 
 // Per-koordinátorská oprávnění (nastavuje admin): jiné organizace nemusí chtít,
 // aby koordinátor viděl finance, osobní údaje dětí nebo údaje trenérů.
-const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data', 'forgotten_attendance', 'training_ratings', 'attendance_stats', 'broadcasts', 'meta_ad_requests', 'delete_coach_attendance'];
+const COORDINATOR_PERMISSION_KEYS = ['finance', 'children_data', 'coach_data', 'forgotten_attendance', 'training_ratings', 'attendance_stats', 'broadcasts', 'meta_ad_requests', 'delete_coach_attendance', 'backdated_child_attendance'];
 function normalizeCoordinatorPermissions(raw) {
   const permissions = {};
   for (const key of COORDINATOR_PERMISSION_KEYS) {
