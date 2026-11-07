@@ -3146,6 +3146,218 @@ app.get('/api/coordinator/training-ratings', asyncRoute(async (request, response
   response.json({ ratings: data || [], rewards });
 }));
 
+// ─── První lekce zdarma (QR) ────────────────────────────────────────────────
+// Každý účastník má v profilu PRÁVĚ JEDNU první lekci zdarma. Aktivací vznikne
+// QR kód TRIAL-…; trenér ho na tréninku načte, uvidí údaje dítěte a potvrdí
+// příchod — kód tím shoří (active → used, atomicky). Admin, koordinátor i
+// trenér pak vidí seznam „přišli na zkoušku a nezaplatili" — živě proti
+// parent_purchases, takže po zaplacení dítě ze seznamu zmizí samo. Smysl:
+// zavolat rodině, která po první lekci nezaplatila, a zeptat se proč.
+
+function freeLessonCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRTUVWXYZ23469';
+  const pick = (n) => Array.from({ length: n }, () => alphabet[crypto.randomInt(alphabet.length)]).join('');
+  return `TRIAL-${pick(4)}-${pick(4)}`;
+}
+
+async function participantHasPaidPurchase(participantId) {
+  const { count, error } = await supabase
+    .from('parent_purchases')
+    .select('id', { count: 'exact', head: true })
+    .eq('participant_id', participantId)
+    .in('status', ['Zaplaceno', 'Placeno']);
+  if (error) throw error;
+  return (count || 0) > 0;
+}
+
+// Aktivace v profilu účastníka / u dítěte rodiče. Idempotentní: druhé volání
+// vrátí tentýž kód (unique participant_id), nikdy nevznikne druhý.
+app.post('/api/participant/free-lesson/claim', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireAuthenticatedProfile(request);
+  const participantId = requiredString(request.body.participantId, 'participantId');
+  await assertParticipantAccessible(actor, participantId);
+
+  const { data: participant, error: participantError } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,org_id')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (participantError) throw participantError;
+  if (!participant) throw httpError('Účastník nenalezen.', 404);
+
+  const { data: existing } = await supabase
+    .from('free_lesson_claims')
+    .select('code,status,used_at')
+    .eq('participant_id', participantId)
+    .maybeSingle();
+  if (existing) {
+    response.json({ code: existing.code, status: existing.status, usedAt: existing.used_at });
+    return;
+  }
+
+  if (await participantHasPaidPurchase(participantId)) {
+    throw httpError('První lekce zdarma je pro nové účastníky — tenhle už má zaplacenou permanentku.', 409);
+  }
+
+  let code = freeLessonCode();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const { data: clash } = await supabase.from('free_lesson_claims').select('id').eq('code', code).maybeSingle();
+    if (!clash) break;
+    code = freeLessonCode();
+  }
+  const { data: inserted, error: insertError } = await supabase
+    .from('free_lesson_claims')
+    .insert({ participant_id: participantId, org_id: participant.org_id || VYS_ORG_ID, code })
+    .select('code,status')
+    .single();
+  if (insertError) {
+    // Souběžná aktivace: unique(participant_id) → vrať existující kód.
+    const { data: raced } = await supabase.from('free_lesson_claims').select('code,status,used_at').eq('participant_id', participantId).maybeSingle();
+    if (raced) { response.json({ code: raced.code, status: raced.status, usedAt: raced.used_at }); return; }
+    throw insertError;
+  }
+  response.status(201).json({ code: inserted.code, status: inserted.status });
+}));
+
+async function loadFreeLessonClaim(code) {
+  const normalized = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!normalized.startsWith('TRIAL-')) return null;
+  const { data, error } = await supabase
+    .from('free_lesson_claims')
+    .select('id,code,status,participant_id,org_id,used_at,used_location')
+    .eq('code', normalized)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw httpError('Takový kód první lekce neexistuje. Zkontroluj QR.', 404);
+  return data;
+}
+
+// Trenér načetl QR — vrátí údaje dítěte, ať ví, koho vítá. Nic nezapisuje.
+app.post('/api/coach/free-lesson/scan', asyncRoute(async (request, response) => {
+  requireServices();
+  await requireStaff(request);
+  const claim = await loadFreeLessonClaim(requiredString(request.body.code, 'code'));
+  if (!claim) throw httpError('Tohle není kód první lekce zdarma.', 400);
+
+  const { data: participant, error } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,date_of_birth,parent_phone,parent_name,health_limits,allergies,parent_profile_id')
+    .eq('id', claim.participant_id)
+    .maybeSingle();
+  if (error) throw error;
+  let parentEmail = null;
+  if (participant?.parent_profile_id) {
+    const { data: parent } = await supabase.from('app_profiles').select('email,name').eq('id', participant.parent_profile_id).maybeSingle();
+    parentEmail = parent?.email || null;
+    if (!participant.parent_name && parent?.name) participant.parent_name = parent.name;
+  }
+  response.json({
+    code: claim.code,
+    status: claim.status,
+    usedAt: claim.used_at,
+    usedLocation: claim.used_location,
+    participant: participant ? {
+      id: participant.id,
+      name: `${participant.first_name || ''} ${participant.last_name || ''}`.trim(),
+      dateOfBirth: participant.date_of_birth,
+      parentName: participant.parent_name,
+      parentPhone: participant.parent_phone,
+      parentEmail,
+      healthLimits: participant.health_limits,
+      allergies: participant.allergies,
+    } : null,
+  });
+}));
+
+// Trenér potvrdil, že dítě dorazilo — kód shoří. Atomicky: projde jen jednou.
+app.post('/api/coach/free-lesson/confirm', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireStaff(request);
+  const claim = await loadFreeLessonClaim(requiredString(request.body.code, 'code'));
+  if (!claim) throw httpError('Tohle není kód první lekce zdarma.', 400);
+  const location = optionalString(request.body.location) || null;
+
+  const { data: locked, error } = await supabase
+    .from('free_lesson_claims')
+    .update({ status: 'used', used_at: new Date().toISOString(), used_location: location, used_by_coach_id: actor.id })
+    .eq('id', claim.id)
+    .eq('status', 'active')
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!locked) throw httpError('Tahle první lekce už byla využitá — QR platí jen jednou.', 409);
+  response.json({ ok: true });
+}));
+
+// Seznam „přišli na zkoušku a nezaplatili": admin vše, koordinátor svůj kraj,
+// trenér svoje lokality. Po zaplacení dítě zmizí (živý join na nákupy).
+app.get('/api/staff/free-lessons', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireStaff(request);
+
+  let orgId = actor.org_id || VYS_ORG_ID;
+  let placesFilter = null;
+  if (actor.role === 'coordinator') {
+    const coordinator = await requireCoordinator(request);
+    orgId = coordinator.orgId;
+    const { data: regionProducts } = await supabase
+      .from('products').select('place').eq('org_id', orgId).eq('region', coordinator.region);
+    placesFilter = new Set((regionProducts || []).map((row) => row.place).filter(Boolean));
+  } else if (actor.role === 'coach') {
+    const { data: coachSessions } = await supabase
+      .from('coach_sessions').select('city,venue').eq('coach_id', actor.id);
+    placesFilter = new Set((coachSessions || []).map((row) => `${row.city} · ${row.venue}`));
+  } else if (actor.role === 'admin') {
+    orgId = await adminOrgId(actor);
+  }
+
+  const { data: claims, error } = await supabase
+    .from('free_lesson_claims')
+    .select('id,code,status,participant_id,created_at,used_at,used_location,used_by_coach_id')
+    .eq('org_id', orgId)
+    .eq('status', 'used')
+    .order('used_at', { ascending: false })
+    .limit(200);
+  if (error) throw error;
+
+  const participantIds = (claims || []).map((claim) => claim.participant_id);
+  if (participantIds.length === 0) { response.json({ freeLessons: [] }); return; }
+
+  const [{ data: participants }, { data: paid }] = await Promise.all([
+    supabase.from('participants').select('id,first_name,last_name,date_of_birth,parent_phone,parent_name,parent_profile_id').in('id', participantIds),
+    supabase.from('parent_purchases').select('participant_id').in('participant_id', participantIds).in('status', ['Zaplaceno', 'Placeno']),
+  ]);
+  const paidIds = new Set((paid || []).map((row) => row.participant_id));
+  const parentIds = Array.from(new Set((participants || []).map((row) => row.parent_profile_id).filter(Boolean)));
+  const { data: parents } = parentIds.length > 0
+    ? await supabase.from('app_profiles').select('id,email,name').in('id', parentIds)
+    : { data: [] };
+  const parentById = new Map((parents || []).map((row) => [String(row.id), row]));
+  const participantById = new Map((participants || []).map((row) => [row.id, row]));
+
+  const freeLessons = (claims || [])
+    .filter((claim) => !paidIds.has(claim.participant_id))
+    .filter((claim) => !placesFilter || !claim.used_location || placesFilter.has(claim.used_location))
+    .map((claim) => {
+      const participant = participantById.get(claim.participant_id);
+      const parent = participant?.parent_profile_id ? parentById.get(String(participant.parent_profile_id)) : null;
+      return {
+        id: claim.id,
+        participantId: claim.participant_id,
+        name: participant ? `${participant.first_name || ''} ${participant.last_name || ''}`.trim() : 'Neznámé dítě',
+        dateOfBirth: participant?.date_of_birth || null,
+        parentName: participant?.parent_name || parent?.name || null,
+        parentPhone: participant?.parent_phone || null,
+        parentEmail: parent?.email || null,
+        usedAt: claim.used_at,
+        usedLocation: claim.used_location,
+      };
+    });
+
+  response.json({ freeLessons });
+}));
+
 // ─── Záchranná brzda: účet účastníka patří ve skutečnosti rodiči ────────────
 // Při registraci si rodiče občas vyberou roli „Účastník" a vyplní jméno dítěte.
 // Takový účet nesmí nakupovat (requirePurchaser), takže rodič nemůže koupit
