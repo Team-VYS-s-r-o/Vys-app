@@ -4024,6 +4024,9 @@ app.post('/api/gift-vouchers/redeem', asyncRoute(async (request, response) => {
   const product = await ensureProductCapacity(productId);
   assertGiftVoucherFitsProduct(voucher, product);
   await assertRequiredDocumentsSigned(product, participantId, participantName);
+  // Město s víc školami (Vyškov): rodič i u poukazu vybírá, kam bude dítě
+  // chodit — stejná validace a zápis do extra_courses jako u placeného nákupu.
+  const extraPlaces = await resolveExtraPlacesSelection(product, request.body.extraPlaces);
 
   const purchaseId = `gift-${voucher.code.toLowerCase()}`;
   const row = {
@@ -4070,6 +4073,7 @@ app.post('/api/gift-vouchers/redeem', asyncRoute(async (request, response) => {
     const { data, error } = await supabase.from('parent_purchases').upsert(row, { onConflict: 'id' }).select().single();
     if (error) throw error;
     await syncPaidPurchaseSideEffects(data);
+    await applyExtraPlacesFromMetadata(data, { extra_places: extraPlaces ? extraPlaces.join('|') : '' });
     response.status(201).json({ ok: true, purchase: data, entries: voucher.entries });
   } catch (purchaseError) {
     // Nákup selhal → poukaz vrátíme do hry, ať o něj rodič nepřijde.
