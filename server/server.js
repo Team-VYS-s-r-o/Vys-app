@@ -2940,13 +2940,31 @@ app.post('/api/coach/training-rating', asyncRoute(async (request, response) => {
   //   session  `coach-session-<coachId>-<productId>`
   //   docházka `coach-att-<coachId>-<productId>-<YYYY-MM-DD>`
   const derivedAttendanceId = `coach-att-${sessionId.replace(/^coach-session-/, '')}-${isoDay}`;
+  // Trenéři mívají na jedno místo DVOJE lekce (stará z katalogu + ručně
+  // přidaná s timestamp id) — docházka je zapsaná pod jednou a teploměr se
+  // hodnotí z druhé, takže přesná shoda id selhávala (Vršovice 7. 11. 2026).
+  // A date_text z telefonu obsahuje úzké mezery (\u202f z toLocaleDateString),
+  // takže ani porovnání dat nesedělo. Nově: docházka trenéra v DANÝ DEN na
+  // MÍSTĚ hodnocené lekce stačí.
+  const { data: ratedSession } = await supabase
+    .from('coach_sessions')
+    .select('city,venue')
+    .eq('id', sessionId)
+    .maybeSingle();
+  const normalizePlace = (value) => String(value || '').replace(/[\s\u202f\u00a0]+/g, ' ').trim().toLowerCase();
+  const sessionPlace = ratedSession ? normalizePlace(`${ratedSession.city} · ${ratedSession.venue}`) : null;
+  const normalizeDate = (value) => String(value || '').replace(/[\s\u202f\u00a0]+/g, ' ').trim();
   const { data: attendanceRows, error: attendanceError } = await supabase
     .from('coach_attendance_records')
     .select('id,place,org_id,session_id,date_text')
     .eq('coach_id', coachId)
-    .or(`session_id.eq.${sessionId},id.eq.${derivedAttendanceId}`);
+    .or(`session_id.eq.${sessionId},id.eq.${derivedAttendanceId},id.like.%-${isoDay}`);
   if (attendanceError) throw attendanceError;
-  const attendance = (attendanceRows || []).find((row) => row.date_text === todayText || row.id === derivedAttendanceId) || null;
+  const attendance = (attendanceRows || []).find((row) => {
+    if (row.id === derivedAttendanceId || row.session_id === sessionId) return true;
+    const sameDay = row.id.endsWith(`-${isoDay}`) || normalizeDate(row.date_text) === todayText;
+    return sameDay && sessionPlace !== null && normalizePlace(row.place) === sessionPlace;
+  }) || null;
   if (!attendance) throw httpError('K tomuhle tréninku nemáš zapsanou docházku — nejdřív ji zapiš, pak ho můžeš ohodnotit.', 403);
 
   const row = {
