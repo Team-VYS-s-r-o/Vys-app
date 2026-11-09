@@ -38,13 +38,45 @@ export function SubpageCta({ title, highlight, ctaHref, ctaLabel, secondaryHref,
           className="pointer-events-none absolute -inset-x-28 bottom-0 top-8 [background:radial-gradient(ellipse_at_50%_100%,rgba(139,29,255,0.35),transparent_65%)]"
         />
 
+        {/* Na telefonu je mockup jen velký prázdný rám s drobným obsahem —
+            místo něj čistá karta ve stylu displeje. Telefon až od md výš. */}
+        <div className="relative overflow-hidden rounded-[28px] bg-[#141020] px-6 py-10 text-center ring-1 ring-white/10 md:hidden">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_50%_0%,rgba(139,29,255,0.3),transparent_60%)]"
+          />
+          <div className="relative">
+            <h2 className="mx-auto max-w-[17ch] text-2xl font-black leading-[1.12] tracking-tight text-white">
+              {title}
+              {highlight ? <span className="text-brand-purple-light"> {highlight}</span> : null}
+            </h2>
+            <div className="mt-7 flex flex-col items-stretch gap-3">
+              <Link
+                href={ctaHref}
+                className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-brand-purple px-6 text-sm font-black text-white transition-transform hover:-translate-y-0.5"
+              >
+                {ctaLabel}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              {secondaryHref && secondaryLabel ? (
+                <Link
+                  href={secondaryHref}
+                  className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 px-6 text-sm font-black text-white/85 transition-colors hover:bg-white/10"
+                >
+                  {secondaryLabel}
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
         {/*
           Telefon je vidět jen do poloviny — spodek zajíždí pod patu sekce.
           Vnější vrstva ořezává (poměr 1086 : 1448×VISIBLE), vnitřní drží
           celý obrázek, takže souřadnice displeje zůstávají platné:
           díra v obrázku x 243–838 z 1086, y 112–1347 z 1448.
         */}
-        <div className="relative overflow-hidden" style={{ aspectRatio: '1086 / 797' }}>
+        <div className="relative hidden overflow-hidden md:block" style={{ aspectRatio: '1086 / 797' }}>
           <div className="absolute inset-x-0 top-0" style={{ aspectRatio: '1086 / 1448' }}>
             {/* Obsah leží v průhledném výřezu displeje */}
             <div
