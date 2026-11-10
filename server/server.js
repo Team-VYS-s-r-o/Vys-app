@@ -7017,6 +7017,35 @@ app.get('/api/coach/stripe-status', asyncRoute(async (request, response) => {
   });
 }));
 
+// Prohlášení poplatníka („růžovka"): admin si u trenéra odklikne, že ho má
+// podepsané. Bez něj se z každé DPP výplaty sráží 15% daň (viz trainer-payouts).
+app.post('/api/admin/coaches/:coachId/tax-declaration', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const coachId = requiredString(request.params.coachId, 'coachId');
+  const signed = request.body.signed === true;
+
+  const { data: coach } = await supabase
+    .from('coach_profiles')
+    .select('org_id')
+    .eq('id', coachId)
+    .maybeSingle();
+  if (!coach) throw httpError('Trenér nebyl nalezen.', 404);
+  if ((coach.org_id || VYS_ORG_ID) !== orgId) {
+    throw httpError('Můžete spravovat pouze trenéry vlastní organizace.', 403);
+  }
+
+  const { error } = await supabase
+    .from('coach_profiles')
+    .update({ tax_declaration_signed: signed })
+    .eq('id', coachId);
+  if (error) throw error;
+
+  response.json({ ok: true, signed });
+}));
+
 app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireAdmin(request);
@@ -7048,7 +7077,7 @@ app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
 
   const { data: coachProfile } = await supabase
     .from('coach_profiles')
-    .select('org_id')
+    .select('org_id,invoices_manually,tax_declaration_signed')
     .eq('id', coachId)
     .maybeSingle();
   const coachOrgId = coachProfile?.org_id || VYS_ORG_ID;
@@ -7069,15 +7098,23 @@ app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
   if (existingTransferError) throw existingTransferError;
   if (existingTransfer) throw new Error('Tento trenér už má výplatu za daný měsíc odeslanou.');
 
+  // Srážková daň 15 % z DPP: trenér bez podepsaného prohlášení poplatníka
+  // („růžovky") dostane netto a org daň odvede FÚ sama. Fakturující trenéři
+  // si daně řeší sami, těch se srážka nikdy netýká.
+  const withholdTax = coachProfile?.invoices_manually !== true && coachProfile?.tax_declaration_signed !== true;
+  const taxWithheld = withholdTax ? Math.floor(amount * 0.15) : 0;
+  const netAmount = amount - taxWithheld;
+  if (netAmount <= 0) throw new Error('Částka výplaty po srážce daně musí být větší než 0 Kč.');
+
   // Use the org's own Stripe client for the transfer.
   const payoutStripe = await requireOrgStripe(coachOrgId);
 
   const transferParams = {
-    amount: amount * 100,
+    amount: netAmount * 100,
     currency: 'czk',
     destination: stripeAccountId,
     description: `Výplata ${coachName} ${periodKey}`,
-    metadata: { coach_id: coachId, coach_name: coachName, period_key: periodKey, period_start: periodStart, period_end: periodEnd, calculated_amount: String(calculatedAmount), org_id: coachOrgId },
+    metadata: { coach_id: coachId, coach_name: coachName, period_key: periodKey, period_start: periodStart, period_end: periodEnd, calculated_amount: String(calculatedAmount), gross_amount: String(amount), tax_withheld: String(taxWithheld), org_id: coachOrgId },
   };
 
   const transfer = await payoutStripe.transfers.create(transferParams);
@@ -7089,7 +7126,9 @@ app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
     period_key: periodKey,
     period_start: periodStart,
     period_end: periodEnd,
-    amount,
+    amount: netAmount,
+    gross_amount: amount,
+    tax_withheld: taxWithheld,
     currency: 'czk',
     status: 'paid',
     mode: 'connect_transfer',
