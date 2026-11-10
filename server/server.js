@@ -8190,7 +8190,16 @@ app.post('/api/coordinator/broadcasts', asyncRoute(async (request, response) => 
   if (recipientsError) throw recipientsError;
 
   const pushed = await sendExpoPushToProfiles(recipientIds, title, body);
-  response.status(201).json({ ok: true, broadcastId: broadcast.id, recipients: recipientIds.length, pushed, skipped: requestedIds.length - recipientIds.length });
+
+  // SMS jen rodičům, na výslovné přání (stojí peníze) a jen s připojenou
+  // bránou — zatím globální kredit Team VYS, stejné pravidlo jako u admina.
+  const smsAvailable = smsConfigured() && coordinator.orgId === VYS_ORG_ID && target === 'parents';
+  let smsSent = 0;
+  if (request.body.sendSms === true && smsAvailable) {
+    smsSent = await sendSmsToParents(recipientIds, title, body);
+  }
+
+  response.status(201).json({ ok: true, broadcastId: broadcast.id, recipients: recipientIds.length, pushed, smsSent, smsConfigured: smsAvailable, skipped: requestedIds.length - recipientIds.length });
 }));
 
 app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
