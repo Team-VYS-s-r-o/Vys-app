@@ -2939,18 +2939,32 @@ app.post('/api/coach/training-rating', asyncRoute(async (request, response) => {
   // Id docházky je ale z session id odvoditelné:
   //   session  `coach-session-<coachId>-<productId>`
   //   docházka `coach-att-<coachId>-<productId>-<YYYY-MM-DD>`
-  const derivedAttendanceId = `coach-att-${sessionId.replace(/^coach-session-/, '')}-${isoDay}`;
+  const sessionKey = sessionId.replace(/^coach-session-/, '');
+  const derivedAttendanceId = `coach-att-${sessionKey}-${isoDay}`;
+  // „Dnešní tréninky" na Přehledu jedou ze sdíleného kalendáře, kde má lekce
+  // id PRODUKTU (`course-…`) bez coachId — docházka je ale uložená jako
+  // `coach-att-<coachId>-<productId>-<YYYY-MM-DD>` (hlášeno 10. 11. 2026, Tiller).
+  const derivedCoachAttendanceId = `coach-att-${coachId}-${sessionKey}-${isoDay}`;
   // Trenéři mívají na jedno místo DVOJE lekce (stará z katalogu + ručně
   // přidaná s timestamp id) — docházka je zapsaná pod jednou a teploměr se
   // hodnotí z druhé, takže přesná shoda id selhávala (Vršovice 7. 11. 2026).
   // A date_text z telefonu obsahuje úzké mezery (\u202f z toLocaleDateString),
   // takže ani porovnání dat nesedělo. Nově: docházka trenéra v DANÝ DEN na
   // MÍSTĚ hodnocené lekce stačí.
-  const { data: ratedSession } = await supabase
+  let { data: ratedSession } = await supabase
     .from('coach_sessions')
     .select('city,venue')
     .eq('id', sessionId)
     .maybeSingle();
+  if (!ratedSession) {
+    // Id ze sdíleného kalendáře je produkt — místo lekce vezmi z products.
+    const { data: ratedProduct } = await supabase
+      .from('products')
+      .select('city,venue')
+      .eq('id', sessionId)
+      .maybeSingle();
+    ratedSession = ratedProduct || null;
+  }
   const normalizePlace = (value) => String(value || '').replace(/[\s\u202f\u00a0]+/g, ' ').trim().toLowerCase();
   const sessionPlace = ratedSession ? normalizePlace(`${ratedSession.city} · ${ratedSession.venue}`) : null;
   const normalizeDate = (value) => String(value || '').replace(/[\s\u202f\u00a0]+/g, ' ').trim();
@@ -2958,10 +2972,10 @@ app.post('/api/coach/training-rating', asyncRoute(async (request, response) => {
     .from('coach_attendance_records')
     .select('id,place,org_id,session_id,date_text')
     .eq('coach_id', coachId)
-    .or(`session_id.eq.${sessionId},id.eq.${derivedAttendanceId},id.like.%-${isoDay}`);
+    .or(`session_id.eq.${sessionId},id.eq.${derivedAttendanceId},id.eq.${derivedCoachAttendanceId},id.like.%-${isoDay}`);
   if (attendanceError) throw attendanceError;
   const attendance = (attendanceRows || []).find((row) => {
-    if (row.id === derivedAttendanceId || row.session_id === sessionId) return true;
+    if (row.id === derivedAttendanceId || row.id === derivedCoachAttendanceId || row.session_id === sessionId) return true;
     const sameDay = row.id.endsWith(`-${isoDay}`) || normalizeDate(row.date_text) === todayText;
     return sameDay && sessionPlace !== null && normalizePlace(row.place) === sessionPlace;
   }) || null;
