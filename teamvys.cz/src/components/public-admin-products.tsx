@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { trackEvent } from '@/components/analytics';
-import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ChevronsLeft, ChevronsRight, Clock, CreditCard, MapPin, ScanLine, Search, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ChevronsLeft, ChevronsRight, Clock, CreditCard, MapPin, ScanLine, Search, Users, X , Smile } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
@@ -728,6 +728,9 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
                   <Stat icon={<Users size={18} />} label="Živá kapacita" value={`${product.capacityCurrent}/${product.capacityTotal} dětí`} />
                 </>
               )}
+              {product.ageFrom && product.ageTo ? (
+                <Stat icon={<Smile size={18} />} label="Věk" value={`${product.ageFrom}–${product.ageTo} let`} />
+              ) : null}
               <Stat icon={<CreditCard size={18} />} label="Cena" value={`od ${minPrice.toLocaleString('cs-CZ')} Kč`} />
               <Stat icon={<MapPin size={18} />} label="Místo" value={`${product.city} · ${product.venue}`} />
             </div>

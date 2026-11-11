@@ -56,6 +56,9 @@ export type ParentProduct = {
   capacityTotal: number;
   capacityCurrent: number;
   interestCount?: number;
+  /** Věkové rozpětí kroužku (products.age_from/age_to). */
+  ageFrom?: number | null;
+  ageTo?: number | null;
   canPurchase?: boolean;
   /** Testovací režim — kroužek zatím jen sbírá zájemce, nelze koupit */
   interestMode?: boolean;

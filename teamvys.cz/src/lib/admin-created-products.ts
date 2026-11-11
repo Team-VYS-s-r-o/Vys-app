@@ -180,6 +180,8 @@ function rowToProduct(row: AdminProductRow): ParentProduct {
     skillCategory: row.skill_category ?? undefined,
     capacityTotal: row.capacity_total ?? 0,
     capacityCurrent: row.capacity_current,
+    ageFrom: (row as { age_from?: number | null }).age_from ?? null,
+    ageTo: (row as { age_to?: number | null }).age_to ?? null,
     interestCount: row.interest_count ?? 0,
     canPurchase: row.can_purchase,
     interestMode: row.interest_mode ?? false,
