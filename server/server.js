@@ -6554,6 +6554,18 @@ async function createCoachOnboardingLink(coachId, coachOrgId, returnUrl, refresh
     .maybeSingle();
   if (coachRowError) throw coachRowError;
 
+  // Trenér je fyzická osoba — bez tohohle se ho Stripe ptá jako firmy
+  // (web, popis podnikání…) a onboarding lidi odrazoval (hlášeno 11. 11. 2026).
+  // S předvyplněným profilem zbyde jméno, datum narození, adresa a číslo účtu.
+  const coachBusinessPrefill = {
+    business_type: 'individual',
+    business_profile: {
+      mcc: '7999',
+      product_description: 'Trenér dětských sportovních kroužků — odměny od organizace',
+      ...(coachOrgId === VYS_ORG_ID ? { url: 'https://teamvys.cz' } : {}),
+    },
+  };
+
   let accountId = coachRow?.stripe_account_id ?? null;
   if (!accountId) {
     const { to } = await resolveCoachContact(coachId);
@@ -6561,6 +6573,7 @@ async function createCoachOnboardingLink(coachId, coachOrgId, returnUrl, refresh
       type: 'express',
       country: 'CZ',
       email: to || undefined,
+      ...coachBusinessPrefill,
       metadata: { coach_id: coachId, org_id: coachOrgId },
     });
     accountId = account.id;
@@ -6570,6 +6583,17 @@ async function createCoachOnboardingLink(coachId, coachOrgId, returnUrl, refresh
       .update({ stripe_account_id: accountId })
       .eq('id', coachId);
     if (updateError) throw updateError;
+  }
+
+  if (coachRow?.stripe_account_id) {
+    // Účty založené před prefill opravou: doplň profil zpětně, ať se jich
+    // Stripe přestane ptát na firmu. U rozjetého/odeslaného onboardingu může
+    // update spadnout — pak necháme být, trenér už je stejně za těmi otázkami.
+    try {
+      await coachStripe.accounts.update(accountId, coachBusinessPrefill);
+    } catch (prefillError) {
+      console.warn(`Stripe prefill update failed for ${accountId}: ${prefillError.message}`);
+    }
   }
 
   const accountLink = await coachStripe.accountLinks.create({
