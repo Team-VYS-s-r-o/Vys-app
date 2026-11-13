@@ -7084,6 +7084,50 @@ app.post('/api/admin/coaches/:coachId/tax-declaration', asyncRoute(async (reques
   response.json({ ok: true, signed });
 }));
 
+// Skutečná připravenost trenéra na výplatu podle Stripe (ne jen „má acct_…"):
+// transfers capability, chybějící údaje a dostupný zůstatek platformy.
+// Admin karta podle toho ukáže, proč výplata neprojde, místo tiché 400.
+app.get('/api/admin/coaches/:coachId/payout-readiness', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const coachId = requiredString(request.params.coachId, 'coachId');
+
+  const { data: coach } = await supabase
+    .from('coach_profiles')
+    .select('org_id,stripe_account_id')
+    .eq('id', coachId)
+    .maybeSingle();
+  if (!coach) throw httpError('Trenér nebyl nalezen.', 404);
+  if ((coach.org_id || VYS_ORG_ID) !== orgId) throw httpError('Můžete spravovat pouze trenéry vlastní organizace.', 403);
+  if (!coach.stripe_account_id) return response.json({ ready: false, reason: 'no-account' });
+
+  const coachStripe = await requireOrgStripe(coach.org_id || VYS_ORG_ID);
+  const account = await coachStripe.accounts.retrieve(coach.stripe_account_id);
+  const transfersCapability = account.capabilities?.transfers || 'inactive';
+  const currentlyDue = account.requirements?.currently_due || [];
+  const disabledReason = account.requirements?.disabled_reason || null;
+
+  let availableCzk = null;
+  try {
+    const balance = await coachStripe.balance.retrieve();
+    const czk = (balance.available || []).find((item) => item.currency === 'czk');
+    availableCzk = czk ? Math.floor(czk.amount / 100) : 0;
+  } catch (balanceError) {
+    availableCzk = null; // klíč nemusí mít Balance: Read — nevadí, jen to neukážeme
+  }
+
+  response.json({
+    ready: transfersCapability === 'active',
+    transfersCapability,
+    payoutsEnabled: Boolean(account.payouts_enabled),
+    detailsSubmitted: Boolean(account.details_submitted),
+    currentlyDue,
+    disabledReason,
+    availableCzk,
+  });
+}));
+
 app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireAdmin(request);
