@@ -5784,30 +5784,35 @@ async function emailBroadcastToParents(parentProfileIds, title, body) {
 
   // Individuální maily místo BCC dávek: BCC po 40 padalo do spamu a selhání
   // jedné dávky tiše zahodilo až 40 adres (stížnosti rodičů z Brandýsa 28. 10.).
+  // Resend SMTP povoluje 10 požadavků/s. Paralelní dávky po 8 + okamžitý retry
+  // to překročily a 9 z 19 mailů spadlo na „550 Too many requests" (Brandýs 16. 11.).
+  // Proto posíláme sekvenčně s rozestupem a při rate-limitu čekáme před opakováním.
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const sendTo = async (address) => {
-    try {
-      await emailer.sendMail({ from: smtpFrom, to: address, subject: title, html });
-      return true;
-    } catch (firstError) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
         await emailer.sendMail({ from: smtpFrom, to: address, subject: title, html });
         return true;
       } catch (mailError) {
-        console.error(`Broadcast email failed for ${address}:`, mailError?.message || mailError);
-        return false;
+        const message = String(mailError?.message || mailError);
+        const rateLimited = /too many requests|rate limit|429/i.test(message);
+        if (attempt === 3) {
+          console.error(`Broadcast email failed for ${address}:`, message);
+          return false;
+        }
+        await sleep(rateLimited ? 1200 * attempt : 400);
       }
     }
+    return false;
   };
 
   let sent = 0;
   const failed = [];
-  for (let i = 0; i < recipients.length; i += 8) {
-    const batch = recipients.slice(i, i + 8);
-    const results = await Promise.all(batch.map((address) => sendTo(address)));
-    results.forEach((ok, index) => {
-      if (ok) sent += 1;
-      else failed.push(batch[index]);
-    });
+  for (const address of recipients) {
+    const ok = await sendTo(address);
+    if (ok) sent += 1;
+    else failed.push(address);
+    await sleep(150);
   }
   if (failed.length > 0) console.error('Broadcast email: nedoručené adresy:', failed.join(', '));
   return sent;
