@@ -5701,10 +5701,32 @@ async function sendSmsToParents(parentProfileIds, title, body) {
   if (!smsConfigured() || parentProfileIds.length === 0) return 0;
   const { data: profiles, error } = await supabase
     .from('app_profiles')
-    .select('phone')
+    .select('id, phone')
     .in('id', parentProfileIds);
   if (error) throw error;
-  const numbers = Array.from(new Set((profiles || []).map((row) => normalizePhoneForSms(row.phone)).filter(Boolean)));
+  const phoneByProfile = new Map();
+  (profiles || []).forEach((row) => {
+    const number = normalizePhoneForSms(row.phone);
+    if (number) phoneByProfile.set(row.id, number);
+  });
+  // Rodič bez telefonu v profilu (registrace přes Apple/Google, starší účty):
+  // vezmeme číslo zapsané u jeho dítěte. Případ Putnová 16. 11. — zpráva o svátku
+  // ani o zpoždění trenéra jí nedošla, protože profil měl phone = null.
+  const missing = parentProfileIds.filter((id) => !phoneByProfile.has(id));
+  if (missing.length > 0) {
+    const { data: kids, error: kidsError } = await supabase
+      .from('participants')
+      .select('parent_profile_id, parent_phone')
+      .in('parent_profile_id', missing)
+      .not('parent_phone', 'is', null);
+    if (kidsError) throw kidsError;
+    (kids || []).forEach((row) => {
+      if (phoneByProfile.has(row.parent_profile_id)) return;
+      const number = normalizePhoneForSms(row.parent_phone);
+      if (number) phoneByProfile.set(row.parent_profile_id, number);
+    });
+  }
+  const numbers = Array.from(new Set(phoneByProfile.values()));
   if (numbers.length === 0) return 0;
 
   // Max 2 segmenty (318 znaků) — delší text patří do appky a e-mailu.
