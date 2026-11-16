@@ -7128,6 +7128,67 @@ app.get('/api/admin/coaches/:coachId/payout-readiness', asyncRoute(async (reques
   });
 }));
 
+// Kde jsou peníze z odeslané výplaty: transfer na Stripe účtu trenéra +
+// zůstatek a payouty jeho účtu (kdy dorazí na banku). Odpověď na „nic mi nedošlo".
+app.get('/api/admin/trainer-payouts/:coachId/:periodKey/status', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const coachId = requiredString(request.params.coachId, 'coachId');
+  const periodKey = requiredString(request.params.periodKey, 'periodKey');
+
+  const { data: row } = await supabase
+    .from('admin_coach_payout_transfers')
+    .select('*')
+    .eq('coach_id', coachId)
+    .eq('period_key', periodKey)
+    .maybeSingle();
+  if (!row) return response.json({ found: false });
+  if ((row.org_id || VYS_ORG_ID) !== orgId) throw httpError('Cizí organizace.', 403);
+
+  const payoutStripe = await requireOrgStripe(row.org_id || VYS_ORG_ID);
+  const result = { found: true, transfer: row, stripe: null, accountBalance: null, payouts: [], errors: [] };
+
+  if (row.stripe_transfer_id) {
+    try {
+      const transfer = await payoutStripe.transfers.retrieve(row.stripe_transfer_id);
+      result.stripe = {
+        id: transfer.id,
+        amountCzk: Math.round(transfer.amount / 100),
+        created: new Date(transfer.created * 1000).toISOString(),
+        destination: transfer.destination,
+        reversed: transfer.reversed,
+        amountReversedCzk: Math.round((transfer.amount_reversed || 0) / 100),
+      };
+    } catch (error) {
+      result.errors.push(`transfer: ${error.message}`);
+    }
+  }
+  if (row.stripe_account_id) {
+    try {
+      const balance = await payoutStripe.balance.retrieve({ stripeAccount: row.stripe_account_id });
+      const sum = (items) => Math.round((items || []).filter((i) => i.currency === 'czk').reduce((a, i) => a + i.amount, 0) / 100);
+      result.accountBalance = { availableCzk: sum(balance.available), pendingCzk: sum(balance.pending) };
+    } catch (error) {
+      result.errors.push(`balance: ${error.message}`);
+    }
+    try {
+      const payouts = await payoutStripe.payouts.list({ limit: 5 }, { stripeAccount: row.stripe_account_id });
+      result.payouts = (payouts.data || []).map((p) => ({
+        id: p.id,
+        amountCzk: Math.round(p.amount / 100),
+        status: p.status,
+        arrivalDate: new Date(p.arrival_date * 1000).toISOString().slice(0, 10),
+        method: p.method,
+        failureMessage: p.failure_message || null,
+      }));
+    } catch (error) {
+      result.errors.push(`payouts: ${error.message}`);
+    }
+  }
+  response.json(result);
+}));
+
 app.post('/api/admin/trainer-payouts', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireAdmin(request);
