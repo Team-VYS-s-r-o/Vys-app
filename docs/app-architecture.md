@@ -128,6 +128,11 @@ podle `invoices.gym_place`. Finance, smlouvy a faktury jen s oprávněním `fina
 (Leaflet dokument `lib/locations-map-html.ts` — iframe na webu, WebView v nativu). Stejná mapa pro admina
 je v aplikacevys.cz (`locations-overview-map.tsx`), ta si data skládá v prohlížeči.
 
+**Barvy koordinátorů na mapě:** kolečko špendlíku nese barvu koordinátora, kterému město patří (podle `products.region`);
+město bez koordinátora je černé. Barvy žijí v `organizations.feature_flags.coordinator_colors` (`{ <id>: '#RRGGBB' }`),
+bez uložené barvy se bere paleta podle pořadí založení. `GET /api/admin/coordinators/colors` (lehký seznam pro mapu),
+`PATCH /api/admin/coordinators/:id/color` (admin → Koordinátoři → „Barva na mapě").
+
 ---
 
 ## 3. Repo 2 — `aplikacevys.cz` (admin)

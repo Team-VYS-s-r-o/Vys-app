@@ -9740,6 +9740,79 @@ app.post('/api/coordinator/invoices', asyncRoute(async (request, response) => {
 
 // --- Admin správa koordinátorů -------------------------------------------
 
+// ── Barvy koordinátorů na mapě kroužků ──────────────────────────────────────
+// Každý koordinátor má svou barvu špendlíků. Ukládá se do nastavení organizace
+// (organizations.feature_flags.coordinator_colors = { <id>: '#RRGGBB' }); kdo
+// ji nastavenou nemá, dostane barvu z palety podle pořadí založení.
+const COORDINATOR_COLOR_PALETTE = ['#8B1DFF', '#1E88E5', '#F12BB3', '#1FB37A', '#FF7A1A', '#0FB5BA', '#E5484D', '#7A5AF8'];
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
+function coordinatorColorResolver(coordinatorRows, flags) {
+  const stored = flags?.coordinator_colors && typeof flags.coordinator_colors === 'object' ? flags.coordinator_colors : {};
+  const ordered = [...coordinatorRows].sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')) || String(a.id).localeCompare(String(b.id)));
+  const fallbackById = new Map(ordered.map((row, index) => [row.id, COORDINATOR_COLOR_PALETTE[index % COORDINATOR_COLOR_PALETTE.length]]));
+  return (coordinatorId) => (HEX_COLOR_PATTERN.test(String(stored[coordinatorId] || '')) ? String(stored[coordinatorId]).toUpperCase() : fallbackById.get(coordinatorId) || COORDINATOR_COLOR_PALETTE[0]);
+}
+
+// Lehký seznam pro mapu kroužků v Přehledu: kdo má který kraj, jakou barvu a
+// která města mu patří (podle products.region). Bez financí — ty počítá
+// těžký /api/admin/coordinators.
+app.get('/api/admin/coordinators/colors', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+
+  const { data: coordinatorRows, error: coordinatorError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id,region,created_at');
+  if (coordinatorError) throw coordinatorError;
+  const orgCoordinators = (coordinatorRows || []).filter((row) => (row.org_id || VYS_ORG_ID) === orgId);
+  if (orgCoordinators.length === 0) {
+    response.json({ coordinators: [] });
+    return;
+  }
+
+  const [peopleRes, productsRes, flags] = await Promise.all([
+    supabase.from('app_profiles').select('id,name,email').in('id', orgCoordinators.map((row) => row.id)),
+    supabase.from('products').select('city,region').eq('org_id', orgId).not('region', 'is', null),
+    orgFeatureFlags(orgId),
+  ]);
+  if (peopleRes.error) throw peopleRes.error;
+  if (productsRes.error) throw productsRes.error;
+  const colorOf = coordinatorColorResolver(orgCoordinators, flags);
+
+  response.json({
+    coordinators: orgCoordinators.map((row) => {
+      const person = (peopleRes.data || []).find((item) => item.id === row.id);
+      const cities = Array.from(new Set((productsRes.data || []).filter((product) => product.region === row.region).map((product) => String(product.city || '').trim()).filter(Boolean)));
+      return { id: row.id, name: person?.name || person?.email || 'Koordinátor', region: row.region, color: colorOf(row.id), cities };
+    }),
+  });
+}));
+
+app.patch('/api/admin/coordinators/:id/color', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAdmin(request);
+  const orgId = await adminOrgId(profile);
+  const id = requiredString(request.params.id, 'coordinator id');
+  const color = requiredString(request.body.color, 'color');
+  if (!HEX_COLOR_PATTERN.test(color)) throw httpError('Barva musí být ve tvaru #RRGGBB.', 400);
+
+  const { data: row, error: rowError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (rowError) throw rowError;
+  if (!row || (row.org_id || VYS_ORG_ID) !== orgId) throw httpError('Koordinátor nenalezen.', 404);
+
+  const flags = await orgFeatureFlags(orgId);
+  const colors = { ...(flags.coordinator_colors && typeof flags.coordinator_colors === 'object' ? flags.coordinator_colors : {}), [id]: color.toUpperCase() };
+  const { error: updateError } = await supabase.from('organizations').update({ feature_flags: { ...flags, coordinator_colors: colors } }).eq('id', orgId);
+  if (updateError) throw updateError;
+  response.json({ ok: true, color: color.toUpperCase() });
+}));
+
 app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
   requireServices();
   const profile = await requireAdmin(request);
@@ -9778,6 +9851,7 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
     profiles = data || [];
   }
 
+  const colorOf = coordinatorColorResolver(orgCoordinators, await orgFeatureFlags(orgId));
   const coordinators = [];
   for (const row of orgCoordinators) {
     const person = profiles.find((p) => p.id === row.id);
@@ -9790,6 +9864,7 @@ app.get('/api/admin/coordinators', asyncRoute(async (request, response) => {
       phone: person?.phone || null,
       profile_photo_url: row.profile_photo_url || null,
       region: row.region,
+      color: colorOf(row.id),
       percent: row.percent ?? 30,
       commissionEnabled,
       payoutMethod: row.payout_method || 'invoice',
