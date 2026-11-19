@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, RotateCcw, Send } from 'lucide-react';
+import { ArrowRight, BatteryFull, RotateCcw, Send, Signal, Wifi } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
@@ -289,6 +289,8 @@ export function VysBotChat() {
   const [chips, setChips] = useState<string[]>(DEFAULT_CHIPS);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
+  /** Živý čas do status baru telefonu (až po mountu — kvůli hydrataci). */
+  const [clock, setClock] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
   /** Zvýší se při resetu — zahodí odpovědi AI, které dorazí po restartu chatu. */
@@ -305,6 +307,14 @@ export function VysBotChat() {
     const node = scrollRef.current;
     if (node) node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' });
   }, [messages, typing]);
+
+  // Hodiny ve status baru telefonu.
+  useEffect(() => {
+    const update = () => setClock(new Date().toLocaleTimeString('cs-CZ', { hour: 'numeric', minute: '2-digit' }));
+    update();
+    const interval = setInterval(update, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   function queueBotMessages(texts: string[], links: BotLink[] | undefined, followUps: string[] | undefined, startDelay = 650) {
     setTyping(true);
@@ -391,8 +401,32 @@ export function VysBotChat() {
     .filter((entry): entry is KnowledgeEntry => Boolean(entry));
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-[0_32px_120px_rgba(12,10,28,0.45)]">
-      {/* Hlavička chatu s kočkou */}
+    // Chat jako velký telefon — rám s bočními tlačítky, uvnitř „displej" s chatem.
+    <div className="relative mx-auto w-full max-w-[500px]">
+      {/* Rám telefonu */}
+      <div className="relative rounded-[44px] bg-gradient-to-b from-[#2b2836] via-[#1b1925] to-[#232031] p-[9px] shadow-[0_44px_140px_rgba(12,10,28,0.65)] ring-1 ring-white/10 md:rounded-[52px] md:p-[11px]">
+        {/* Boční tlačítka */}
+        <span aria-hidden className="absolute -left-[2.5px] top-[112px] h-8 w-[3px] rounded-l-md bg-[#3c394a]" />
+        <span aria-hidden className="absolute -left-[2.5px] top-[164px] h-14 w-[3px] rounded-l-md bg-[#3c394a]" />
+        <span aria-hidden className="absolute -left-[2.5px] top-[232px] h-14 w-[3px] rounded-l-md bg-[#3c394a]" />
+        <span aria-hidden className="absolute -right-[2.5px] top-[176px] h-20 w-[3px] rounded-r-md bg-[#3c394a]" />
+
+        {/* Displej */}
+        <div className="relative overflow-hidden rounded-[35px] border border-white/5 bg-[#0d0b16] md:rounded-[41px]">
+          {/* Status bar s dynamic islandem */}
+          <div className="relative flex items-center justify-between px-7 pb-1.5 pt-3.5 text-[13px] font-black text-white">
+            <span className="w-16 tabular-nums" suppressHydrationWarning>
+              {clock}
+            </span>
+            <span aria-hidden className="absolute left-1/2 top-2.5 h-[25px] w-[92px] -translate-x-1/2 rounded-full bg-black ring-1 ring-white/10" />
+            <span aria-hidden className="flex w-16 items-center justify-end gap-1.5 text-white/90">
+              <Signal size={14} />
+              <Wifi size={14} />
+              <BatteryFull size={19} />
+            </span>
+          </div>
+
+          {/* Hlavička chatu s kočkou */}
       <div className="relative flex items-center gap-4 border-b border-white/10 bg-white/[0.04] px-5 py-4 md:px-6">
         <motion.div
           animate={{ y: [0, -5, 0] }}
@@ -419,7 +453,7 @@ export function VysBotChat() {
       </div>
 
       {/* Zprávy */}
-      <div ref={scrollRef} className="h-[420px] overflow-y-auto px-4 py-5 md:h-[480px] md:px-6 [scrollbar-width:thin]">
+      <div ref={scrollRef} className="h-[400px] overflow-y-auto px-4 py-5 md:h-[480px] md:px-6 [scrollbar-width:thin]">
         <div className="grid gap-3">
           <AnimatePresence initial={false}>
             {messages.map((message) => (
@@ -544,6 +578,13 @@ export function VysBotChat() {
           <Send size={18} />
         </button>
       </form>
+
+          {/* Home indikátor */}
+          <div className="flex justify-center bg-white/[0.04] pb-2.5 pt-1">
+            <span aria-hidden className="h-[4.5px] w-32 rounded-full bg-white/25" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

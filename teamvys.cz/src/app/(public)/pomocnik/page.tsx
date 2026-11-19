@@ -43,7 +43,7 @@ export default function PomocnikPage() {
     <div className="bg-[#0B0B10] text-white">
       <PageHero eyebrow="VYS pomocník" title="Zeptej se VYS kočky" word="pomoc" />
 
-      <section className="section-shell grid gap-6 py-16 md:py-24 lg:grid-cols-[1.6fr_1fr]">
+      <section className="section-shell grid gap-10 py-16 md:py-24 lg:grid-cols-[1.25fr_1fr] lg:items-center">
         {/* Chat */}
         <VysBotChat />
 
