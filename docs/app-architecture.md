@@ -303,3 +303,12 @@ git -c credential.helper= -c "http.https://github.com/.extraheader=Authorization
 - **POZOR: „VYSE" není „VYS".** Složka `~/Desktop/VYSE-vše/` a Vercel projekty `vyse` / `vyse-app`
   patří k **úplně jinému, staršímu Davidovu projektu** (appka na online coaching) a s Team VYS
   nemají nic společného. Nemíchat je dohromady.
+
+## Elektronické podpisy dokumentů rodičů (od 19. 11. 2026)
+
+- Rodič podepisuje sloty z `document_slots` (šablona `document_templates.body` = intro/clauses/fields) v `vys-aplikace/components/document-slots-checklist.tsx`; brána před platbou `components/purchase-doc-gate.tsx` + server `assertRequiredDocumentsSigned`.
+- **Podpis zapisuje jen server:** `POST /api/course-documents/sign` (`requireParentOrAdmin` + `assertParticipantAccessible`). Ukládá do `course_documents` navíc `signed_by_profile_id`, `signed_by_role` (parent / participant / **admin = zapsáno za rodiče**), `signed_at`, `signed_ip`, `signed_user_agent`, `template_snapshot` (celá šablona, jak ji rodič viděl), `template_version` (sha256 + updated_at), `legal_version`, `app_version`. Nahraný sken jde stejným endpointem (`scan: {path, filename}`), soubor se nahrává do storage z klienta.
+- **Verzování:** podepsaný řádek se nikdy nepřepisuje. Nový podpis téhož slotu = nový řádek `version+1` (id s příponou `-v<N>`), starý dostane `superseded_by`. Čtení aktuálního stavu vždy filtrovat `superseded_by is null` (appka, admin, `assertRequiredDocumentsSigned`, vstupenka).
+- **RLS** `course_documents parent write`: rodič z klienta nesmí vkládat/měnit řádky se `status='signed'` (čtení přes `scoped read` zůstává). Migrace `20261119120000_course_documents_signature_provenance.sql`.
+- Po podpisu jde rodiči automatický e-mail (SMTP přes `paymentEmailer`, jen Team VYS org) se zněním dokumentu, hodnotami a časem podpisu.
+- Admin (aplikacevys.cz, sekce dokumentů) ukazuje u podepsaného řádku kdo · kdy přesně · roli · verzi · IP a náhled „Znění dokumentu v okamžiku podpisu“ ze snapshotu.

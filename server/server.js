@@ -4616,7 +4616,8 @@ async function assertRequiredDocumentsSigned(product, participantId, participant
     .select('id,slot_id,status,product_id')
     .eq('participant_id', participantId)
     .in('product_id', [product.id, baseProductId])
-    .eq('status', 'signed');
+    .eq('status', 'signed')
+    .is('superseded_by', null);
   if (docsError) throw docsError;
   const signedSlotIds = new Set((docs || []).map((doc) => doc.slot_id).filter(Boolean));
   const missing = requiredSlots.filter((slot) => !signedSlotIds.has(slot.id));
@@ -5401,7 +5402,7 @@ app.get('/api/ticket/:purchaseId', asyncRoute(async (request, response) => {
       : Promise.resolve({ data: null }),
     supabase.from('digital_passes').select('total_entries,used_entries,expires_at').eq('id', `pass-${purchase.id}`).maybeSingle(),
     purchase.participant_id
-      ? supabase.from('course_documents').select('title,kind,status,signed_at_text,parent_name').eq('participant_id', purchase.participant_id).eq('product_id', purchase.product_id)
+      ? supabase.from('course_documents').select('title,kind,status,signed_at_text,parent_name').eq('participant_id', purchase.participant_id).eq('product_id', purchase.product_id).is('superseded_by', null)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -5447,6 +5448,299 @@ app.get('/api/ticket/:purchaseId', asyncRoute(async (request, response) => {
   <p style="text-align:center;color:#6B6580;font-size:12px;margin-top:18px">Team VYS · teamvys.cz</p>
 </div>
 </body></html>`);
+}));
+
+// ---------------------------------------------------------------------------
+// Elektronické podpisy dokumentů rodičů — prokazatelná verze (11/2026)
+//
+// Právní audit 19. 11. 2026: prostý e-podpis platí, ale chyběla prokazatelnost
+// (kdo, kdy přesně, jaký text viděl, odkud). Podpis proto zapisuje jen server:
+// doplní auth uid a roli podepisujícího, přesný čas, IP + user-agent, snapshot
+// šablony ve chvíli podpisu a její verzi. Podepsaný řádek se nikdy nepřepisuje —
+// nový podpis téhož slotu vloží řádek s version+1 a starý dostane superseded_by.
+// Rodič z klienta už řádky se status='signed' zapisovat nesmí (RLS, migrace
+// course_documents_signature_provenance).
+// ---------------------------------------------------------------------------
+function requestClientIp(request) {
+  const forwarded = String(request.headers['x-forwarded-for'] || '');
+  return (forwarded.split(',')[0] || request.ip || '').trim() || null;
+}
+
+function requestUserAgent(request) {
+  const ua = String(request.headers['user-agent'] || '').trim();
+  return ua ? ua.slice(0, 512) : null;
+}
+
+function templateVersionOf(body, updatedAt) {
+  const hash = crypto.createHash('sha256').update(JSON.stringify(body || {})).digest('hex').slice(0, 16);
+  return `sha256:${hash}${updatedAt ? `@${updatedAt}` : ''}`;
+}
+
+function pragueDateTimeText(date) {
+  return date.toLocaleString('cs-CZ', { timeZone: 'Europe/Prague', day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// Vloží NOVÝ podepsaný řádek pro slot a dosavadní platné verze označí superseded_by.
+// Id první verze zůstává ve starém tvaru `slot-<dítě>-<nákup>-<slot>` (kompatibilita
+// s existujícími řádky i adminem), další verze mají příponu `-v<N>`.
+async function insertSignedCourseDocument(row) {
+  const { data: existing, error: existingError } = await supabase
+    .from('course_documents')
+    .select('id,version,superseded_by')
+    .eq('participant_id', row.participant_id)
+    .eq('purchase_id', row.purchase_id)
+    .eq('slot_id', row.slot_id);
+  if (existingError) throw existingError;
+
+  const rows = existing || [];
+  const maxVersion = rows.reduce((max, doc) => Math.max(max, Number(doc.version) || 1), 0);
+  const version = maxVersion + 1;
+  const baseId = `slot-${row.participant_id}-${row.purchase_id}-${row.slot_id}`;
+  const id = version === 1 ? baseId : `${baseId}-v${version}`;
+
+  const { data, error } = await supabase
+    .from('course_documents')
+    .insert({ ...row, id, version, superseded_by: null })
+    .select('id,version,signed_at,title')
+    .single();
+  if (error) throw error;
+
+  const currentIds = rows.filter((doc) => !doc.superseded_by).map((doc) => doc.id);
+  if (currentIds.length > 0) {
+    const { error: supersedeError } = await supabase
+      .from('course_documents')
+      .update({ superseded_by: id })
+      .in('id', currentIds);
+    if (supersedeError) throw supersedeError;
+  }
+  return data;
+}
+
+function formatSignedValue(field, value) {
+  if (field.type === 'check') return value === true ? 'Ano' : 'Ne';
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text || '—';
+}
+
+// Automatické potvrzení rodiči: text dokumentu, vyplněné hodnoty a čas podpisu.
+// Jen pro Team VYS (branding e-mailu); cizí organizace mají potvrzení v aplikaci.
+async function sendDocumentSignedEmail({ to, document, product, participantName, parentName, signedAt, mode, snapshot, payload, signedByRole }) {
+  if (!to) return false;
+  const emailer = paymentEmailer();
+  if (!emailer) {
+    console.info(`Document signature email skipped for ${document.id}: SMTP is not configured.`);
+    return false;
+  }
+
+  const when = `${pragueDateTimeText(signedAt)} (Europe/Prague)`;
+  const how = mode === 'scan' ? 'nahraný podepsaný dokument (sken)' : 'elektronicky v aplikaci';
+  const who = signedByRole === 'admin' ? `${parentName} (zapsal administrátor organizace)` : parentName;
+  const fields = Array.isArray(snapshot?.fields) ? snapshot.fields : [];
+  const clauses = Array.isArray(snapshot?.clauses) ? snapshot.clauses : [];
+
+  const textLines = [
+    'Dobrý den,',
+    '',
+    `potvrzujeme, že byl podepsán dokument „${document.title}“.`,
+    '',
+    `Dítě: ${participantName}`,
+    `Aktivita: ${product.title}${product.place ? ` · ${product.place}` : ''}`,
+    `Podepsal(a): ${who}`,
+    `Čas podpisu: ${when}`,
+    `Způsob: ${how}`,
+    `Verze podpisu: ${document.version}`,
+  ];
+  let extraHtml = '';
+  if (mode !== 'scan') {
+    textLines.push('', 'Znění dokumentu v okamžiku podpisu:');
+    if (snapshot?.intro) textLines.push(snapshot.intro);
+    clauses.forEach((clause, index) => textLines.push(`${index + 1}. ${clause}`));
+    textLines.push('', 'Vyplněné údaje:');
+    for (const field of fields) textLines.push(`${field.label}: ${formatSignedValue(field, payload[field.id])}`);
+    textLines.push(`Podpis: ${payload.signature || parentName}`);
+
+    extraHtml = `<div style="margin:16px 0;padding:16px;border:1px solid rgba(20,14,38,0.10);border-radius:14px;background:#FAF9FD">
+      <p style="margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:#6B6580">Znění dokumentu v okamžiku podpisu</p>
+      ${snapshot?.intro ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;color:#140E26">${escapeHtml(snapshot.intro)}</p>` : ''}
+      ${clauses.map((clause, index) => `<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#3F3A52"><b>${index + 1}.</b> ${escapeHtml(clause)}</p>`).join('')}
+      <p style="margin:14px 0 8px;font-size:12px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;color:#6B6580">Vyplněné údaje</p>
+      <table style="border-collapse:collapse;font-size:13px;width:100%">
+        ${fields.map((field) => `<tr><td style="padding:4px 12px 4px 0;color:#3F3A52;vertical-align:top">${escapeHtml(field.label)}</td><td style="padding:4px 0;font-weight:700;color:#140E26;vertical-align:top">${escapeHtml(formatSignedValue(field, payload[field.id]))}</td></tr>`).join('')}
+        <tr><td style="padding:4px 12px 4px 0;color:#3F3A52">Podpis</td><td style="padding:4px 0;font-weight:700;color:#140E26">${escapeHtml(String(payload.signature || parentName))}</td></tr>
+      </table>
+    </div>`;
+  }
+  textLines.push('', 'Tento e-mail je automatické potvrzení a slouží jako doklad o podpisu. Uschovejte si ho prosím.', '', 'Děkujeme, Team VYS s.r.o.');
+
+  await emailer.sendMail({
+    from: smtpFrom,
+    to,
+    subject: `Potvrzení podpisu — ${document.title}`,
+    text: textLines.join('\n'),
+    html: brandEmailHtml({
+      heading: 'Dokument podepsán ✍️',
+      intro: `potvrzujeme, že byl podepsán dokument <b>${escapeHtml(document.title)}</b>. Tento e-mail je automatické potvrzení a slouží jako doklad o podpisu.`,
+      rows: [
+        ['Dítě', participantName],
+        ['Aktivita', `${product.title}${product.place ? ` · ${product.place}` : ''}`],
+        ['Podepsal(a)', who],
+        ['Čas podpisu', when],
+        ['Způsob', how],
+        ['Verze podpisu', String(document.version)],
+      ],
+      extraHtml,
+      outro: 'Uschovejte si prosím toto potvrzení.',
+    }),
+  });
+  return true;
+}
+
+app.post('/api/course-documents/sign', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+
+  const participantId = requiredString(request.body.participantId, 'participantId');
+  await assertParticipantAccessible(actor, participantId);
+  const slotId = requiredString(request.body.slotId, 'slotId');
+  const productId = requiredString(request.body.productId, 'productId');
+  const purchaseId = requiredString(request.body.purchaseId, 'purchaseId');
+  const signature = optionalString(request.body.signature);
+  const values = request.body.values && typeof request.body.values === 'object' && !Array.isArray(request.body.values) ? request.body.values : {};
+  const scan = request.body.scan && typeof request.body.scan === 'object' ? request.body.scan : null;
+  const mode = scan ? 'scan' : 'electronic';
+
+  const product = await getProduct(productId);
+  const orgId = product.org_id || VYS_ORG_ID;
+  const baseProductId = String(product.id).replace(/-15$/, '');
+
+  const { data: slot, error: slotError } = await supabase
+    .from('document_slots')
+    .select('id,org_id,label,fulfillment,required,active,activity_type,product_id,template_id')
+    .eq('id', slotId)
+    .maybeSingle();
+  if (slotError) throw slotError;
+  if (!slot || !slot.active) throw httpError('Dokument k podpisu nebyl nalezen.', 404);
+  if (String(slot.org_id) !== String(orgId)) throw httpError('Dokument nepatří k organizaci tohoto produktu.', 403);
+  if (slot.product_id && slot.product_id !== product.id && slot.product_id !== baseProductId) throw httpError('Dokument nepatří k tomuto produktu.', 400);
+
+  const { data: participant, error: participantError } = await supabase
+    .from('participants')
+    .select('first_name,last_name,parent_profile_id')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (participantError) throw participantError;
+  const participantName = optionalString(request.body.participantName)
+    || [participant?.first_name, participant?.last_name].filter(Boolean).join(' ').trim()
+    || 'Účastník';
+
+  const now = new Date();
+  let payload = {};
+  let templateSnapshot = null;
+  let templateVersion = null;
+  let scanColumns = {};
+
+  if (mode === 'scan') {
+    const scanPath = requiredString(scan.path, 'scan.path');
+    const scanFilename = requiredString(scan.filename, 'scan.filename');
+    if (actor.role !== 'admin' && !scanPath.startsWith(`${actor.id}/${participantId}/`)) {
+      throw httpError('Nahraný soubor nepatří k tomuto účtu.', 403);
+    }
+    scanColumns = { scan_path: scanPath, scan_filename: scanFilename, scan_uploaded_at: now.toISOString() };
+  } else {
+    if (slot.fulfillment !== 'electronic') throw httpError('Tento dokument se nahrává podepsaný jako sken, ne elektronicky.', 400);
+    if (!slot.template_id) throw httpError('Šablona dokumentu není dostupná.', 409);
+    const { data: template, error: templateError } = await supabase
+      .from('document_templates')
+      .select('id,name,kind,body,updated_at')
+      .eq('id', slot.template_id)
+      .maybeSingle();
+    if (templateError) throw templateError;
+    if (!template || template.kind !== 'electronic' || !template.body || typeof template.body !== 'object') {
+      throw httpError('Šablona dokumentu není dostupná.', 409);
+    }
+    const fields = Array.isArray(template.body.fields) ? template.body.fields : [];
+    if (!signature) throw httpError('Podepište dokument svým jménem a příjmením.', 400);
+    for (const field of fields) {
+      if (!field || !field.required) continue;
+      const value = values[field.id];
+      const missing = field.type === 'check' ? value !== true : !(typeof value === 'string' && value.trim());
+      if (missing) throw httpError(`Vyplňte prosím „${field.label}“.`, 400);
+    }
+    payload = { signature };
+    for (const field of fields) {
+      if (!field?.id) continue;
+      const value = values[field.id];
+      payload[field.id] = field.type === 'check' ? value === true : (typeof value === 'string' ? value.trim().slice(0, 4000) : '');
+    }
+    templateSnapshot = {
+      templateId: template.id,
+      name: template.name,
+      updatedAt: template.updated_at,
+      intro: typeof template.body.intro === 'string' ? template.body.intro : null,
+      clauses: Array.isArray(template.body.clauses) ? template.body.clauses : [],
+      fields,
+    };
+    templateVersion = templateVersionOf(template.body, template.updated_at);
+  }
+
+  const parentName = signature || optionalString(actor.name) || 'Zákonný zástupce';
+  const signedAtText = `${pragueDateTimeText(now)} · ${mode === 'scan' ? 'naskenováno' : 'elektronicky'}${actor.role === 'admin' ? ' · zapsal admin' : ''}`;
+  const activityType = ['Kroužek', 'Tábor', 'Workshop'].includes(String(slot.activity_type)) ? slot.activity_type : (product.type || 'Kroužek');
+
+  const document = await insertSignedCourseDocument({
+    participant_id: participantId,
+    participant_name: participantName,
+    purchase_id: purchaseId,
+    product_id: product.id,
+    activity_type: activityType,
+    org_id: orgId,
+    slot_id: slot.id,
+    kind: 'custom',
+    title: slot.label,
+    status: 'signed',
+    parent_name: parentName,
+    course_place: product.place || '',
+    payload,
+    signed_at_text: signedAtText,
+    updated_at_text: pragueDateTimeText(now),
+    signed_by_profile_id: actor.id,
+    signed_by_role: actor.role,
+    signed_at: now.toISOString(),
+    signed_ip: requestClientIp(request),
+    signed_user_agent: requestUserAgent(request),
+    template_snapshot: templateSnapshot,
+    template_version: templateVersion,
+    legal_version: optionalString(request.body.legalVersion),
+    app_version: optionalString(request.body.appVersion),
+    ...scanColumns,
+  });
+
+  let emailed = false;
+  if (String(orgId) === VYS_ORG_ID) {
+    try {
+      const recipientProfileId = participant?.parent_profile_id || (actor.role !== 'admin' ? actor.id : null);
+      const to = await profileReceiptEmail(recipientProfileId, actor.role !== 'admin' ? actor.email : null);
+      emailed = await sendDocumentSignedEmail({
+        to,
+        document,
+        product,
+        participantName,
+        parentName,
+        signedAt: now,
+        mode,
+        snapshot: templateSnapshot,
+        payload,
+        signedByRole: actor.role,
+      });
+    } catch (error) {
+      console.error(`Document signature email failed for ${document.id}:`, error);
+    }
+  }
+
+  response.status(201).json({
+    document: { id: document.id, version: document.version, signedAt: document.signed_at, title: document.title, status: 'signed' },
+    emailed,
+  });
 }));
 
 app.post('/api/course-documents', asyncRoute(async (request, response) => {
@@ -5507,6 +5801,11 @@ app.post('/api/course-documents', asyncRoute(async (request, response) => {
       },
       signed_at_text: now.toLocaleDateString('cs-CZ'),
       updated_at_text: now.toLocaleString('cs-CZ'),
+      signed_by_profile_id: actor.id,
+      signed_by_role: actor.role,
+      signed_at: now.toISOString(),
+      signed_ip: requestClientIp(request),
+      signed_user_agent: requestUserAgent(request),
     };
   });
 
