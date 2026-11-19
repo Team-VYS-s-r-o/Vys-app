@@ -1,10 +1,10 @@
-import { Mail, MapPin, Phone } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
 
 import { GoogleReviewFooterLink } from '@/components/google-review';
 import Link from 'next/link';
 
 import { TeamVysLogo } from '@/components/brand/team-vys-logo';
-import { contacts } from '@shared/content';
+import { contacts, phoneLines } from '@shared/content';
 
 import { loadCities } from '@/lib/cities';
 
@@ -21,12 +21,12 @@ export async function SiteFooter() {
   const cities = await loadCities();
 
   return (
-    <footer className="relative overflow-hidden border-t border-white/10 bg-brand-ink px-4 pt-10 pb-8 text-white sm:px-6">
+    <footer className="relative overflow-hidden border-t border-white/10 bg-brand-ink px-4 pt-12 pb-8 text-white sm:px-6">
       <div aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-brand" />
       <div aria-hidden className="absolute inset-0 diagonal-rails opacity-[0.08]" />
 
       <div className="relative mx-auto w-full max-w-[1180px]">
-        <div className="grid gap-9 sm:grid-cols-2 md:grid-cols-[1.35fr_0.8fr_0.95fr]">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.25fr_0.65fr_1fr_1fr]">
           <div className="flex flex-col gap-3">
             <Link href="/" aria-label="Přejít na úvodní stránku" className="flex items-center gap-3 transition-opacity hover:opacity-80">
               <TeamVysLogo size={44} />
@@ -38,12 +38,8 @@ export async function SiteFooter() {
               Digitální platforma pro dětské sportovní organizace — docházka, platby, gamifikace a mobilní
               aplikace v jednom. Powered by Team VYS, parkourovým klubem, který na ní denně jede.
             </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {contacts.cities.slice(0, 4).map((city) => (
-                <span key={city} className="rounded-brand border border-white/[0.12] bg-white/[0.06] px-3 py-1.5 text-xs font-bold text-white/[0.72]">
-                  {city}
-                </span>
-              ))}
+            <div className="mt-1 text-sm font-semibold text-white/70">
+              <GoogleReviewFooterLink />
             </div>
           </div>
 
@@ -56,20 +52,43 @@ export async function SiteFooter() {
             ))}
           </div>
 
-          <div className="flex flex-col gap-3 sm:col-span-2 md:col-span-1">
+          {/* Tři linky podle regionu — rodič volá rovnou tomu, kdo jeho město řeší. */}
+          <div className="flex flex-col gap-3">
+            <h3 className="mb-1 text-[13px] font-black uppercase text-brand-pink">Zavolej nám</h3>
+            {phoneLines.map((line) => (
+              <Link
+                key={line.number}
+                href={`tel:+420${line.number.replaceAll(' ', '')}`}
+                className="group rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 transition-colors hover:border-brand-purple/50"
+              >
+                <p className="text-[11px] font-bold uppercase tracking-wide text-white/45">{line.label}</p>
+                <p className="mt-0.5 flex items-center gap-2 text-sm font-black text-white">
+                  <Phone size={14} className="text-brand-pink transition-transform group-hover:-rotate-12" />
+                  {line.number}
+                </p>
+              </Link>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-3 sm:col-span-2 lg:col-span-1">
             <h3 className="mb-1 text-[13px] font-black uppercase text-brand-pink">Spojení</h3>
             <FooterContact icon={<Mail size={16} />} value={contacts.email} href={`mailto:${contacts.email}`} />
-            <FooterContact icon={<Phone size={16} />} value={contacts.phone} href={`tel:${contacts.phone.replaceAll(' ', '')}`} />
-            <FooterContact icon={<MapPin size={16} />} value={contacts.cities.join(', ')} />
-            <p className="text-sm leading-6 text-white/[0.58]">Team VYS s.r.o. · IČO {contacts.ico}{contacts.bank ? ` · ${contacts.bank}` : ''}</p>
-            <div className="mt-1 text-sm font-semibold text-white/70">
-              <GoogleReviewFooterLink />
-            </div>
+            <p className="text-sm leading-6 text-white/[0.58]">
+              Team VYS s.r.o.
+              <br />
+              IČO {contacts.ico}
+              {contacts.bank ? (
+                <>
+                  <br />
+                  Účet {contacts.bank}
+                </>
+              ) : null}
+            </p>
           </div>
         </div>
 
         {cities.length ? (
-          <div className="mt-8 border-t border-white/10 pt-5">
+          <div className="mt-9 border-t border-white/10 pt-5">
             <h3 className="mb-2 text-[13px] font-black uppercase text-brand-pink">Parkour podle města</h3>
             <div className="flex flex-wrap gap-x-3 gap-y-1.5">
               {cities.map((city) => (
@@ -87,7 +106,7 @@ export async function SiteFooter() {
 
         <div className="mt-8 border-t border-white/10 pt-5">
           <p className="text-xs leading-[18px] text-white/[0.55]">
-            © {new Date().getFullYear()} Team VYS s.r.o. · Vyškov · Prostějov · Blansko · Brandýs · Jeseník · Šumperk · Písečná · Jesenice · Praha
+            © {new Date().getFullYear()} Team VYS s.r.o. · Parkour kroužky, tábory a workshopy pro děti
           </p>
         </div>
       </div>

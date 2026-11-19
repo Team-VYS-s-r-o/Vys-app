@@ -125,3 +125,24 @@ export const contacts: Contacts = {
   social: ['Instagram', 'YouTube', 'Facebook', 'WhatsApp'],
   cities: ['Vyškov', 'Prostějov', 'Blansko', 'Brandýs', 'Jeseník', 'Veliny'],
 };
+
+/** Telefonní linky podle regionu — každé číslo obsluhuje jiná část klubu. */
+export type PhoneLine = {
+  number: string;
+  /** Pro koho linka je — zobrazuje se v patičce a na Kontaktech. */
+  label: string;
+  /** Slugy měst z `/parkour/<slug>`, které linka obsluhuje. Bez výčtu = všechna ostatní. */
+  citySlugs?: string[];
+};
+
+export const phoneLines: PhoneLine[] = [
+  { number: '734 167 417', label: 'Brandýs, Vršovice a Zdiměřice', citySlugs: ['brandys', 'vrsovice', 'zdimerice'] },
+  { number: '601 290 140', label: 'Hradec Králové', citySlugs: ['hradec-kralove'] },
+  { number: '602 120 115', label: 'Ostatní města' },
+];
+
+/** Číslo pro dané město; město bez vlastní linky spadá na „ostatní města". */
+export function phoneForCity(slug: string): string {
+  const line = phoneLines.find((l) => l.citySlugs?.includes(slug)) ?? phoneLines[phoneLines.length - 1];
+  return line.number;
+}

@@ -2,7 +2,7 @@ import { ArrowRight, Mail, MapPin, Phone } from 'lucide-react';
 import Link from 'next/link';
 
 import { PageHero } from '@/components/page-hero';
-import { contacts } from '@shared/content';
+import { contacts, phoneLines } from '@shared/content';
 
 export const metadata = {
   title: 'Kontakty',
@@ -57,7 +57,16 @@ export default function ContactsPage() {
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
           <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Spojení</p>
           <div className="mt-6 grid gap-3">
-            <ContactRow icon={<Phone size={18} />} label="Telefon" value={contacts.phone} href={`tel:${contacts.phone.replaceAll(' ', '')}`} />
+            {/* Tři linky podle regionu — každé město má svého člověka. */}
+            {phoneLines.map((line) => (
+              <ContactRow
+                key={line.number}
+                icon={<Phone size={18} />}
+                label={line.label}
+                value={line.number}
+                href={`tel:+420${line.number.replaceAll(' ', '')}`}
+              />
+            ))}
             <ContactRow icon={<Mail size={18} />} label="E-mail" value={contacts.email} href={`mailto:${contacts.email}`} />
             <ContactRow icon={<MapPin size={18} />} label="Města" value={contacts.cities.join(', ')} />
           </div>
