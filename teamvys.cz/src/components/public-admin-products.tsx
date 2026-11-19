@@ -398,6 +398,13 @@ export function PublicCourseCatalog() {
         </p>
       </Reveal>
 
+      {/* Mapa jde první — rodič nejdřív najde své město, klik na něj sjede na kartu. */}
+      {courseGroups.length > 0 ? (
+        <Reveal>
+          <CourseLocationsMap locations={courseGroups.map((group) => ({ city: group[0].city, venue: group[0].venue, latitude: group[0].latitude, longitude: group[0].longitude }))} onCityPick={handleCityPick} />
+        </Reveal>
+      ) : null}
+
       <CatalogState loading={loading} error={error} empty={!loading && courses.length === 0} emptyTitle="Žádné kroužky nejsou aktuálně vypsané" emptyText="Jakmile admin zveřejní lokalitu v databázi, objeví se tady s aktuální kapacitou." loadingSkeleton={<CourseCatalogSkeleton />} />
 
       {courseGroups.length > 1 ? (
@@ -428,11 +435,6 @@ export function PublicCourseCatalog() {
         </div>
       ) : null}
 
-      {courseGroups.length > 0 ? (
-        <Reveal>
-          <CourseLocationsMap locations={courseGroups.map((group) => ({ city: group[0].city, venue: group[0].venue, latitude: group[0].latitude, longitude: group[0].longitude }))} onCityPick={handleCityPick} />
-        </Reveal>
-      ) : null}
     </section>
   );
 }
