@@ -556,15 +556,33 @@ function CourseCardSkeleton() {
   );
 }
 
-/** Tři karty ve stejně širokém karuselu jako ostrý seznam, ať obsah po načtení nepřeskočí. */
+/**
+ * Obrys celé nabídky v pořadí, v jakém se pak vykreslí: nejdřív mapa „Kde nás
+ * najdeš" (hlavička + plocha mapy se stejnou výškou), pod ní tři karty ve stejně
+ * širokém karuselu jako ostrý seznam — po načtení nic nepřeskočí.
+ */
 export function CourseCatalogSkeleton() {
   return (
-    <div className="mt-4 flex animate-pulse items-stretch gap-4 overflow-hidden pb-4 pt-2 sm:gap-5" aria-hidden="true">
-      {[0, 1, 2].map((index) => (
-        <div key={index} className="w-[91%] shrink-0 sm:w-[47%] xl:w-[31.5%]">
-          <CourseCardSkeleton />
+    <div className="animate-pulse" aria-hidden="true">
+      <div className="mt-10">
+        <div className="flex items-center gap-3">
+          <SkeletonBlock className="h-10 w-10 shrink-0 rounded-xl" />
+          <div className="grid gap-1.5">
+            <SkeletonBlock className="h-6 w-44" />
+            <SkeletonBlock className="h-3.5 w-56" />
+          </div>
         </div>
-      ))}
+        <SkeletonBlock className="mt-4 h-[380px] w-full rounded-[24px] md:h-[460px]" />
+      </div>
+      {/* řádek „Potáhni prstem pro další lokality" — drží stejný odstup jako ostrá stránka */}
+      <SkeletonBlock className="mx-auto mt-6 h-4 w-64" />
+      <div className="mt-[25px] flex items-stretch gap-4 overflow-hidden pb-4 pt-2 sm:gap-5">
+        {[0, 1, 2].map((index) => (
+          <div key={index} className="w-[91%] shrink-0 sm:w-[47%] xl:w-[31.5%]">
+            <CourseCardSkeleton />
+          </div>
+        ))}
+      </div>
       <span className="sr-only">Načítám aktuální nabídku kroužků…</span>
     </div>
   );
