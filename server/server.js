@@ -8230,7 +8230,7 @@ function monthKeyFromPeriodLabel(label) {
 async function computeRegionFinance(orgId, region, percent, coordinatorId, commissionEnabled = true) {
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,gym_contact,price,price_label,entries_total,billing_model,membership_months,membership_valid_until,capacity_total,capacity_current,coach_ids,is_published,interest_mode,region,event_date,hero_image,primary_meta')
+    .select('id,type,title,city,place,venue,gym_contact,price,price_label,entries_total,billing_model,membership_months,membership_valid_until,capacity_total,capacity_current,coach_ids,is_published,interest_mode,region,event_date,hero_image,primary_meta,latitude,longitude')
     .eq('org_id', orgId)
     .eq('region', region)
     .order('created_at', { ascending: false });
@@ -8499,7 +8499,204 @@ async function computeRegionFinance(orgId, region, percent, coordinatorId, commi
     invoices: invoices || [],
     payouts: payouts || [],
     finance: { revenue, coachCost, invoiceCost, rentCost, marketingCost, systemFeeCzk, net, percent, commissionEnabled, commission, paidOut, owed, commissionTiers },
+    // Odtrénované lekce s cenou nájmu — vstup pro mapu měst (buildRegionLocations); do odpovědí se neposílá.
+    rentLessons: Array.from(rentLessons.values()).map((lesson) => ({ place: lesson.place, dateIso: lesson.dateIso, cost: Math.round(lesson.hours * rentRateFor(lesson.place)) })),
   };
+}
+
+// ── Mapa měst koordinátora ──────────────────────────────────────────────────
+// Rozpad kraje po městech pro mapu v přehledu koordinátora (stejný obsah jako
+// mapa kroužků v adminu): kdo tam učí, termíny, děti, dokumenty, hodnocení,
+// zisk a výdaje, smlouvy s halou a faktury. Počítá se na serveru, aby citlivá
+// čísla podle oprávnění vůbec neopustila server.
+function locationTextKey(value) {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function isCourseProductType(type) {
+  const normalized = locationTextKey(type);
+  return !normalized.includes('tabor') && !normalized.includes('workshop');
+}
+
+async function loadRegionGymInvoices(orgId, placeKeys) {
+  if (placeKeys.size === 0) return [];
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('id,dodavatel,castka,popis,zaplaceno,datum_vystaveni,created_at,file_url,gym_place')
+    .eq('org_id', orgId)
+    .not('gym_place', 'is', null);
+  if (error) throw error;
+  return (data || []).filter((invoice) => placeKeys.has(locationTextKey(invoice.gym_place)));
+}
+
+async function buildRegionLocations({ orgId, financeData, coaches, permissions }) {
+  const allCourses = (financeData.products || []).filter((product) => isCourseProductType(product.type) && String(product.city || '').trim());
+  const visibleCourses = allCourses.filter((product) => product.is_published !== false);
+  if (visibleCourses.length === 0) return { locations: [], missingPinCount: 0 };
+
+  const regionProductIds = allCourses.map((product) => product.id);
+  const regionPlaces = Array.from(new Set(allCourses.map((product) => product.place).filter(Boolean)));
+  const regionPlaceKeys = new Set(regionPlaces.map(locationTextKey));
+  const showFinance = permissions.finance !== false;
+
+  const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const documentCols = 'id,participant_name,product_id,title,status,course_place';
+  const [docsByProduct, docsByPlace, ratingsRes, adminInfoRes, gymInvoices] = await Promise.all([
+    supabase.from('course_documents').select(documentCols).in('product_id', regionProductIds).is('superseded_by', null),
+    regionPlaces.length > 0
+      ? supabase.from('course_documents').select(documentCols).in('course_place', regionPlaces).is('superseded_by', null)
+      : Promise.resolve({ data: [] }),
+    permissions.training_ratings !== false && regionPlaces.length > 0
+      ? supabase.from('training_ratings').select('place,rating').eq('org_id', orgId).gte('rating_date', since).in('place', regionPlaces)
+      : Promise.resolve({ data: [] }),
+    showFinance
+      ? supabase.from('product_admin_info').select('product_id,contracts').eq('org_id', orgId).in('product_id', regionProductIds)
+      : Promise.resolve({ data: [] }),
+    showFinance ? loadRegionGymInvoices(orgId, regionPlaceKeys) : Promise.resolve([]),
+  ]);
+  const documentById = new Map();
+  for (const row of [...(docsByProduct.data || []), ...(docsByPlace.data || [])]) documentById.set(row.id, row);
+  const documents = Array.from(documentById.values());
+  const ratings = ratingsRes.data || [];
+  const contractsByProduct = new Map((adminInfoRes.data || []).map((row) => [row.product_id, sanitizeProductContracts(row.contracts)]));
+
+  const now = new Date();
+  const thisMonth = monthKeyFromDate(now);
+  const prevMonth = monthKeyFromDate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const periodOf = (monthKey) => (monthKey === thisMonth ? 'month' : monthKey === prevMonth ? 'prev' : null);
+  const emptyFinance = () => ({ income: 0, coachCost: 0, rent: 0, net: 0, payments: 0 });
+  const cleanMeta = (product) => String(product.primary_meta || '').trim().replace(/\s*-\s*/g, '–') || product.title;
+
+  const cityKeys = Array.from(new Set(visibleCourses.map((product) => locationTextKey(product.city))));
+  const locations = [];
+  let missingPinCount = 0;
+
+  for (const cityKey of cityKeys) {
+    const cityVisible = visibleCourses.filter((product) => locationTextKey(product.city) === cityKey);
+    const cityAll = allCourses.filter((product) => locationTextKey(product.city) === cityKey);
+    const pinned = cityVisible.filter((product) => Number.isFinite(Number(product.latitude)) && Number.isFinite(Number(product.longitude)) && product.latitude !== null && product.longitude !== null);
+    if (pinned.length === 0) { missingPinCount += 1; continue; }
+
+    const places = new Set(cityAll.map((product) => product.place).filter(Boolean));
+    const placeKeys = new Set(Array.from(places).map(locationTextKey));
+    const productIds = new Set(cityAll.map((product) => product.id));
+    const productByPlace = new Map(cityVisible.filter((product) => product.place).map((product) => [product.place, product]));
+
+    // Varianty permanentky (10/15 vstupů, období členství) jsou jeden termín.
+    const courseMap = new Map();
+    for (const product of cityVisible) {
+      const key = `${product.title}|${product.place}`;
+      const entry = courseMap.get(key) || { id: product.id, venue: product.venue || product.place || '', when: cleanMeta(product), taken: 0, capacity: 0, interest: !!product.interest_mode };
+      entry.taken = Math.max(entry.taken, Number(product.capacity_current) || 0);
+      entry.capacity = Math.max(entry.capacity, Number(product.capacity_total) || 0);
+      entry.interest = entry.interest && !!product.interest_mode;
+      courseMap.set(key, entry);
+    }
+    const courses = Array.from(courseMap.values());
+
+    const participants = (financeData.participants || [])
+      .filter((participant) => places.has(participant.active_course) || (participant.extra_courses || []).some((course) => places.has(course)))
+      .map((participant) => {
+        const place = places.has(participant.active_course) ? participant.active_course : (participant.extra_courses || []).find((course) => places.has(course));
+        const product = productByPlace.get(place);
+        return {
+          id: participant.id,
+          name: `${participant.first_name || ''} ${participant.last_name || ''}`.trim() || 'Bez jména',
+          course: product ? cleanMeta(product) : (place || ''),
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+
+    const coachIds = new Set();
+    for (const product of cityAll) for (const coachId of product.coach_ids || []) coachIds.add(coachId);
+    const cityCoaches = (coaches || [])
+      .filter((coach) => coachIds.has(coach.id) || (coach.places || []).some((place) => places.has(place)))
+      .map((coach) => ({ id: coach.id, name: coach.name || 'Trenér', photoUrl: coach.profile_photo_url || null }));
+
+    const cityDocuments = documents.filter((document) => productIds.has(document.product_id) || places.has(document.course_place));
+    const cityRatings = ratings.filter((rating) => places.has(rating.place));
+
+    let finance = null;
+    let invoices = { count: 0, total: 0, unpaid: 0, items: [] };
+    let contracts = [];
+    if (showFinance) {
+      finance = { month: emptyFinance(), prev: emptyFinance(), all: emptyFinance() };
+      const add = (monthKey, field, amount, isPayment = false) => {
+        const buckets = [finance.all];
+        const period = periodOf(monthKey);
+        if (period) buckets.push(finance[period]);
+        for (const bucket of buckets) {
+          bucket[field] += amount;
+          if (isPayment) bucket.payments += 1;
+        }
+      };
+      for (const purchase of financeData.purchases || []) {
+        if (!productIds.has(purchase.product_id)) continue;
+        if (purchase.status !== 'Zaplaceno' && purchase.status !== 'Placeno') continue;
+        add(monthKeyFromDate(parseFlexibleDate(purchase.paid_at) || parseFlexibleDate(purchase.created_at)), 'income', Number(purchase.amount) || 0, true);
+      }
+      for (const record of financeData.attendance || []) {
+        if (!places.has(record.place)) continue;
+        add(monthKeyFromDate(parseFlexibleDate(record.date_text) || parseFlexibleDate(record.created_at)), 'coachCost', Number(record.amount) || 0);
+      }
+      for (const lesson of financeData.rentLessons || []) {
+        if (!places.has(lesson.place)) continue;
+        add(String(lesson.dateIso || '').slice(0, 7), 'rent', Number(lesson.cost) || 0);
+      }
+      for (const bucket of Object.values(finance)) bucket.net = bucket.income - bucket.coachCost - bucket.rent;
+
+      const cityInvoices = gymInvoices.filter((invoice) => placeKeys.has(locationTextKey(invoice.gym_place)));
+      invoices = {
+        count: cityInvoices.length,
+        total: cityInvoices.reduce((sum, invoice) => sum + parseInvoiceAmount(invoice.castka), 0),
+        unpaid: cityInvoices.filter((invoice) => !invoice.zaplaceno).length,
+        items: cityInvoices.map((invoice) => ({
+          id: String(invoice.id),
+          supplier: invoice.dodavatel || '',
+          description: invoice.popis || '',
+          amount: parseInvoiceAmount(invoice.castka),
+          issuedDate: String(invoice.datum_vystaveni || invoice.created_at || '').slice(0, 10),
+          paid: !!invoice.zaplaceno,
+          hasFile: !!invoice.file_url,
+        })),
+      };
+
+      // Stejný soubor může viset u obou variant kroužku — ukaž ho jednou.
+      const seenPaths = new Set();
+      for (const product of cityAll) {
+        for (const contract of contractsByProduct.get(product.id) || []) {
+          if (seenPaths.has(contract.path)) continue;
+          seenPaths.add(contract.path);
+          contracts.push({ productId: product.id, name: contract.name, path: contract.path, uploadedAt: contract.uploadedAt, venue: product.venue || product.place || '' });
+        }
+      }
+    }
+
+    locations.push({
+      key: cityKey,
+      city: String(cityVisible[0].city).trim(),
+      lat: pinned.reduce((sum, product) => sum + Number(product.latitude), 0) / pinned.length,
+      lng: pinned.reduce((sum, product) => sum + Number(product.longitude), 0) / pinned.length,
+      interestOnly: courses.every((course) => course.interest),
+      venues: Array.from(new Set(cityVisible.map((product) => String(product.venue || product.place || '').trim()).filter(Boolean))),
+      courses,
+      coaches: cityCoaches,
+      participants,
+      capacity: courses.filter((course) => !course.interest).reduce((sum, course) => sum + course.capacity, 0),
+      documents: {
+        signed: cityDocuments.filter((document) => document.status === 'signed').length,
+        missing: cityDocuments.filter((document) => document.status !== 'signed').map((document) => ({ id: document.id, participantName: document.participant_name || '', title: document.title || 'Dokument' })),
+      },
+      rating: cityRatings.length > 0
+        ? { average: cityRatings.reduce((sum, rating) => sum + Number(rating.rating || 0), 0) / cityRatings.length, count: cityRatings.length }
+        : null,
+      finance,
+      invoices,
+      contracts,
+    });
+  }
+
+  return { locations: locations.sort((a, b) => a.city.localeCompare(b.city, 'cs')), missingPinCount };
 }
 
 // ─── Zprávy od koordinátora rodičům a trenérům v jeho kraji ─────────────────
@@ -8783,6 +8980,16 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
     trainingOverrides = overrideRows || [];
   }
 
+  // Mapa měst — musí se spočítat před ořezem níž (potřebuje částky), oprávnění
+  // si hlídá sama. Když selže, přehled kraje se i tak načte.
+  let regionLocations = { locations: [], missingPinCount: 0 };
+  try {
+    regionLocations = await buildRegionLocations({ orgId: coordinator.orgId, financeData, coaches, permissions });
+  } catch (locationsError) {
+    console.error('[coordinator/overview] mapa měst se nespočítala:', locationsError?.message || locationsError);
+  }
+  delete financeData.rentLessons;
+
   // Ořez dat podle oprávnění — citlivé údaje nesmí opustit server.
   if (!permissions.finance) {
     financeData.finance = { revenue: 0, coachCost: 0, invoiceCost: 0, net: 0, percent: 0, commissionEnabled: coordinator.commissionEnabled, commission: 0, paidOut: 0, owed: 0 };
@@ -8828,7 +9035,59 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
     tasks: tasks || [],
     requests: requests || [],
     trainingOverrides,
+    locations: regionLocations.locations,
+    locationsMissingPins: regionLocations.missingPinCount,
   });
+}));
+
+// Podepsaný odkaz na soubor k městu z mapy koordinátora: smlouva s halou
+// (product_admin_info) nebo faktura přiřazená k hale. Jen pro kraj koordinátora
+// a jen s oprávněním Finance.
+app.get('/api/coordinator/location-file-url', asyncRoute(async (request, response) => {
+  requireServices();
+  const coordinator = await requireCoordinator(request);
+  if (coordinator.permissions.finance === false) throw httpError('K souborům kraje nemáš přístup.', 403);
+
+  const { data: regionProducts, error: regionProductsError } = await supabase
+    .from('products')
+    .select('id,place')
+    .eq('org_id', coordinator.orgId)
+    .eq('region', coordinator.region);
+  if (regionProductsError) throw regionProductsError;
+
+  const kind = optionalString(request.query.kind);
+  if (kind === 'invoice') {
+    const id = requiredString(request.query.id, 'id');
+    const { data: invoice, error } = await supabase
+      .from('invoices')
+      .select('id,org_id,file_url,gym_place')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    const placeKeys = new Set((regionProducts || []).map((product) => locationTextKey(product.place)).filter(Boolean));
+    if (!invoice || invoice.org_id !== coordinator.orgId || !invoice.file_url || !placeKeys.has(locationTextKey(invoice.gym_place))) {
+      throw httpError('Faktura nenalezena.', 404);
+    }
+    const { data: signed, error: signError } = await supabase.storage.from('invoices').createSignedUrl(invoice.file_url, 300);
+    if (signError) throw signError;
+    response.json({ url: signed.signedUrl });
+    return;
+  }
+
+  const productId = requiredString(request.query.productId, 'productId');
+  const path = requiredString(request.query.path, 'path');
+  if (!(regionProducts || []).some((product) => product.id === productId)) throw httpError('Smlouva nenalezena.', 404);
+  const { data: info, error: infoError } = await supabase
+    .from('product_admin_info')
+    .select('contracts')
+    .eq('product_id', productId)
+    .eq('org_id', coordinator.orgId)
+    .maybeSingle();
+  if (infoError) throw infoError;
+  if (!sanitizeProductContracts(info?.contracts).some((contract) => contract.path === path)) throw httpError('Smlouva nenalezena.', 404);
+  const { data: signed, error: signError } = await supabase.storage.from(PRODUCT_CONTRACTS_BUCKET).createSignedUrl(path, 300);
+  if (signError) throw signError;
+  response.json({ url: signed.signedUrl });
 }));
 
 // Podepsaný odkaz na PDF smlouvy koordinátora (originál i podepsaná verze).

@@ -120,6 +120,14 @@ koordinátor smí zapsat trenérům zapomenutou docházku (`POST /api/coordinato
 status „Zapsáno koordinátorem"); admin to vypíná/zapíná přes `PATCH /api/admin/feature-flags`
 (whitelist klíčů na serveru), toggle v admin webu v sekci Koordinátoři.
 
+**Mapa měst koordinátora:** `GET /api/coordinator/overview` vrací i `locations` (+ `locationsMissingPins`) —
+rozpad kraje po městech (`buildRegionLocations`): souřadnice, termíny, děti, trenéři, dokumenty dětí,
+hodnocení, zisk a výdaje za tento/minulý měsíc/celkem, smlouvy s halou (`product_admin_info`) a faktury
+podle `invoices.gym_place`. Finance, smlouvy a faktury jen s oprávněním `finance`. Soubory otevírá
+`GET /api/coordinator/location-file-url` (ověří, že patří do kraje). Appka: `components/coordinator/locations-map.tsx`
+(Leaflet dokument `lib/locations-map-html.ts` — iframe na webu, WebView v nativu). Stejná mapa pro admina
+je v aplikacevys.cz (`locations-overview-map.tsx`), ta si data skládá v prohlížeči.
+
 ---
 
 ## 3. Repo 2 — `aplikacevys.cz` (admin)
