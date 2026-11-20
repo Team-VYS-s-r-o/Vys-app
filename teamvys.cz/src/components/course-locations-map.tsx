@@ -22,37 +22,108 @@ const CITY_POINTS: Record<string, { lat: number; lng: number }> = {
   vyskov: { lat: 49.2792, lng: 16.9986 },
 };
 
-// Směr popisku, ať se štítky blízkých měst (Praha a okolí) nepřekrývají
-const LABEL_DIR: Record<string, 'top' | 'bottom' | 'left' | 'right'> = {
+// Kam od bodu štítek odstoupí, ať se štítky blízkých měst (Praha a okolí,
+// Jeseník × Písečná, Olomouc × Prostějov) nepřekrývají. Neznámé město = nahoru.
+type PinDir = 'top' | 'bottom' | 'left' | 'right';
+const LABEL_DIR: Record<string, PinDir> = {
   blansko: 'left',
   brandys: 'top',
   zdimerice: 'bottom',
-  jesenik: 'top',
-  pisecna: 'right',
+  jesenik: 'right',
+  pisecna: 'top',
   sumperk: 'left',
-  prostejov: 'top',
+  prostejov: 'right',
+  olomouc: 'top',
   vrsovice: 'right',
   vyskov: 'bottom',
+  hradeckralove: 'top',
 };
 
-const LABEL_POS: Record<'top' | 'bottom' | 'left' | 'right', string> = {
-  top: 'left:0;top:-13px;transform:translate(-50%,-100%);',
-  bottom: 'left:0;top:13px;transform:translateX(-50%);',
-  left: 'left:-13px;top:0;transform:translate(-100%,-50%);',
-  right: 'left:13px;top:0;transform:translateY(-50%);',
-};
+// Stejný špendlík jako na mapě kroužků v adminu: bílá pilulka s kolečkem
+// (počet kroužků ve městě) a názvem města, špička míří na přesné místo.
+// Po najetí myší se pilulka zvedne a rozbalí řádek s tělocvičnou.
+const PIN_CSS = `
+.vys-web-map .leaflet-tile-pane { filter: saturate(0.55) contrast(0.96) brightness(1.04); }
+.vys-web-map.leaflet-container { background: #F4F1FA; font-family: inherit; }
+.vp-anchor { background: none; border: 0; }
+.vp { position: absolute; left: 0; top: 0; cursor: pointer; }
+.vp--top { transform: translate(-50%, calc(-100% - 9px)); }
+.vp--bottom { transform: translate(-50%, 9px); }
+.vp--left { transform: translate(calc(-100% - 9px), -50%); }
+.vp--right { transform: translate(9px, -50%); }
+.vp__in { animation: vp-in 0.6s cubic-bezier(0.22, 1.25, 0.36, 1) both; animation-delay: var(--d, 0ms); }
+.vp__body { position: relative; isolation: isolate; display: flex; align-items: center; gap: 8px; padding: 5px 13px 5px 5px; border-radius: 18px; background: #fff; color: #171220; white-space: nowrap; box-shadow: 0 8px 22px rgba(23,18,32,0.18), 0 0 0 1px rgba(23,18,32,0.06); transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+.vp__body::after { content: ''; position: absolute; width: 12px; height: 12px; border-radius: 3px; background: inherit; z-index: -1; }
+.vp--top .vp__body::after { left: 50%; bottom: -5px; transform: translateX(-50%) rotate(45deg); }
+.vp--bottom .vp__body::after { left: 50%; top: -5px; transform: translateX(-50%) rotate(45deg); }
+.vp--left .vp__body::after { right: -5px; top: 50%; transform: translateY(-50%) rotate(45deg); }
+.vp--right .vp__body::after { left: -5px; top: 50%; transform: translateY(-50%) rotate(45deg); }
+.vp--top .vp__body { transform-origin: 50% 100%; }
+.vp--bottom .vp__body { transform-origin: 50% 0%; }
+.vp--left .vp__body { transform-origin: 100% 50%; }
+.vp--right .vp__body { transform-origin: 0% 50%; }
+.vp__count { display: grid; place-items: center; min-width: 26px; height: 26px; padding: 0 7px; box-sizing: border-box; border-radius: 999px; background: #8B1DFF; color: #fff; font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.vp.is-interest .vp__count { background: #FFB21A; color: #171220; }
+/* Jeden kroužek ve městě: místo jedničky jen bílá tečka — číslo má smysl až od dvou. */
+.vp__dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+.vp__text { display: flex; flex-direction: column; line-height: 1.15; }
+.vp__city { font-size: 13px; font-weight: 800; }
+/* Sbalený řádek s tělocvičnou nesmí pilulku roztahovat ani do šířky — proto i max-width: 0. */
+.vp__sub { max-height: 0; max-width: 0; opacity: 0; overflow: hidden; font-size: 11px; font-weight: 700; color: rgba(23,18,32,0.6); transition: max-height 0.25s cubic-bezier(0.22, 1, 0.36, 1), max-width 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, margin-top 0.25s ease; }
+.vp:hover .vp__body { transform: scale(1.05); box-shadow: 0 14px 30px rgba(23,18,32,0.26), 0 0 0 1px rgba(139,29,255,0.25); }
+.vp:hover .vp__sub, .vp.is-active .vp__sub { max-height: 16px; max-width: 280px; opacity: 1; margin-top: 2px; }
+.vp:hover, .vp.is-active { z-index: 5; }
+.vp.is-active .vp__body { background: #171220; color: #fff; box-shadow: 0 14px 34px rgba(23,18,32,0.34); }
+.vp.is-active .vp__sub { color: rgba(255,255,255,0.7); }
+.vp.is-active .vp__count { animation: vp-pulse 1.8s ease-out infinite; }
+@keyframes vp-in { from { opacity: 0; transform: translateY(14px) scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes vp-pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.5); } 100% { box-shadow: 0 0 0 11px rgba(255,255,255,0); } }
+/* Telefon: celá republika na úzké mapě — menší pilulky, ať se města nepřekrývají. */
+@media (max-width: 640px) {
+  .vp__body { padding: 3px 8px 3px 3px; gap: 4px; border-radius: 13px; }
+  .vp__count { min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; }
+  .vp__dot { width: 6px; height: 6px; }
+  .vp__city { font-size: 11px; }
+  .vp__body::after { width: 9px; height: 9px; }
+  .vp--top .vp__body::after { bottom: -4px; }
+  .vp--bottom .vp__body::after { top: -4px; }
+  .vp--left .vp__body::after { right: -4px; }
+  .vp--right .vp__body::after { left: -4px; }
+  .vp--top { transform: translate(-50%, calc(-100% - 7px)); }
+  .vp--bottom { transform: translate(-50%, 7px); }
+  .vp--left { transform: translate(calc(-100% - 7px), -50%); }
+  .vp--right { transform: translate(7px, -50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vp__in, .vp.is-active .vp__count { animation: none; }
+  .vp__body, .vp__sub { transition: none; }
+}
+`;
 
-type MapLocation = { city: string; venue: string; latitude?: number; longitude?: number };
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] ?? ch));
+}
 
-export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLocation[]; onCityPick?: (cityKey: string) => void }) {
+type MapLocation = { city: string; venue: string; latitude?: number; longitude?: number; /** Kroužek zatím jen sbírá zájemce. */ interest?: boolean };
+
+export function CourseLocationsMap({ locations, onCityPick, activeCity }: { locations: MapLocation[]; onCityPick?: (cityKey: string) => void; /** Vybrané město — jeho špendlík zůstane tmavý a rozbalený. */ activeCity?: string | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const homeRef = useRef<(() => void) | null>(null);
   const pickRef = useRef(onCityPick);
   pickRef.current = onCityPick;
+  // Zvýraznění řídí rodič přes `activeCity` — po kliknutí se sekce překreslí a
+  // třída přidaná jen v obsluze kliknutí by se ztratila.
+  const pinElementsRef = useRef(new Map<string, HTMLElement>());
+  const activeRef = useRef(activeCity ?? null);
+  activeRef.current = activeCity ?? null;
+  const applyActive = () => {
+    for (const [key, el] of pinElementsRef.current) el.classList.toggle('is-active', key === activeRef.current);
+  };
+  useEffect(applyActive, [activeCity]);
 
-  const byCity = new Map<string, { key: string; city: string; venues: string[]; point: { lat: number; lng: number } }>();
+  const byCity = new Map<string, { key: string; city: string; venues: string[]; point: { lat: number; lng: number }; count: number; interestOnly: boolean }>();
   for (const loc of locations) {
     const key = normalizeCity(loc.city);
     // Nové město se na mapě objeví samo — stačí, když má produkt v adminu souřadnice.
@@ -60,12 +131,14 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
       CITY_POINTS[key] ??
       (loc.latitude != null && loc.longitude != null ? { lat: loc.latitude, lng: loc.longitude } : undefined);
     if (!point) continue;
-    const entry = byCity.get(key) ?? { key, city: loc.city, venues: [], point };
+    const entry = byCity.get(key) ?? { key, city: loc.city, venues: [], point, count: 0, interestOnly: true };
     if (!entry.venues.includes(loc.venue)) entry.venues.push(loc.venue);
+    entry.count += 1;
+    if (!loc.interest) entry.interestOnly = false;
     byCity.set(key, entry);
   }
   const pins = Array.from(byCity.values());
-  const pinsKey = pins.map((p) => p.key).sort().join(',');
+  const pinsKey = pins.map((p) => `${p.key}:${p.count}:${p.interestOnly ? 1 : 0}`).sort().join(',');
 
   useEffect(() => {
     if (!containerRef.current || pins.length === 0) return;
@@ -92,7 +165,8 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
         scrollWheelZoom: false,
         // Mírnější citlivost zoomu kolečkem
         wheelPxPerZoomLevel: 160,
-        zoomSnap: 0.5,
+        // Jemnější krok výřezu — na telefonu rozhoduje každý pixel mezi štítky.
+        zoomSnap: 0.25,
         zoomDelta: 0.5,
         minZoom: 6,
         maxZoom: 17,
@@ -143,27 +217,39 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
         .catch(() => undefined);
 
       const bounds = L.latLngBounds([]);
-      for (const pin of pins) {
+      const pinElements = pinElementsRef.current;
+      pinElements.clear();
+      // Od západu na východ — špendlíky dopadnou ve vlně přes republiku.
+      const ordered = [...pins].sort((a, b) => a.point.lng - b.point.lng);
+      ordered.forEach((pin, index) => {
         const point = pin.point;
         bounds.extend([point.lat, point.lng]);
+        const dir = LABEL_DIR[pin.key] ?? 'top';
+        const sub = pin.interestOnly ? `Sbíráme zájem · ${pin.venues.join(' · ')}` : pin.venues.join(' · ');
         const icon = L.divIcon({
-          className: '',
+          className: 'vp-anchor',
           iconSize: [0, 0],
-          html: `<div style="position:relative;width:0;height:0;cursor:pointer;">
-            <span style="position:absolute;left:0;top:0;width:18px;height:18px;transform:translate(-50%,-50%);border-radius:9999px;background:#8B1DFF;border:3px solid #fff;box-shadow:0 2px 10px rgba(139,29,255,0.55);"></span>
-            <span style="position:absolute;${LABEL_POS[LABEL_DIR[pin.key] ?? 'bottom']}padding:3px 9px;border-radius:9999px;background:#171220;color:#fff;font-size:11px;font-weight:800;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${pin.city}</span>
-          </div>`,
+          html: `<div class="vp vp--${dir}${pin.interestOnly ? ' is-interest' : ''}" data-city="${escapeHtml(pin.key)}" style="--d:${120 + index * 70}ms"><div class="vp__in"><div class="vp__body"><span class="vp__count">${pin.interestOnly ? '?' : pin.count > 1 ? pin.count : '<span class="vp__dot"></span>'}</span><span class="vp__text"><span class="vp__city">${escapeHtml(pin.city)}</span><span class="vp__sub">${escapeHtml(sub)}</span></span></div></div></div>`,
         });
-        const marker = L.marker([point.lat, point.lng], { icon }).addTo(map);
-        marker.bindTooltip(pin.venues.join(' · '), { direction: 'top', offset: [0, -14], opacity: 0.95 });
+        const marker = L.marker([point.lat, point.lng], { icon, title: `${pin.city} — ${sub}`, riseOnHover: true }).addTo(map);
         marker.on('click', () => pickRef.current?.(pin.key));
-      }
+      });
 
       // Na úzkém displeji menší odsazení, jinak se celá ČR nevejde
-      const fitPadding: [number, number] = window.innerWidth < 640 ? [32, 32] : [70, 70];
-      const fitHome = () => map.fitBounds(bounds, { padding: fitPadding });
+      // Štítky odstupují od bodu do stran — vpravo a nahoře potřebují víc místa,
+      // jinak by města u kraje (Jeseník, Prostějov) přetekla z mapy.
+      const narrow = window.innerWidth < 640;
+      const fitHome = () => map.fitBounds(bounds, narrow
+        ? { paddingTopLeft: [34, 44], paddingBottomRight: [88, 24] }
+        : { paddingTopLeft: [90, 80], paddingBottomRight: [150, 60] });
       fitHome();
       homeRef.current = fitHome;
+      // Leaflet vloží ikony do stránky až s prvním nastavením výřezu (fitBounds výš),
+      // dřív ještě neexistují — proto se prvky špendlíků sbírají až tady.
+      containerRef.current.querySelectorAll<HTMLElement>('.vp[data-city]').forEach((element) => {
+        if (element.dataset.city) pinElements.set(element.dataset.city, element);
+      });
+      applyActive();
       // Mapa jen pro ČR a blízké okolí — nejde odjet ani odzoomovat na celý svět
       map.setMaxBounds(bounds.pad(1.1));
       map.options.maxBoundsViscosity = 1.0;
@@ -202,6 +288,7 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
       detachWheel?.();
       if (settleTimer) clearTimeout(settleTimer);
       resizeObserver?.disconnect();
+      pinElementsRef.current.clear();
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -214,6 +301,7 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
 
   return (
     <div className="mt-10">
+      <style>{PIN_CSS}</style>
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-purple/10 text-brand-purple">
           <MapPin size={20} />
@@ -229,13 +317,13 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
       <div ref={wrapperRef} className="relative isolate mt-4">
         <div
           ref={containerRef}
-          className="z-0 h-[380px] w-full overflow-hidden rounded-[24px] border border-brand-purple/15 shadow-brand-soft md:h-[460px]"
+          className="vys-web-map z-0 h-[380px] w-full overflow-hidden rounded-[24px] border border-brand-purple/15 shadow-brand-soft md:h-[460px]"
         />
         <button
           type="button"
           onClick={() => homeRef.current?.()}
           aria-label="Zpět na celou ČR"
-          className="absolute right-3 top-3 z-[500] inline-flex h-10 w-10 items-center justify-center rounded-xl border border-brand-purple/20 bg-white text-brand-purple shadow-brand-soft transition-colors hover:bg-brand-purple hover:text-white"
+          className="absolute right-3 top-3 z-[500] inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/75 text-brand-ink shadow-[0_6px_18px_rgba(23,18,32,0.14)] backdrop-blur-md transition-all duration-200 hover:bg-white active:scale-95"
         >
           <RotateCcw size={18} />
         </button>

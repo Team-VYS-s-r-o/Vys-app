@@ -401,7 +401,7 @@ export function PublicCourseCatalog() {
       {/* Mapa jde první — rodič nejdřív najde své město, klik na něj sjede na kartu. */}
       {courseGroups.length > 0 ? (
         <Reveal>
-          <CourseLocationsMap locations={courseGroups.map((group) => ({ city: group[0].city, venue: group[0].venue, latitude: group[0].latitude, longitude: group[0].longitude }))} onCityPick={handleCityPick} />
+          <CourseLocationsMap locations={courseGroups.map((group) => ({ city: group[0].city, venue: group[0].venue, latitude: group[0].latitude, longitude: group[0].longitude, interest: group.every((item) => item.interestMode) }))} onCityPick={handleCityPick} activeCity={cityFocus} />
         </Reveal>
       ) : null}
 
