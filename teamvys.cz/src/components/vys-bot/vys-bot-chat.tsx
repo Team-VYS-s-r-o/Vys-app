@@ -545,7 +545,7 @@ export function VysBotChat() {
                 key={entry.id}
                 type="button"
                 onClick={() => ask(entry.chip, { viaChip: true })}
-                className="rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-2 text-xs font-black text-white/75 transition-colors hover:border-brand-purple/60 hover:bg-brand-purple/15 hover:text-white"
+                className="rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-2 text-[13px] font-black text-white/85 md:text-xs md:text-white/75 transition-colors hover:border-brand-purple/60 hover:bg-brand-purple/15 hover:text-white"
               >
                 {entry.chip}
               </button>

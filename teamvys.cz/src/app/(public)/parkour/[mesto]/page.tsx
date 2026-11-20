@@ -306,7 +306,7 @@ export default async function CityPage({ params }: Props) {
 function CityFact({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-xs font-bold uppercase tracking-wide text-white/40">{label}</p>
+      <p className="text-[12.5px] font-bold uppercase tracking-wide text-white/65 md:text-xs md:text-white/50">{label}</p>
       <p className="mt-1.5 text-xl font-black text-white md:text-2xl">{value}</p>
     </div>
   );

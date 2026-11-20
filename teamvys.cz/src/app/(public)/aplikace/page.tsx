@@ -203,7 +203,7 @@ function HowToBuy() {
                       <p className="mt-3 flex items-start gap-2 text-sm leading-6 text-white/50"><X size={16} className="mt-0.5 shrink-0" /> Dítě ale nevidí své postupy a nemůže hrát hru.</p>
                     </div>
                     <div className="relative rounded-2xl border border-brand-purple/30 bg-brand-purple/[0.1] p-5">
-                      <span className="absolute right-3 top-3 rounded-full bg-brand-purple px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">Doporučeno</span>
+                      <span className="absolute right-3 top-3 rounded-full bg-brand-purple px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-white">Doporučeno</span>
                       <div className="flex items-center gap-2">
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-purple/25 text-brand-purple-light"><Gamepad2 size={16} /></span>
                         <p className="text-xs font-black uppercase tracking-wide text-brand-purple-light">S hrou</p>
@@ -249,7 +249,7 @@ function WebSignInButton() {
     >
       <LogIn size={22} />
       <span className="leading-tight">
-        <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/70">Bez stahování</span>
+        <span className="block text-[11px] font-semibold uppercase tracking-wide text-white/80">Bez stahování</span>
         <span className="block text-base font-black">Přihlásit se v prohlížeči</span>
       </span>
     </a>
@@ -267,7 +267,7 @@ function AppStoreButton() {
     >
       <Apple size={24} className="fill-[#0B0B10]" aria-hidden />
       <span className="leading-tight">
-        <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#0B0B10]/60">Stáhnout pro iPhone</span>
+        <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#0B0B10]/70">Stáhnout pro iPhone</span>
         <span className="block text-base font-black">App Store</span>
       </span>
     </a>

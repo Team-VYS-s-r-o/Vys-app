@@ -61,8 +61,8 @@ export async function SiteFooter() {
                 href={`tel:+420${line.number.replaceAll(' ', '')}`}
                 className="group rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 transition-colors hover:border-brand-purple/50"
               >
-                <p className="text-[11px] font-bold uppercase tracking-wide text-white/45">{line.label}</p>
-                <p className="mt-0.5 flex items-center gap-2 text-sm font-black text-white">
+                <p className="text-xs font-bold uppercase tracking-wide text-white/65 md:text-[11px] md:text-white/50">{line.label}</p>
+                <p className="mt-0.5 flex items-center gap-2 text-base font-black text-white md:text-sm">
                   <Phone size={14} className="text-brand-pink transition-transform group-hover:-rotate-12" />
                   {line.number}
                 </p>

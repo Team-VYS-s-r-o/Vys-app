@@ -60,7 +60,7 @@ export default function PomocnikPage() {
                   </span>
                   <div>
                     <p className="font-black text-white">{item.title}</p>
-                    <p className="mt-0.5 text-sm leading-6 text-white/55">{item.body}</p>
+                    <p className="mt-0.5 text-[15px] leading-6 text-white/75 md:text-sm md:text-white/60">{item.body}</p>
                   </div>
                 </div>
               ))}
@@ -70,7 +70,7 @@ export default function PomocnikPage() {
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
             <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Radši živého člověka?</p>
             <h3 className="mt-2 text-xl font-black text-white">Ozvi se nám přímo</h3>
-            <p className="mt-2 text-sm leading-6 text-white/55">
+            <p className="mt-2 text-[15px] leading-6 text-white/75 md:text-sm md:text-white/60">
               Kočka zvládne nejčastější dotazy, ale u speciálních situací ti rádi pomůžeme osobně.
             </p>
             <div className="mt-5 flex flex-col gap-2">

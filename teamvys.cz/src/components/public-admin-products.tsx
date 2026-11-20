@@ -286,7 +286,7 @@ export function WorkshopBrowser() {
       ) : (
         <>
           {filteredWorkshops.length > 1 ? (
-            <div className="flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">
+            <div className="flex items-center justify-center gap-2 text-[12.5px] font-black uppercase tracking-wide text-brand-ink-soft md:text-[11px]">
               <motion.span animate={{ x: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
                 <ChevronsLeft size={16} className="text-brand-purple" />
               </motion.span>
@@ -408,7 +408,7 @@ export function PublicCourseCatalog() {
       <CatalogState loading={loading} error={error} empty={!loading && courses.length === 0} emptyTitle="Žádné kroužky nejsou aktuálně vypsané" emptyText="Jakmile admin zveřejní lokalitu v databázi, objeví se tady s aktuální kapacitou." loadingSkeleton={<CourseCatalogSkeleton />} />
 
       {courseGroups.length > 1 ? (
-        <div className="mt-6 flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">
+        <div className="mt-6 flex items-center justify-center gap-2 text-[12.5px] font-black uppercase tracking-wide text-brand-ink-soft md:text-[11px]">
           <motion.span animate={{ x: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
             <ChevronsLeft size={16} className="text-brand-purple" />
           </motion.span>
@@ -456,7 +456,7 @@ export function PublicCampCatalog() {
       <CatalogState loading={loading} error={error} empty={!loading && camps.length === 0} emptyTitle="Žádné tábory nejsou aktuálně vypsané" emptyText="Turnusy se zobrazují až z publikovaných produktů v administraci." />
 
       {camps.length > 1 ? (
-        <div className="mt-6 flex items-center justify-center gap-2 text-[11px] font-black uppercase tracking-wide text-brand-ink-soft">
+        <div className="mt-6 flex items-center justify-center gap-2 text-[12.5px] font-black uppercase tracking-wide text-brand-ink-soft md:text-[11px]">
           <motion.span animate={{ x: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 1.3, ease: 'easeInOut' }} className="inline-flex">
             <ChevronsLeft size={16} className="text-brand-purple" />
           </motion.span>
@@ -759,7 +759,7 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
                 const meta = splitCourseMeta(item.primaryMeta);
                 return (
                   <div key={item.id}>
-                    <p className="mt-4 text-xs font-black uppercase text-slate-400">
+                    <p className="mt-4 text-xs font-black uppercase text-slate-500">
                       {meta.day} · {meta.time} <span className="text-brand-purple-deep">({skillLabel(item)})</span>
                     </p>
                     <CourseCapacityMeter current={item.capacityCurrent} total={item.capacityTotal} />
@@ -780,7 +780,7 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
             ) : null}
 
             <div className="mt-5 border-t border-black/10 pt-5">
-              <p className="text-xs font-black uppercase text-slate-400">Trenéři na lokaci</p>
+              <p className="text-xs font-black uppercase text-slate-500">Trenéři na lokaci</p>
               <div className="mt-3 grid gap-2">
                 {coaches.length > 0 ? coaches.map((coach) => <CoachCompact key={coach.id} name={coach.name} photoUrl={coach.photoUrl} />) : <p className="rounded-brand bg-brand-paper p-3 text-sm font-bold leading-6 text-brand-ink-soft">Trenér se pro tuto lokaci doplní v administraci.</p>}
               </div>
@@ -788,7 +788,7 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
 
             {includedItems.length > 0 ? (
               <div className="mt-5 border-t border-black/10 pt-5">
-                <p className="text-xs font-black uppercase text-slate-400">Co je v ceně</p>
+                <p className="text-xs font-black uppercase text-slate-500">Co je v ceně</p>
                 <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
                   {includedItems.map((item) => (
                     <li key={item}>{item}</li>
@@ -799,7 +799,7 @@ export function AdminCreatedCourseDetail({ productId }: { productId: string }) {
 
             {bringItems.length > 0 ? (
               <div className="mt-5 border-t border-black/10 pt-5">
-                <p className="text-xs font-black uppercase text-slate-400">Co s sebou</p>
+                <p className="text-xs font-black uppercase text-slate-500">Co s sebou</p>
                 <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
                   {bringItems.map((item) => (
                     <li key={item} className="flex items-start gap-2">
@@ -897,23 +897,23 @@ function CampPublicCard({ product, coaches = [] }: { product: ParentProduct; coa
       <div className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase text-slate-400">Cena</p>
+            <p className="text-xs font-black uppercase text-slate-500">Cena</p>
             <p className="mt-1 text-2xl font-black text-brand-ink">{product.priceLabel}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs font-black uppercase text-slate-400">Kapacita</p>
+            <p className="text-xs font-black uppercase text-slate-500">Kapacita</p>
             <p className="mt-1 text-lg font-black text-brand-ink">{product.capacityCurrent}/{product.capacityTotal} dětí</p>
           </div>
         </div>
         <CourseCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
         <CardMoreInfo className="mt-5">
           <div className="mt-4 rounded-[20px] bg-brand-paper p-4">
-            <p className="text-xs font-black uppercase text-slate-400">O táboře</p>
+            <p className="text-xs font-black uppercase text-slate-500">O táboře</p>
             <p className="mt-2 text-sm font-bold leading-6 text-brand-ink-soft">{product.description}</p>
           </div>
           {product.trainingFocus.length > 0 ? (
             <div className="mt-4">
-              <p className="text-xs font-black uppercase text-slate-400">Na co se zaměříme</p>
+              <p className="text-xs font-black uppercase text-slate-500">Na co se zaměříme</p>
               <div className="mt-2.5 flex flex-wrap gap-2">
                 {product.trainingFocus.slice(0, 5).map((focus) => (
                   <span key={focus} className="rounded-[14px] bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-cyan">{focus}</span>
@@ -923,7 +923,7 @@ function CampPublicCard({ product, coaches = [] }: { product: ParentProduct; coa
           ) : null}
           {coaches.length > 0 ? (
             <div className="mt-5 border-t border-black/10 pt-4">
-              <p className="text-xs font-black uppercase text-slate-400">Trenéři tábora</p>
+              <p className="text-xs font-black uppercase text-slate-500">Trenéři tábora</p>
               <div className="mt-3 grid gap-2">
                 {coaches.map((coach) => <CoachCompact key={coach.id} name={coach.name} photoUrl={coach.photoUrl} />)}
               </div>
@@ -965,13 +965,13 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
             <h3 className="mt-3 text-2xl font-black text-brand-ink md:text-3xl">{product.place}</h3>
           </div>
           <div className="text-left md:text-right">
-            <p className="text-xs font-black uppercase text-slate-400">Cena</p>
+            <p className="text-xs font-black uppercase text-slate-500">Cena</p>
             <p className="mt-1 text-2xl font-black text-brand-ink">{product.price.toLocaleString('cs-CZ')} Kč</p>
           </div>
         </div>
         {product.trainingFocus.length > 0 ? (
           <div className="mt-5">
-            <p className="text-xs font-black uppercase text-slate-400">Co se naučíš</p>
+            <p className="text-xs font-black uppercase text-slate-500">Co se naučíš</p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               {product.trainingFocus.map((focus) => (
                 <span key={focus} className="rounded-[14px] bg-brand-cyan/10 px-3 py-1.5 text-xs font-black text-brand-cyan">{focus}</span>
@@ -986,7 +986,7 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
         <WorkshopCapacityMeter current={product.capacityCurrent} total={product.capacityTotal} />
         <CardMoreInfo className="mt-5">
           <div className="mt-4 rounded-[20px] bg-brand-paper p-4">
-            <p className="text-xs font-black uppercase text-slate-400">O workshopu s youtuberem</p>
+            <p className="text-xs font-black uppercase text-slate-500">O workshopu s youtuberem</p>
             <p className="mt-2 text-sm font-bold leading-6 text-brand-ink-soft">{product.description}</p>
           </div>
           {(() => {
@@ -994,7 +994,7 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
             if (videos.length === 0) return null;
             return (
               <div className="mt-5 border-t border-black/10 pt-4">
-                <p className="text-xs font-black uppercase text-slate-400">Ukázky triků</p>
+                <p className="text-xs font-black uppercase text-slate-500">Ukázky triků</p>
                 <div className="mt-3 grid gap-3">
                   {videos.map((v) => (
                     <div key={v.label}>
@@ -1009,7 +1009,7 @@ function WorkshopPublicCard({ product, coaches = [] }: { product: ParentProduct;
           <p className="mt-4 inline-flex gap-2 text-sm font-bold text-brand-ink"><CheckCircle2 size={18} className="text-brand-cyan" /> QR ticket po zaplacení</p>
           {coaches.length > 0 ? (
             <div className="mt-5 border-t border-black/10 pt-4">
-              <p className="text-xs font-black uppercase text-slate-400">Trenéři workshopu</p>
+              <p className="text-xs font-black uppercase text-slate-500">Trenéři workshopu</p>
               <div className="mt-3 grid gap-2">
                 {coaches.map((coach) => <CoachCompact key={coach.id} name={coach.name} photoUrl={coach.photoUrl} />)}
               </div>
@@ -1086,7 +1086,7 @@ function CoursePublicCard({ products, delay }: { products: ParentProduct[]; dela
                   <CalendarDays size={16} className="shrink-0 text-brand-purple" />
                   {timeLabel}
                 </span>
-                <span className={`inline-flex shrink-0 items-center gap-1.5 text-[10px] font-black uppercase tracking-wide ${badge.text}`}>
+                <span className={`inline-flex shrink-0 items-center gap-1.5 text-[11.5px] font-black uppercase tracking-wide md:text-[10px] ${badge.text}`}>
                   <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
                   {badge.label}
                 </span>
@@ -1236,7 +1236,7 @@ function CourseInterestForm({ productId, onDone }: { productId: string; onDone?:
       >
         {sending ? 'Odesílám…' : 'Odeslat zájem'}
       </button>
-      <p className="text-center text-[11px] font-bold leading-4 text-slate-500">Nezávazné — jen ti dáme vědět, až kroužek otevřeme.</p>
+      <p className="text-center text-[12.5px] font-bold leading-[18px] text-slate-600 md:text-[11px] md:leading-4 md:text-slate-500">Nezávazné — jen ti dáme vědět, až kroužek otevřeme.</p>
     </form>
   );
 }
@@ -1295,7 +1295,7 @@ function CourseCapacityMeter({ current, total }: { current: number; total: numbe
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-brand bg-brand-paper p-4">
-      <p className="text-xs font-black uppercase text-slate-400">{label}</p>
+      <p className="text-xs font-black uppercase text-slate-500">{label}</p>
       <p className="mt-1 text-sm font-black text-brand-ink">{value}</p>
     </div>
   );
@@ -1306,7 +1306,7 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
     <div className="flex items-start gap-3 rounded-brand bg-brand-paper p-3">
       <span className="mt-0.5 text-brand-cyan">{icon}</span>
       <div>
-        <p className="text-xs font-black uppercase text-slate-400">{label}</p>
+        <p className="text-xs font-black uppercase text-slate-500">{label}</p>
         <p className="mt-0.5 text-sm font-black text-brand-ink">{value}</p>
       </div>
     </div>

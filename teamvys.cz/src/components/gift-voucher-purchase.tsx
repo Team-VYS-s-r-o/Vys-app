@@ -76,7 +76,7 @@ export function GiftVoucherPurchase() {
               >
                 <span>
                   <span className="block text-lg font-black">Permanentka na {option.entries} vstupů</span>
-                  <span className="mt-0.5 block text-xs font-bold uppercase tracking-wide text-white/45">{option.note}</span>
+                  <span className="mt-0.5 block text-xs font-bold uppercase tracking-wide text-white/65">{option.note}</span>
                 </span>
                 <span className="flex items-center gap-3">
                   <span className="text-xl font-black">{option.amount.toLocaleString('cs-CZ')} Kč</span>
@@ -100,7 +100,7 @@ export function GiftVoucherPurchase() {
 
       <div className="grid content-start gap-3">
         <label className="grid gap-1.5 text-sm font-black">
-          Váš e-mail <span className="font-semibold text-white/45">— sem pošleme poukaz</span>
+          Váš e-mail <span className="font-semibold text-white/65">— sem pošleme poukaz</span>
           <input
             type="email"
             value={buyerEmail}
@@ -110,7 +110,7 @@ export function GiftVoucherPurchase() {
           />
         </label>
         <label className="grid gap-1.5 text-sm font-black">
-          Vaše jméno <span className="font-semibold text-white/45">— nepovinné</span>
+          Vaše jméno <span className="font-semibold text-white/65">— nepovinné</span>
           <input
             value={buyerName}
             onChange={(e) => setBuyerName(e.target.value)}
@@ -119,7 +119,7 @@ export function GiftVoucherPurchase() {
           />
         </label>
         <label className="grid gap-1.5 text-sm font-black">
-          Pro koho je dárek <span className="font-semibold text-white/45">— nepovinné</span>
+          Pro koho je dárek <span className="font-semibold text-white/65">— nepovinné</span>
           <input
             value={recipientName}
             onChange={(e) => setRecipientName(e.target.value)}
@@ -128,7 +128,7 @@ export function GiftVoucherPurchase() {
           />
         </label>
         <label className="grid gap-1.5 text-sm font-black">
-          Vzkaz na poukaz <span className="font-semibold text-white/45">— nepovinné</span>
+          Vzkaz na poukaz <span className="font-semibold text-white/65">— nepovinné</span>
           <textarea
             value={giftMessage}
             onChange={(e) => setGiftMessage(e.target.value.slice(0, 200))}
@@ -160,7 +160,7 @@ export function GiftVoucherPurchase() {
           {sending ? <Loader2 size={18} className="animate-spin" /> : <Gift size={18} />}
           {sending ? 'Otevírám platbu…' : `Koupit za ${selected.amount.toLocaleString('cs-CZ')} Kč`}
         </button>
-        <p className="text-center text-xs font-semibold text-white/40">Platba kartou přes Stripe · poukaz dorazí ihned po zaplacení</p>
+        <p className="text-center text-[13px] font-semibold text-white/65 md:text-xs md:text-white/50">Platba kartou přes Stripe · poukaz dorazí ihned po zaplacení</p>
       </div>
     </div>
   );

@@ -71,7 +71,7 @@ export default function CampsPage() {
               </span>
               <div>
                 <p className="text-base font-black text-white">{slot.title}</p>
-                <p className="mt-0.5 text-sm leading-6 text-white/55">{slot.text}</p>
+                <p className="mt-0.5 text-[15px] leading-6 text-white/75 md:text-sm md:text-white/60">{slot.text}</p>
               </div>
             </li>
           ))}
@@ -83,7 +83,7 @@ export default function CampsPage() {
           </span>
           <div>
             <p className="text-sm font-black text-white">Bez ranního papírování</p>
-            <p className="mt-0.5 text-sm leading-6 text-white/55">Přihláška, souhlasy i anamnéza jsou připravené v systému pro trenéra.</p>
+            <p className="mt-0.5 text-[15px] leading-6 text-white/75 md:text-sm md:text-white/60">Přihláška, souhlasy i anamnéza jsou připravené v systému pro trenéra.</p>
           </div>
         </div>
       </section>

@@ -152,7 +152,7 @@ function ChapterSlide({
 
       <motion.div style={{ x: textX, opacity: textOpacity }} className="max-w-[460px] will-change-transform px-4 text-center md:px-0 md:text-left">
         <h3 className="text-2xl font-black leading-tight tracking-tight text-white md:text-5xl">{chapter.title}</h3>
-        <p className="mt-2 text-sm font-bold text-brand-purple-light md:mt-3 md:text-lg">{chapter.lead}</p>
+        <p className="mt-2 text-base font-bold text-brand-purple-light md:mt-3 md:text-lg">{chapter.lead}</p>
         <ul className="mt-4 hidden space-y-3 md:mt-7 md:block">
           {chapter.bullets.map((bullet) => (
             <li key={bullet} className="flex items-start gap-3">
@@ -166,7 +166,7 @@ function ChapterSlide({
         {/* Na telefonu jen první dva body, ať se vše vejde vedle velkého videa */}
         <ul className="mx-auto mt-3 max-w-[340px] space-y-1.5 md:hidden">
           {chapter.bullets.slice(0, 2).map((bullet) => (
-            <li key={bullet} className="text-[13px] leading-5 text-white/65">
+            <li key={bullet} className="text-[14.5px] leading-[22px] text-white/75">
               {bullet}
             </li>
           ))}

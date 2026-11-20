@@ -225,7 +225,8 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
           </p>
         </div>
       </div>
-      <div ref={wrapperRef} className="relative mt-4">
+      {/* isolate: z-indexy Leafletu a tlačítka zůstanou uvnitř mapy a nepřelezou pevnou lištu webu. */}
+      <div ref={wrapperRef} className="relative isolate mt-4">
         <div
           ref={containerRef}
           className="z-0 h-[380px] w-full overflow-hidden rounded-[24px] border border-brand-purple/15 shadow-brand-soft md:h-[460px]"

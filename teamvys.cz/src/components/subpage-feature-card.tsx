@@ -43,7 +43,7 @@ export function FeatureCard({
       {media ? (
         <>
           {media}
-          <p className="mt-3 px-1 text-xs leading-5 text-white/45">{body}</p>
+          <p className="mt-3 px-1 text-[13.5px] leading-5 text-white/70 md:text-xs md:text-white/55">{body}</p>
         </>
       ) : (
         <>
@@ -51,7 +51,7 @@ export function FeatureCard({
             {icon}
           </span>
           <h3 className="mt-5 text-lg font-black leading-tight text-white">{title}</h3>
-          <p className="mt-2 text-sm leading-6 text-white/55">{body}</p>
+          <p className="mt-2 text-[15px] leading-6 text-white/75 md:text-sm md:text-white/60">{body}</p>
         </>
       )}
     </motion.div>
