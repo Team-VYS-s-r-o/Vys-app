@@ -10057,7 +10057,8 @@ const ADMIN_TOGGLABLE_FEATURE_FLAGS = new Set([
   'coordinator_city_research',
 ]);
 // Číselná nastavení v témže jsonb (0 = funkce vypnutá, zůstane jen žebříček).
-const ADMIN_NUMERIC_FEATURE_SETTINGS = new Set(['coach_attendance_bonus_czk', 'coach_rating_reward_czk', 'region_system_fee_czk', 'commission_tier1_percent', 'commission_tier2_percent', 'commission_tier3_percent', 'commission_tier1_limit_czk', 'commission_tier2_limit_czk']);
+// finance_income_tax_percent: orientační odhad daně z příjmů ve Financích (0 = nepočítat — neziskovky).
+const ADMIN_NUMERIC_FEATURE_SETTINGS = new Set(['finance_income_tax_percent', 'coach_attendance_bonus_czk', 'coach_rating_reward_czk', 'region_system_fee_czk', 'commission_tier1_percent', 'commission_tier2_percent', 'commission_tier3_percent', 'commission_tier1_limit_czk', 'commission_tier2_limit_czk']);
 
 app.patch('/api/admin/feature-flags', asyncRoute(async (request, response) => {
   requireServices();
