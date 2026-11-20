@@ -192,6 +192,11 @@ Verze **1.0.3**, Android versionCode **18**, iOS buildNumber **26**, bundle `com
 
 Mimo skupiny: `sign-in`, `index`, `qr-claim` (vázání dítěte QR kódem, bez loginu), `spots` (mapa).
 
+**Koordinátor na PC (web, šířka ≥ 1100):** `useCoordDesktop()` v `components/coordinator/ui.tsx` přepíná
+obrazovky na PC rozložení — tabulky a číselné karty z `components/coordinator/desktop.tsx`, detaily v okně
+(`SheetModal` se `size`). Na PC se nic nerozbaluje do stránky; `CollapsiblePanel` se tam sám změní na dlaždici
+s oknem. Telefon a nativní appka jedou původním rozložením.
+
 **Route guard** je v `app/_layout.tsx`: role se drží v AsyncStorage pod `vys.role`,
 nepřihlášený letí na `/sign-in`, neschválený trenér se odhlásí, špatná sekce → přesměrování.
 Obejde se přes `EXPO_PUBLIC_DEV_BYPASS_AUTH` a `EXPO_PUBLIC_DEV_BYPASS_ROLE_GUARD`.
