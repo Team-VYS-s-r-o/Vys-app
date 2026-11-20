@@ -7880,7 +7880,7 @@ app.get('/api/admin/invoices', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('invoices')
-    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at,gym_place,nfc_card_count,nfc_cards_applied')
+    .select('id,dodavatel,castka,mena,datum_vystaveni,datum_splatnosti,cislo_faktury,popis,file_url,kategorie,zaplaceno,datum_zaplaceni,odeslal,coach_id,coordinator_id,zdroj,prijato,created_at,gym_place,nfc_card_count,nfc_cards_applied,period')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
