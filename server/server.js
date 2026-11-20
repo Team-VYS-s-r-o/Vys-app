@@ -3174,43 +3174,118 @@ function freeLessonCode() {
   return `TRIAL-${pick(4)}-${pick(4)}`;
 }
 
-async function participantHasPaidPurchase(participantId) {
+async function participantHasPaidPurchase(participantIds) {
+  const ids = (Array.isArray(participantIds) ? participantIds : [participantIds]).filter(Boolean);
+  if (ids.length === 0) return false;
   const { count, error } = await supabase
     .from('parent_purchases')
     .select('id', { count: 'exact', head: true })
-    .eq('participant_id', participantId)
+    .in('participant_id', ids)
     .in('status', ['Zaplaceno', 'Placeno']);
   if (error) throw error;
   return (count || 0) > 0;
 }
 
+// Totožnost dítěte nezávislá na záznamu: jméno + datum narození. Stejné dítě
+// mívá dva záznamy (rodič ho přidá a ono si pak založí vlastní účet, nebo ho
+// rodič smaže a přidá znovu) — první lekce zdarma patří dítěti, ne záznamu.
+function freeLessonIdentityKey(participant) {
+  const name = `${participant?.first_name || ''} ${participant?.last_name || ''}`
+    .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+  const born = parseFlexibleDate(participant?.date_of_birth);
+  if (!name || !born) return null;
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${name}|${born.getFullYear()}-${pad(born.getMonth() + 1)}-${pad(born.getDate())}`;
+}
+
+// Všechny záznamy téhož dítěte v organizaci (včetně zadaného).
+async function freeLessonSameChildIds(participant, identityKey) {
+  if (!identityKey || !participant.last_name) return [participant.id];
+  const lastName = String(participant.last_name).trim().replace(/[\\%_]/g, (char) => `\\${char}`);
+  const { data, error } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,date_of_birth')
+    .eq('org_id', participant.org_id || VYS_ORG_ID)
+    .ilike('last_name', lastName);
+  if (error) throw error;
+  const ids = (data || []).filter((row) => freeLessonIdentityKey(row) === identityKey).map((row) => row.id);
+  return ids.includes(participant.id) ? ids : [participant.id, ...ids];
+}
+
+// Najde vstupenku dítěte: nejdřív podle záznamu, pak podle totožnosti. Využitá
+// má přednost — jakmile dítě jednou přišlo, další QR už nedostane.
+async function findFreeLessonClaim(participant, identityKey) {
+  const columns = 'id,code,status,used_at,participant_id,identity_key';
+  const { data: own, error: ownError } = await supabase
+    .from('free_lesson_claims').select(columns).eq('participant_id', participant.id).maybeSingle();
+  if (ownError) throw ownError;
+  let related = [];
+  if (identityKey) {
+    const { data, error } = await supabase
+      .from('free_lesson_claims').select(columns)
+      .eq('org_id', participant.org_id || VYS_ORG_ID).eq('identity_key', identityKey);
+    if (error) throw error;
+    related = data || [];
+  }
+  if (own && identityKey && !own.identity_key) {
+    await supabase.from('free_lesson_claims').update({ identity_key: identityKey }).eq('id', own.id);
+  }
+  const all = [...(own ? [own] : []), ...related.filter((row) => row.id !== own?.id)];
+  return all.find((row) => row.status === 'used') || own || all[0] || null;
+}
+
+async function loadFreeLessonParticipant(participantId) {
+  const { data: participant, error } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,date_of_birth,org_id')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!participant) throw httpError('Účastník nenalezen.', 404);
+  return participant;
+}
+
+// Stav vstupenky bez vedlejších účinků — appka podle něj vstupenku ukáže,
+// nebo schová (využitá / dítě už má zaplaceno), a hlídá potvrzení trenérem.
+app.get('/api/participant/free-lesson/status', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireAuthenticatedProfile(request);
+  const participantId = requiredString(request.query.participantId, 'participantId');
+  await assertParticipantAccessible(actor, participantId);
+
+  const participant = await loadFreeLessonParticipant(participantId);
+  const identityKey = freeLessonIdentityKey(participant);
+  const claim = await findFreeLessonClaim(participant, identityKey);
+  if (claim?.status === 'used') {
+    response.json({ claim: { code: claim.code, status: 'used', usedAt: claim.used_at }, eligible: false });
+    return;
+  }
+  const paid = await participantHasPaidPurchase(await freeLessonSameChildIds(participant, identityKey));
+  response.json({
+    claim: claim ? { code: claim.code, status: claim.status, usedAt: claim.used_at } : null,
+    eligible: !paid,
+  });
+}));
+
 // Aktivace v profilu účastníka / u dítěte rodiče. Idempotentní: druhé volání
-// vrátí tentýž kód (unique participant_id), nikdy nevznikne druhý.
+// vrátí tentýž kód (unique participant_id), nikdy nevznikne druhý — ani když
+// má totéž dítě v systému druhý záznam.
 app.post('/api/participant/free-lesson/claim', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireAuthenticatedProfile(request);
   const participantId = requiredString(request.body.participantId, 'participantId');
   await assertParticipantAccessible(actor, participantId);
 
-  const { data: participant, error: participantError } = await supabase
-    .from('participants')
-    .select('id,first_name,last_name,org_id')
-    .eq('id', participantId)
-    .maybeSingle();
-  if (participantError) throw participantError;
-  if (!participant) throw httpError('Účastník nenalezen.', 404);
+  const participant = await loadFreeLessonParticipant(participantId);
+  const identityKey = freeLessonIdentityKey(participant);
 
-  const { data: existing } = await supabase
-    .from('free_lesson_claims')
-    .select('code,status,used_at')
-    .eq('participant_id', participantId)
-    .maybeSingle();
+  const existing = await findFreeLessonClaim(participant, identityKey);
   if (existing) {
     response.json({ code: existing.code, status: existing.status, usedAt: existing.used_at });
     return;
   }
 
-  if (await participantHasPaidPurchase(participantId)) {
+  if (await participantHasPaidPurchase(await freeLessonSameChildIds(participant, identityKey))) {
     throw httpError('První lekce zdarma je pro nové účastníky — tenhle už má zaplacenou permanentku.', 409);
   }
 
@@ -3222,7 +3297,7 @@ app.post('/api/participant/free-lesson/claim', asyncRoute(async (request, respon
   }
   const { data: inserted, error: insertError } = await supabase
     .from('free_lesson_claims')
-    .insert({ participant_id: participantId, org_id: participant.org_id || VYS_ORG_ID, code })
+    .insert({ participant_id: participantId, org_id: participant.org_id || VYS_ORG_ID, code, identity_key: identityKey })
     .select('code,status')
     .single();
   if (insertError) {
@@ -3338,11 +3413,32 @@ app.get('/api/staff/free-lessons', asyncRoute(async (request, response) => {
   const participantIds = (claims || []).map((claim) => claim.participant_id);
   if (participantIds.length === 0) { response.json({ freeLessons: [] }); return; }
 
-  const [{ data: participants }, { data: paid }] = await Promise.all([
-    supabase.from('participants').select('id,first_name,last_name,date_of_birth,parent_phone,parent_name,parent_profile_id').in('id', participantIds),
-    supabase.from('parent_purchases').select('participant_id').in('participant_id', participantIds).in('status', ['Zaplaceno', 'Placeno']),
-  ]);
-  const paidIds = new Set((paid || []).map((row) => row.participant_id));
+  const { data: participants } = await supabase
+    .from('participants')
+    .select('id,first_name,last_name,date_of_birth,parent_phone,parent_name,parent_profile_id')
+    .in('id', participantIds);
+  // Dítě mohlo přijít na zkoušku pod jedním záznamem a zaplatit pod druhým
+  // (rodič ho přidal znovu) — zaplaceno se proto hledá přes všechny jeho záznamy.
+  const keyByParticipant = new Map((participants || []).map((row) => [row.id, freeLessonIdentityKey(row)]));
+  const lastNames = Array.from(new Set((participants || []).map((row) => String(row.last_name || '').trim()).filter(Boolean)));
+  const { data: sameNameRows } = lastNames.length > 0
+    ? await supabase.from('participants').select('id,first_name,last_name,date_of_birth').eq('org_id', orgId).in('last_name', lastNames)
+    : { data: [] };
+  const idsByKey = new Map();
+  for (const row of sameNameRows || []) {
+    const key = freeLessonIdentityKey(row);
+    if (!key) continue;
+    idsByKey.set(key, [...(idsByKey.get(key) || []), row.id]);
+  }
+  const relatedIds = (participantId) => {
+    const key = keyByParticipant.get(participantId);
+    return Array.from(new Set([participantId, ...((key && idsByKey.get(key)) || [])]));
+  };
+  const purchaseIds = Array.from(new Set(participantIds.flatMap(relatedIds)));
+  const { data: paid } = await supabase
+    .from('parent_purchases').select('participant_id').in('participant_id', purchaseIds).in('status', ['Zaplaceno', 'Placeno']);
+  const paidPurchaseIds = new Set((paid || []).map((row) => row.participant_id));
+  const paidIds = new Set(participantIds.filter((participantId) => relatedIds(participantId).some((id) => paidPurchaseIds.has(id))));
   const parentIds = Array.from(new Set((participants || []).map((row) => row.parent_profile_id).filter(Boolean)));
   const { data: parents } = parentIds.length > 0
     ? await supabase.from('app_profiles').select('id,email,name').in('id', parentIds)
