@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from 'framer-motion';
 import { Check } from 'lucide-react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -70,8 +70,10 @@ export function AppShowcase() {
   }
 
   return (
-    <div ref={wrapRef} className="relative h-[480dvh]">
-      <div className="sticky top-0 flex h-dvh items-center overflow-hidden">
+    // svh, ne dvh: na telefonu se dvh mění s vysouváním lišty prohlížeče a celá
+    // scroll-animace pak při každém scrollu přepočítává výšku a cuká.
+    <div ref={wrapRef} className="relative h-[480svh]">
+      <div className="sticky top-0 flex h-svh items-center overflow-hidden">
         <div className="section-shell relative h-full w-full">
           {CHAPTERS.map((chapter, index) => (
             <ChapterSlide
@@ -144,11 +146,11 @@ function ChapterSlide({
 
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-6 md:flex-row md:gap-16">
-      <motion.div style={{ x: phoneX, opacity: phoneOpacity }} className="shrink-0">
+      <motion.div style={{ x: phoneX, opacity: phoneOpacity }} className="shrink-0 will-change-transform">
         <PhoneVideo name={chapter.video} title={chapter.title} />
       </motion.div>
 
-      <motion.div style={{ x: textX, opacity: textOpacity }} className="max-w-[460px] px-4 text-center md:px-0 md:text-left">
+      <motion.div style={{ x: textX, opacity: textOpacity }} className="max-w-[460px] will-change-transform px-4 text-center md:px-0 md:text-left">
         <h3 className="text-2xl font-black leading-tight tracking-tight text-white md:text-5xl">{chapter.title}</h3>
         <p className="mt-2 text-sm font-bold text-brand-purple-light md:mt-3 md:text-lg">{chapter.lead}</p>
         <ul className="mt-4 hidden space-y-3 md:mt-7 md:block">
@@ -174,25 +176,52 @@ function ChapterSlide({
   );
 }
 
+/**
+ * Telefon se záznamem. Na mobilu jen statický obrázek: tři videa s průhledností
+ * dekódovaná naráz + stín přes CSS filtr se na telefonech přepočítávaly v každém
+ * snímku a posouvání telefonů se sekalo. Výchozí stav je obrázek (i při SSR),
+ * video se přepne až na širokém displeji.
+ */
 function PhoneVideo({ name, title }: { name: string; title: string }) {
+  const [useVideo, setUseVideo] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 768px) and (pointer: fine)');
+    const sync = () => setUseVideo(query.matches);
+    sync();
+    query.addEventListener?.('change', sync);
+    return () => query.removeEventListener?.('change', sync);
+  }, []);
+
   return (
     <div className="relative">
+      {/* Záře za telefonem: měkký gradient bez blur filtru (ten je na telefonu drahý). */}
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[70%] w-[130%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(139,29,255,0.30),transparent_62%)] blur-2xl"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[80%] w-[150%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(139,29,255,0.32),rgba(139,29,255,0.12)_55%,transparent)]"
       />
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        poster={`/${name}-poster.webp`}
-        aria-label={`Ukázka z aplikace — ${title}`}
-        className="relative h-[44dvh] w-auto select-none drop-shadow-[0_40px_80px_rgba(0,0,0,0.55)] md:h-[76dvh]"
-      >
-        <source src={`/${name}.mov`} type="video/quicktime" />
-        <source src={`/${name}.webm`} type="video/webm" />
-      </video>
+      {useVideo ? (
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster={`/${name}-poster.webp`}
+          aria-label={`Ukázka z aplikace — ${title}`}
+          className="relative h-[76dvh] w-auto select-none drop-shadow-[0_40px_80px_rgba(0,0,0,0.55)]"
+        >
+          <source src={`/${name}.mov`} type="video/quicktime" />
+          <source src={`/${name}.webm`} type="video/webm" />
+        </video>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/${name}-poster.webp`}
+          alt={`Ukázka z aplikace — ${title}`}
+          decoding="async"
+          draggable={false}
+          className="relative h-[44svh] w-auto select-none md:h-[76dvh]"
+        />
+      )}
     </div>
   );
 }

@@ -19,6 +19,24 @@ const navItems = [
   { label: 'Aplikace', href: '/aplikace' },
 ] as const;
 
+// Na telefonu je v liště vidět jen menu — místo prázdného místa tam stojí,
+// kde člověk zrovna je.
+const extraSections: { prefix: string; label: string }[] = [
+  { prefix: '/parkour', label: 'Parkour ve městě' },
+  { prefix: '/darkovy-poukaz', label: 'Dárkový poukaz' },
+  { prefix: '/ochrana-osobnich-udaju', label: 'Ochrana údajů' },
+  { prefix: '/checkout', label: 'Platba' },
+  { prefix: '/sign-in', label: 'Přihlášení' },
+  { prefix: '/nastaveni-hesla', label: 'Nové heslo' },
+];
+
+function sectionLabel(pathname: string | null) {
+  if (!pathname || pathname === '/') return null;
+  const match = [...navItems, ...extraSections.map((item) => ({ href: item.prefix, label: item.label }))]
+    .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  return match?.label ?? null;
+}
+
 export function SiteNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -38,6 +56,7 @@ export function SiteNav() {
     return () => window.removeEventListener('scroll', updateScrollProgress);
   }, []);
 
+  const mobileLabel = sectionLabel(pathname) ?? 'TEAM VYS';
   const effectiveProgress = desktopHover ? 0 : scrollProgress;
   const navWidth = 100 - effectiveProgress * 14;
 
@@ -69,7 +88,28 @@ export function SiteNav() {
             </Link>
           </div>
 
-          <div className="flex flex-1 items-center justify-center overflow-hidden md:flex-none md:overflow-visible">
+          {/* Telefon: logo + název sekce, při přechodu na jinou stránku se název vymění zdola nahoru. */}
+          <Link href="/" aria-label="Přejít na úvodní stránku" className="flex min-w-0 flex-1 items-center gap-2.5 md:hidden">
+            <TeamVysLogo size={30} priority />
+            <span className="relative block h-6 min-w-0 flex-1 overflow-hidden">
+              <AnimatePresence initial={false} mode="popLayout">
+                <motion.span
+                  key={mobileLabel}
+                  initial={{ y: '110%', opacity: 0 }}
+                  animate={{ y: '0%', opacity: 1 }}
+                  exit={{ y: '-110%', opacity: 0 }}
+                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 truncate text-[17px] font-black leading-6 text-white"
+                >
+                  {mobileLabel === 'TEAM VYS' ? (
+                    <>TEAM<span className="gradient-text">VYS</span></>
+                  ) : mobileLabel}
+                </motion.span>
+              </AnimatePresence>
+            </span>
+          </Link>
+
+          <div className="hidden flex-1 items-center justify-center overflow-hidden md:flex md:flex-none md:overflow-visible">
             <nav className="hidden items-center gap-2 md:flex">
               {navItems.map((item) => (
                 <Link
@@ -88,7 +128,7 @@ export function SiteNav() {
             </nav>
           </div>
 
-          <div className="flex justify-end md:flex-1">
+          <div className="flex shrink-0 justify-end md:flex-1">
             <button
               aria-label="Menu"
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white backdrop-blur-md transition-all duration-500 hover:-translate-y-0.5 md:hidden"
