@@ -9766,7 +9766,11 @@ app.get('/api/admin/coordinators/colors', asyncRoute(async (request, response) =
     .from('coordinator_profiles')
     .select('id,org_id,region,created_at');
   if (coordinatorError) throw coordinatorError;
-  const orgCoordinators = (coordinatorRows || []).filter((row) => (row.org_id || VYS_ORG_ID) === orgId);
+  // Seřazeno od nejstaršího: když kraj sdílí víc koordinátorů (ostrý + testovací
+  // účet), mapa přiřadí město prvnímu v seznamu, tedy tomu, kdo kraj dostal dřív.
+  const orgCoordinators = (coordinatorRows || [])
+    .filter((row) => (row.org_id || VYS_ORG_ID) === orgId)
+    .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
   if (orgCoordinators.length === 0) {
     response.json({ coordinators: [] });
     return;
