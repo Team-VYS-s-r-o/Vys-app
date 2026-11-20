@@ -2620,15 +2620,57 @@ app.get('/api/parent/coaches', asyncRoute(async (request, response) => {
   response.json({ coaches });
 }));
 
-app.get('/api/public/coaches', asyncRoute(async (_request, response) => {
+// Fotka jednoho schváleného trenéra jako obrázek. Fotky jsou v DB uložené jako
+// base64 (data: URL) — v seznamu trenérů dělaly z odpovědi 5,5 MB (6 s, těsně nad
+// limitem Vercelu), takže se v appce trenéři u kroužku ukazovali pozdě nebo vůbec.
+// Odlehčený seznam (`?lite=1`) proto vrací jen odkaz sem a prohlížeč si fotku
+// stáhne zvlášť a podrží v cache.
+app.get('/api/public/coaches/:id/photo', asyncRoute(async (request, response) => {
   requireServices();
 
+  const { data, error } = await supabase
+    .from('coach_profiles')
+    .select('profile_photo_url, approval_status')
+    .eq('id', String(request.params.id || ''))
+    .maybeSingle();
+  if (error) throw error;
+
+  const url = data?.approval_status === 'approved' ? String(data.profile_photo_url || '') : '';
+  const match = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/is.exec(url);
+  if (match) {
+    response.set('Content-Type', match[1].toLowerCase());
+    response.set('Cache-Control', 'public, max-age=86400, s-maxage=604800');
+    response.send(Buffer.from(match[2], 'base64'));
+    return;
+  }
+  if (/^https?:\/\//i.test(url)) {
+    response.redirect(302, url);
+    return;
+  }
+  response.status(404).json({ error: 'Fotka nenalezena.' });
+}));
+
+app.get('/api/public/coaches', asyncRoute(async (request, response) => {
+  requireServices();
+
+  // `?lite=1` (appka): bez base64 fotek v odpovědi — jen jména a odkaz na fotku.
+  const lite = String(request.query.lite || '') === '1';
   const { data: coachRows, error } = await supabase
     .from('coach_profiles')
-    .select('id, profile_photo_url, assigned_courses')
+    .select(lite ? 'id, assigned_courses' : 'id, profile_photo_url, assigned_courses')
     .eq('approval_status', 'approved');
 
   if (error) throw error;
+
+  let withPhoto = new Set();
+  if (lite) {
+    const { data: photoRows } = await supabase
+      .from('coach_profiles')
+      .select('id')
+      .eq('approval_status', 'approved')
+      .not('profile_photo_url', 'is', null);
+    withPhoto = new Set((photoRows || []).map((row) => row.id));
+  }
 
   const ids = (coachRows || []).map((r) => r.id).filter((id) => !isDemoAdminRecord(id));
   if (ids.length === 0) {
@@ -2647,7 +2689,9 @@ app.get('/api/public/coaches', asyncRoute(async (_request, response) => {
     .map((r) => ({
       id: r.id,
       name: profileMap.get(r.id) || 'Trenér Team VYS',
-      photoUrl: r.profile_photo_url || '/vys-logo-mark.png',
+      photoUrl: lite
+        ? (withPhoto.has(r.id) ? `/api/public/coaches/${r.id}/photo` : '/vys-logo-mark.png')
+        : (r.profile_photo_url || '/vys-logo-mark.png'),
       locations: Array.isArray(r.assigned_courses) ? r.assigned_courses : [],
     }));
 
