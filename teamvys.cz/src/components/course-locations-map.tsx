@@ -114,21 +114,33 @@ export function CourseLocationsMap({ locations, onCityPick }: { locations: MapLo
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxNativeZoom: 19,
         maxZoom: 19,
+        referrerPolicy: 'strict-origin-when-cross-origin',
       }).addTo(map);
 
       let tileErrors = 0;
       let switched = false;
-      osmLayer.on('tileerror', () => {
-        tileErrors += 1;
-        if (switched || tileErrors < 4) return;
+      const switchTiles = (url: string, attribution: string, subdomains?: string) => {
+        if (switched) return;
         switched = true;
         map.removeLayer(osmLayer);
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-          attribution: 'Esri &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          maxNativeZoom: 18,
-          maxZoom: 19,
-        }).addTo(map);
+        L.tileLayer(url, { attribution, maxNativeZoom: 18, maxZoom: 19, ...(subdomains ? { subdomains } : {}) }).addTo(map);
+      };
+      osmLayer.on('tileerror', () => {
+        tileErrors += 1;
+        if (tileErrors < 4) return;
+        switchTiles('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', 'Esri &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>');
       });
+      // Prohlížeč bez hlavičky Referer (rozšíření na soukromí, antivir) dostane
+      // od OSM obrázek „403 Access blocked" s HTTP 200 — tileerror ho nepozná.
+      // Zablokovaná odpověď nese `cache-control: no-cache`, pravá dlaždice `max-age`.
+      fetch('https://tile.openstreetmap.org/6/34/21.png', { referrerPolicy: 'strict-origin-when-cross-origin' })
+        .then((response) => {
+          if (cancelled) return;
+          if (!response.ok || /no-cache/i.test(response.headers.get('cache-control') ?? '')) {
+            switchTiles('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', 'abc');
+          }
+        })
+        .catch(() => undefined);
 
       const bounds = L.latLngBounds([]);
       for (const pin of pins) {
