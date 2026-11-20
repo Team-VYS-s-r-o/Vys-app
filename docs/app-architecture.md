@@ -120,6 +120,10 @@ koordinátor smí zapsat trenérům zapomenutou docházku (`POST /api/coordinato
 status „Zapsáno koordinátorem"); admin to vypíná/zapíná přes `PATCH /api/admin/feature-flags`
 (whitelist klíčů na serveru), toggle v admin webu v sekci Koordinátoři.
 
+**Veřejný seznam trenérů:** `GET /api/public/coaches` vrací i fotky jako base64 (data: URL z `coach_profiles.profile_photo_url`)
+— celá odpověď má ~5,5 MB. Appka proto volá `?lite=1` (jen jména, lokality a odkaz na fotku) a obrázek bere z
+`GET /api/public/coaches/:id/photo` (jen schválení trenéři, cache 1 den / CDN 7 dní). Weby zatím používají plný seznam.
+
 **Mapa měst koordinátora:** `GET /api/coordinator/overview` vrací i `locations` (+ `locationsMissingPins`) —
 rozpad kraje po městech (`buildRegionLocations`): souřadnice, termíny, děti, trenéři, dokumenty dětí,
 hodnocení, zisk a výdaje za tento/minulý měsíc/celkem, smlouvy s halou (`product_admin_info`) a faktury
