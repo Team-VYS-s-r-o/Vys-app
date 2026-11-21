@@ -286,7 +286,7 @@ kartičky. `teamvys_update_nfc_settings()` / `teamvys_update_org_name()` — zá
     zrušeno migrací `20261121120000_drop_prototype_public_policies.sql`). Každá nová policy musí
     mít `to authenticated` a podmínku na `auth.uid()` / roli. Kontrola:
     `select tablename, policyname, cmd, qual from pg_policies where schemaname='public' and roles::text ~ 'public|anon';`
-    — s `true` smí zůstat jen `products` a `product_faqs` (a zatím `workshop_xp_awards`, viz níže).
+    — s `true` smí zůstat jen `products` a `product_faqs`.
 
 ---
 
@@ -333,13 +333,21 @@ git -c credential.helper= -c "http.https://github.com/.extraheader=Authorization
   `product_admin_info`, `product_interests` — záměr: service-role only); 40 `SECURITY DEFINER`
   RPC volatelných rolí `anon`; `teamvys_coach_session_is_workshop` a `teamvys_touch_document_slot`
   mají mutable `search_path`; vypnutá ochrana proti uniklým heslům v Auth.
-- **`workshop_xp_awards` má dál otevřenou policy** `workshop_xp_awards prototype all` (ALL pro
-  `public`, `true`): XP za workshop si zapisuje klient v `qr-claim.tsx` (`hooks/use-qr-events.ts`).
-  Tabulka je prázdná, ale zápis by měl jít přes SECURITY DEFINER RPC jako `teamvys_claim_qr_trick`.
-- **`parent_purchases scoped write` dovoluje přihlášenému rodiči vložit vlastní řádek** (i se
-  `status='Zaplaceno'`, na který trigger `teamvys_sync_paid_purchase_side_effects` přepočítá
-  kapacitu, aktivní nákupy dítěte a permanentku). Reálné nákupy zapisuje server (service role); klientský zápis je pozůstatek
-  prototypu (`addParentPurchase`, nikde se nevolá) — policy omezit na admina.
+- ~~**`workshop_xp_awards` měla otevřenou policy** `workshop_xp_awards prototype all`~~ — **zavřeno
+  21. 11. 2026** (migrace `20261121150000_close_client_writes_purchases_workshop_xp.sql`). XP za
+  workshop zapisuje jen SECURITY DEFINER RPC `teamvys_claim_workshop_xp(p_product_id,
+  p_product_title, p_ts, p_coach_id, p_participant_id)`: smí ji volat přihlášený účastník sám za
+  sebe nebo rodič za své dítě, XP počítá server z `coach_tricks` (1 ze 2 triků = polovina).
+  Čtení: vlastník, rodič dítěte, staff. Dvojice triků workshopu je v té funkci **a** ve
+  `vys-aplikace/lib/workshop-ticket.ts` (`workshopSkillIds`) — nový workshop doplnit na obou místech.
+  Pozn.: řádek ve `workshop_xp_awards` je jen záznam, do `participants.xp` se nepřičítá (tak to
+  bylo i dřív).
+- ~~**`parent_purchases scoped write` dovolovala přihlášenému rodiči vložit vlastní řádek**~~ —
+  **zavřeno 21. 11. 2026** (stejná migrace). Zápisová policy zrušena bez náhrady a rolím `anon`
+  i `authenticated` odebrána práva INSERT/UPDATE/DELETE: do `parent_purchases` zapisuje **jen
+  server** (service role). Žádný klient tam nepíše — admin jen čte. V appce odstraněn
+  `addParentPurchase`; „Skrýt z profilu" u vypršelé workshop vstupenky ji schová jen v zařízení
+  (`hideParentPurchase`, AsyncStorage), řádek nákupu zůstává jako doklad o platbě.
 - **Kontaktní e-mail je rozdvojený.** `LEGAL_ENTITY` v obchodních podmínkách, `shared/content.ts`
   i `vys-aplikace/lib/public-content.ts` uvádějí **`ahoj@teamvys.cz`**, zatímco Stripe účtenky
   a Google Play mají **`info@teamvys.cz`**.
