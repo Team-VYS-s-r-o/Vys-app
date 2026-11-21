@@ -1,9 +1,7 @@
-import { ShieldCheck, Trophy } from 'lucide-react';
-
 import { PageHero } from '@/components/page-hero';
 import { PublicCourseCatalog } from '@/components/public-admin-products';
 import { SubpageCta } from '@/components/subpage-cta';
-import { FeatureCard, SectionIntro } from '@/components/subpage-feature-card';
+import { TrainingTimeline } from '@/components/training-timeline';
 import { GoogleReviewCta } from '@/components/google-review';
 
 export const metadata = {
@@ -22,23 +20,6 @@ export const metadata = {
   },
 };
 
-const benefits = [
-  {
-    // Skutečná NFC permanentka místo ikonového bloku — text pod ní jen drobně.
-    media: (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src="/permanentka-karta.webp"
-        alt="NFC permanentka Team VYS"
-        className="w-full select-none rounded-xl shadow-[0_18px_40px_rgba(0,0,0,0.45)] transition-transform duration-500 group-hover:-translate-y-1 group-hover:rotate-[0.5deg]"
-      />
-    ),
-    body: 'Vstupy se odečítají postupně přes NFC čip. Žádný závazek na celý rok.',
-  },
-  { icon: <ShieldCheck size={20} />, eyebrow: 'Bezpečně', title: 'Trénink od základů', body: 'Dopady, koordinace a triky krok za krokem pod dohledem certifikovaných trenérů.' },
-  { icon: <Trophy size={20} />, eyebrow: 'Skill tree', title: 'Pokrok je vidět', body: 'Dítě sbírá XP, odemyká triky a postupuje barevnými náramky rovnou v appce.' },
-];
-
 export default function CoursesPage() {
   return (
     <div className="bg-[#0B0B10] text-white">
@@ -54,12 +35,28 @@ export default function CoursesPage() {
         </div>
       </section>
 
-      <section className="section-shell pb-16 md:pb-24">
-        <SectionIntro eyebrow="Proč kroužek" title="Trénink, který má hlavu a patu" />
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {benefits.map((b, i) => (
-            <FeatureCard key={b.title ?? `benefit-${i}`} {...b} index={i} />
-          ))}
+      {/* Jak vypadá trénink — 60 minut v pěti částech */}
+      <section className="section-shell pb-20 md:pb-32">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-balance text-3xl font-black leading-[1.02] tracking-tight text-white md:text-6xl">Trénink, který má hlavu a patu</h2>
+          <p className="mx-auto mt-4 max-w-xl text-base font-medium leading-7 text-white/65 md:text-lg">Každá hodina má pět částí. Žádná není navíc.</p>
+        </div>
+        <div className="mt-12 md:mt-16">
+          <TrainingTimeline />
+        </div>
+
+        {/* Permanentka */}
+        <div className="mt-16 grid items-center gap-8 rounded-[2rem] border border-white/10 bg-gradient-to-br from-brand-purple/[0.16] to-white/[0.03] p-7 md:mt-24 md:grid-cols-[320px_1fr] md:gap-12 md:p-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/permanentka-karta.webp"
+            alt="Permanentka Team VYS"
+            className="mx-auto w-full max-w-[320px] -rotate-3 select-none rounded-2xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] transition-transform duration-500 hover:rotate-0 hover:scale-[1.03]"
+          />
+          <div>
+            <h3 className="text-balance text-2xl font-black leading-tight tracking-tight text-white md:text-4xl">Platíš jen za tréninky, na které dítě přijde</h3>
+            <p className="mt-3 max-w-xl text-base font-medium leading-7 text-white/65 md:text-lg">Permanentka na 10 nebo 15 vstupů. Vstup se odečte pípnutím kartičky. Žádný závazek na celý rok.</p>
+          </div>
         </div>
       </section>
 

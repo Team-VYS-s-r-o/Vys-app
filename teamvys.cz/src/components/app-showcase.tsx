@@ -4,20 +4,26 @@ import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } f
 import { Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { PhoneFrame } from '@/components/phone-frame';
+
 const ease = [0.22, 1, 0.36, 1] as const;
 
 type Chapter = {
   video: string;
+  /** Barva horního okraje obrazovky ve videu (pozadí stavového řádku telefonu). */
+  tone?: string;
+  dark?: boolean;
   title: string;
   lead: string;
   bullets: readonly string[];
 };
 
-// Pořadí kapitol: trenér → rodič → účastník. Videa jsou skutečné záznamy z aplikace
-// zasazené do telefonu (webm s alfou pro Chrome/Firefox, HEVC .mov pro Safari).
+// Pořadí kapitol: trenér → rodič → účastník. Videa jsou skutečné záznamy obrazovky
+// aplikace (`/app-v2/<název>.mp4`, natáčí `guide-videos.mjs` v repu aplikacevys.cz),
+// telefon kolem nich kreslí `PhoneFrame`.
 const CHAPTERS: readonly Chapter[] = [
   {
-    video: 'app-trener',
+    video: 'trener',
     title: 'Trenérská sekce',
     lead: 'Docházka vyřešená za pár vteřin — přímo na tréninku.',
     bullets: [
@@ -27,7 +33,7 @@ const CHAPTERS: readonly Chapter[] = [
     ],
   },
   {
-    video: 'app-rodic',
+    video: 'rodic',
     title: 'Rodičovská sekce',
     lead: 'Děti, platby i permanentky pod palcem.',
     bullets: [
@@ -37,7 +43,9 @@ const CHAPTERS: readonly Chapter[] = [
     ],
   },
   {
-    video: 'app-ucastnik',
+    video: 'ucastnik',
+    tone: '#963b38',
+    dark: true,
     title: 'Účastnická sekce',
     lead: 'Trénink jako hra, kterou chceš hrát dál.',
     bullets: [
@@ -147,7 +155,7 @@ function ChapterSlide({
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-6 md:flex-row md:gap-16">
       <motion.div style={{ x: phoneX, opacity: phoneOpacity }} className="shrink-0 will-change-transform">
-        <PhoneVideo name={chapter.video} title={chapter.title} />
+        <PhoneVideo chapter={chapter} />
       </motion.div>
 
       <motion.div style={{ x: textX, opacity: textOpacity }} className="max-w-[460px] will-change-transform px-4 text-center md:px-0 md:text-left">
@@ -177,12 +185,11 @@ function ChapterSlide({
 }
 
 /**
- * Telefon se záznamem. Na mobilu jen statický obrázek: tři videa s průhledností
- * dekódovaná naráz + stín přes CSS filtr se na telefonech přepočítávaly v každém
- * snímku a posouvání telefonů se sekalo. Výchozí stav je obrázek (i při SSR),
- * video se přepne až na širokém displeji.
+ * Telefon se záznamem. Na mobilu jen obrázek: tři videa dekódovaná naráz se při
+ * posouvání telefonů sekala. Výchozí stav je obrázek (i při SSR), video se přepne
+ * až na širokém displeji s myší.
  */
-function PhoneVideo({ name, title }: { name: string; title: string }) {
+function PhoneVideo({ chapter }: { chapter: Chapter }) {
   const [useVideo, setUseVideo] = useState(false);
   useEffect(() => {
     const query = window.matchMedia('(min-width: 768px) and (pointer: fine)');
@@ -199,29 +206,14 @@ function PhoneVideo({ name, title }: { name: string; title: string }) {
         aria-hidden
         className="pointer-events-none absolute left-1/2 top-1/2 h-[80%] w-[150%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(139,29,255,0.32),rgba(139,29,255,0.12)_55%,transparent)]"
       />
-      {useVideo ? (
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          poster={`/${name}-poster.webp`}
-          aria-label={`Ukázka z aplikace — ${title}`}
-          className="relative h-[76dvh] w-auto select-none drop-shadow-[0_40px_80px_rgba(0,0,0,0.55)]"
-        >
-          <source src={`/${name}.mov`} type="video/quicktime" />
-          <source src={`/${name}.webm`} type="video/webm" />
-        </video>
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={`/${name}-poster.webp`}
-          alt={`Ukázka z aplikace — ${title}`}
-          decoding="async"
-          draggable={false}
-          className="relative h-[44svh] w-auto select-none md:h-[76dvh]"
-        />
-      )}
+      <PhoneFrame
+        video={useVideo ? `/app-v2/${chapter.video}.mp4` : undefined}
+        poster={`/app-v2/${chapter.video}.webp`}
+        alt={`Ukázka z aplikace — ${chapter.title}`}
+        tone={chapter.tone}
+        dark={chapter.dark}
+        className="h-[44svh] md:h-[76dvh]"
+      />
     </div>
   );
 }
@@ -245,8 +237,7 @@ function Dot({ index, total, progress }: { index: number; total: number; progres
 function StaticChapter({ chapter }: { chapter: Chapter }) {
   return (
     <div className="grid items-center gap-8 md:grid-cols-[auto_1fr] md:gap-14">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/${chapter.video}-poster.webp`} alt={chapter.title} className="mx-auto h-[60dvh] w-auto" />
+      <PhoneFrame poster={`/app-v2/${chapter.video}.webp`} alt={chapter.title} tone={chapter.tone} dark={chapter.dark} className="mx-auto h-[60dvh]" />
       <div>
         <h3 className="text-2xl font-black text-white md:text-4xl">{chapter.title}</h3>
         <p className="mt-2 text-sm font-bold text-brand-purple-light md:text-base">{chapter.lead}</p>

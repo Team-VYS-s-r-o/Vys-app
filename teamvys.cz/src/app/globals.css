@@ -294,3 +294,24 @@ a {
     text-stroke-width: 1.5px;
   }
 }
+
+/* Velký jezdící pás (Tábory: co je v ceně; O nás: tělocvičny) */
+@keyframes vys-marquee-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.camp-marquee {
+  animation: vys-marquee-left 34s linear infinite;
+}
+.gym-marquee {
+  animation: vys-marquee-left 60s linear infinite;
+}
+.gym-marquee:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .camp-marquee,
+  .gym-marquee {
+    animation: none;
+  }
+}
