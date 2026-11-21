@@ -147,6 +147,19 @@ Next.js 15, Vercel projekt **`aplikacevys-web`**, `force-dynamic` všude (žádn
 `/admin` + `/admin/prihlaseni` + `/admin/organizace`, `/koordinator`,
 a právní: `/obchodni-podminky`, `/ochrana-osobnich-udaju`, `/zpracovatelska-smlouva`, `/smazani-uctu`.
 
+`/nastaveni-hesla` (nové heslo správce — sem vede e-mail ze „Zapomenutého hesla").
+
+**Prodejní web (landing) a přihlášení — přestavba 21. 11. 2026:**
+- Sekce v `src/components/landing/`: `showcase-section` (admin v okně prohlížeče se záložkami + telefony trenér/rodič/dítě),
+  `hand-story-section` (ruka s telefonem, obrazovky se střídají při scrollu), `pricing-section` (jedna cena s přepínačem
+  období, kalkulačka na dítě, zprovoznění, FAQ), `app-showcase` (App Store, návod pro rodiče). Rámečky zařízení: `device-frames.tsx`.
+- Přihlášení, registrace i nastavení hesla sdílí tmavý `src/components/auth/auth-shell.tsx` (`AuthShell`, `AuthCollapse`);
+  registrace je tříkrokový průvodce. Styl polí: `.auth-input` v `globals.css`.
+- **Screenshoty jsou s vymyšlenými daty** (`public/fotky/v2/*.webp`). Přefocení: `scripts/demo-shots/` — `fixture-server.mjs`
+  (místní server, tváří se jako Supabase REST i API) + launch konfigurace `aplikacevys-demo` (port 3111) + `admin-shots.mjs`;
+  telefonní obrazovky fotí `site-app-shots.mjs` z dev náhledu appky (390×797, stavový řádek dokresluje `PhoneScreen`).
+- Ceny na webu musí sedět na třech místech: `ORG_PLANS` (server), `pricing-section.tsx`, `registration-form.tsx`.
+
 **Vlastní API routes jsou jen 4** (`/api/admin/org-logo`, `/api/admin/coaches/approval`,
 `/api/admin/coaches/delete`, `/api/participants/link`) — zbytek jde přes `src/lib/api-client.ts`
 na Express.

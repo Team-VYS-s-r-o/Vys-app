@@ -48,6 +48,15 @@
         "cd /Users/davidkropac/Desktop/vys-aplikace && EXPO_PUBLIC_DEV_BYPASS_AUTH=false npx expo start --web --port 8092"
       ],
       "port": 8092
+    },
+    {
+      "name": "aplikacevys-demo",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/davidkropac/Desktop/aplikacevys.cz && NEXT_PUBLIC_DEV_BYPASS_AUTH=true NEXT_PUBLIC_SUPABASE_URL=http://localhost:54999 NEXT_PUBLIC_API_URL=http://localhost:54999 NEXT_PUBLIC_SUPABASE_ANON_KEY=demo SUPABASE_SERVICE_ROLE_KEY=demo npx next dev --port 3111"
+      ],
+      "port": 3111
     }
   ]
 }
