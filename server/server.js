@@ -9550,9 +9550,40 @@ app.post('/api/coordinator/attendance', asyncRoute(async (request, response) => 
   }
   const coachId = requiredString(request.body.coachId, 'coachId');
   const place = requiredString(request.body.place, 'place');
-  const dateText = optionalString(request.body.dateText) ?? new Date().toLocaleDateString('cs-CZ');
+  // Datum se ukládá vždy ve tvaru „20. 11. 2026" — koordinátor ho píše ručně
+  // a trenérská appka do něj dává nezlomitelné mezery, takže se bez sjednocení
+  // nedal poznat už zapsaný den.
+  const dateParts = (value) => {
+    const match = String(value ?? '').replace(/[\s\u00a0\u202f]+/g, ' ').match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+    return match ? { day: Number(match[1]), month: Number(match[2]), year: Number(match[3]) } : null;
+  };
+  const requested = dateParts(optionalString(request.body.dateText) ?? new Date().toLocaleDateString('cs-CZ'));
+  if (!requested || requested.month < 1 || requested.month > 12 || requested.day < 1 || requested.day > 31) {
+    throw httpError('Datum zadej ve tvaru 20. 11. 2026.', 400);
+  }
+  if (new Date(requested.year, requested.month - 1, requested.day).getTime() > Date.now()) {
+    throw httpError('Trénink v budoucnu zapsat nejde.', 400);
+  }
+  const dateText = `${requested.day}. ${requested.month}. ${requested.year}`;
   const durationHours = Number(request.body.durationHours);
   if (!Number.isFinite(durationHours) || durationHours <= 0) throw httpError('Vyplň počet hodin.', 400);
+
+  // Stejný den a místo už trenér zapsané má → nezapisovat podruhé (dvojitá
+  // odměna). Další lekci navíc musí koordinátor výslovně potvrdit (`extra`).
+  const { data: coachRecords, error: coachRecordsError } = await supabase
+    .from('coach_attendance_records')
+    .select('date_text,duration_hours')
+    .eq('coach_id', coachId)
+    .eq('place', place);
+  if (coachRecordsError) throw coachRecordsError;
+  const sameDay = (coachRecords || []).filter((record) => {
+    const parts = dateParts(record.date_text);
+    return parts && parts.day === requested.day && parts.month === requested.month && parts.year === requested.year;
+  });
+  if (sameDay.length > 0 && request.body.extra !== true) {
+    const loggedHours = sameDay.reduce((sum, record) => sum + (Number(record.duration_hours) || 0), 0);
+    throw httpError(`Trenér už má ${dateText} na tomto místě zapsáno ${String(loggedHours).replace('.', ',')} h. Podruhé ho nezapisuji — pokud jde o další lekci navíc, potvrď zápis znovu.`, 409);
+  }
 
   // Odměnu NEBERE z požadavku — koordinátor ji měnit nesmí (to umí jen admin).
   // Sazba = hodinovka trenéra (coach_payouts), jinak výchozí sazba organizace.
