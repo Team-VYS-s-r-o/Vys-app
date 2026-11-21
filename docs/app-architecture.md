@@ -279,6 +279,14 @@ kartičky. `teamvys_update_nfc_settings()` / `teamvys_update_org_name()` — zá
    rozsype počítání souhlasů.
 10. **Nativní buildy zaostávají za webem.** `npm run deploy:web` nasadí web okamžitě,
     ale appka ve storech má pořád starý kód, dokud neproběhne `eas build`.
+11. **`teamvys_org_match(org_id)` vrací pro nepřihlášeného TRUE** (`auth.uid() is null`).
+    Policy typu `using (true AND teamvys_org_match(org_id))` nebo policy bez `to authenticated`
+    (tj. pro roli `public`) proto pustí kohokoli s anon klíčem. Takhle do 21. 11. 2026 unikaly
+    `parent_purchases` a `parent_notifications` (staré „prototype" policies vytvořené mimo migrace;
+    zrušeno migrací `20261121120000_drop_prototype_public_policies.sql`). Každá nová policy musí
+    mít `to authenticated` a podmínku na `auth.uid()` / roli. Kontrola:
+    `select tablename, policyname, cmd, qual from pg_policies where schemaname='public' and roles::text ~ 'public|anon';`
+    — s `true` smí zůstat jen `products` a `product_faqs` (a zatím `workshop_xp_awards`, viz níže).
 
 ---
 
@@ -321,10 +329,17 @@ git -c credential.helper= -c "http.https://github.com/.extraheader=Authorization
   Free plán neumí PITR ani denní zálohy → v DB je 170 dětí, 132 rodičů a 85 reálných plateb
   bez možnosti obnovy. **Největší otevřené riziko celé platformy.**
 - **Security advisors (16. 10. 2026):** 1× ERROR `security_definer_view` na
-  `public.camp_medical_overview`; 6× tabulka s RLS bez policies (`coordinator_*`,
+  `public.camp_medical_overview` (**opraveno 21. 11. 2026** — `security_invoker = true`); 6× tabulka s RLS bez policies (`coordinator_*`,
   `product_admin_info`, `product_interests` — záměr: service-role only); 40 `SECURITY DEFINER`
   RPC volatelných rolí `anon`; `teamvys_coach_session_is_workshop` a `teamvys_touch_document_slot`
   mají mutable `search_path`; vypnutá ochrana proti uniklým heslům v Auth.
+- **`workshop_xp_awards` má dál otevřenou policy** `workshop_xp_awards prototype all` (ALL pro
+  `public`, `true`): XP za workshop si zapisuje klient v `qr-claim.tsx` (`hooks/use-qr-events.ts`).
+  Tabulka je prázdná, ale zápis by měl jít přes SECURITY DEFINER RPC jako `teamvys_claim_qr_trick`.
+- **`parent_purchases scoped write` dovoluje přihlášenému rodiči vložit vlastní řádek** (i se
+  `status='Zaplaceno'`, na který trigger `teamvys_sync_paid_purchase_side_effects` přepočítá
+  kapacitu, aktivní nákupy dítěte a permanentku). Reálné nákupy zapisuje server (service role); klientský zápis je pozůstatek
+  prototypu (`addParentPurchase`, nikde se nevolá) — policy omezit na admina.
 - **Kontaktní e-mail je rozdvojený.** `LEGAL_ENTITY` v obchodních podmínkách, `shared/content.ts`
   i `vys-aplikace/lib/public-content.ts` uvádějí **`ahoj@teamvys.cz`**, zatímco Stripe účtenky
   a Google Play mají **`info@teamvys.cz`**.
