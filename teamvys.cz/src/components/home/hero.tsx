@@ -257,7 +257,7 @@ export function HomeHero() {
                   <p className="text-xl leading-8 text-white/85 sm:text-xl sm:leading-9 md:text-2xl md:leading-10">{chapter.copy}</p>
                   <Link
                     href={chapter.cta.href}
-                    className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#86EFAC] px-7 text-base font-black text-[#0B2E1B] transition-transform hover:-translate-y-0.5 hover:bg-[#6EE79A]"
+                    className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-base font-black text-[#0B0B10] shadow-[0_18px_40px_-16px_rgba(241,43,179,0.75)] transition-transform hover:-translate-y-0.5"
                   >
                     {chapter.cta.label}
                     <ArrowRight size={18} className="transition-transform duration-200 group-hover:translate-x-0.5" />
