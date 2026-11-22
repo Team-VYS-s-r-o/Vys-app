@@ -111,20 +111,33 @@ export function SiteNav() {
 
           <div className="hidden flex-1 items-center justify-center overflow-hidden md:flex md:flex-none md:overflow-visible">
             <nav className="hidden items-center gap-2 md:flex">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold transition-all duration-300 ease-out hover:bg-white/10 group-hover:hover:bg-black/5',
-                    item.href === '/pomocnik'
-                      ? 'text-brand-orange group-hover:text-brand-orange-deep'
-                      : 'text-white group-hover:text-black'
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {navItems.map((item) => {
+                const active = pathname === item.href || Boolean(pathname?.startsWith(`${item.href}/`));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'relative whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold outline-none transition-all duration-300 ease-out hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/60 group-hover:hover:bg-black/5',
+                      item.href === '/pomocnik'
+                        ? 'text-brand-orange group-hover:text-brand-orange-deep'
+                        : 'text-white group-hover:text-black'
+                    )}
+                  >
+                    {item.label}
+                    {/* Kde zrovna jsem: tenká barevná čárka pod názvem, mezi stránkami přejede. */}
+                    {active ? (
+                      <motion.span
+                        layoutId="site-nav-active"
+                        layoutDependency={pathname}
+                        transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                        className="absolute inset-x-3 bottom-[3px] h-[2.5px] rounded-full bg-gradient-to-r from-[#B23BFF] to-[#F12BB3]"
+                      />
+                    ) : null}
+                  </Link>
+                );
+              })}
             </nav>
           </div>
 

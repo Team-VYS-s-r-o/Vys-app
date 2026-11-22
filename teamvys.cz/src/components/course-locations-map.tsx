@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { MapPin, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import type { Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -302,16 +302,11 @@ export function CourseLocationsMap({ locations, onCityPick, activeCity }: { loca
   return (
     <div className="mt-10">
       <style>{PIN_CSS}</style>
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-purple/10 text-brand-purple">
-          <MapPin size={20} />
-        </span>
-        <div>
-          <h3 className="text-xl font-black text-brand-ink md:text-2xl">Kde nás najdeš</h3>
-          <p className="text-sm font-bold text-brand-ink-soft">
-            {pins.length} měst · {venueCount} tělocvičen · klikni na město
-          </p>
-        </div>
+      <div>
+        <h3 className="text-3xl font-black tracking-tight text-brand-ink md:text-4xl">Kde nás najdeš</h3>
+        <p className="mt-1 text-sm font-bold text-brand-ink-soft md:text-base">
+          {pins.length} měst · {venueCount} tělocvičen · klikni na město
+        </p>
       </div>
       {/* isolate: z-indexy Leafletu a tlačítka zůstanou uvnitř mapy a nepřelezou pevnou lištu webu. */}
       <div ref={wrapperRef} className="relative isolate mt-4">

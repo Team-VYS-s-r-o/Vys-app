@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Reveal } from '@/components/animated/reveal';
+import { FreeLessonTicket } from '@/components/free-lesson-ticket';
 import { CourseLocationsMap, normalizeCity } from '@/components/course-locations-map';
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
 import { registerProductInterest } from '@/lib/api-client';
@@ -388,15 +389,7 @@ export function PublicCourseCatalog() {
 
   return (
     <section className="w-full py-6 md:py-10">
-      <Reveal>
-        <p className="flex items-center justify-center gap-2 text-base font-black text-brand-purple-deep">
-          <CheckCircle2 size={18} className="text-brand-purple" />
-          První lekce zdarma
-        </p>
-        <p className="mx-auto mt-2 max-w-xl text-center text-sm font-semibold text-brand-ink-soft">
-          Přihlásit se můžete kdykoliv během roku — fungujeme na permanentky, takže dítě může naskočit do tréninků hned.
-        </p>
-      </Reveal>
+      <FreeLessonTicket />
 
       {/* Mapa jde první — rodič nejdřív najde své město, klik na něj sjede na kartu. */}
       {courseGroups.length > 0 ? (

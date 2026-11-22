@@ -72,7 +72,7 @@ export const campSchedule = [
 ];
 
 export const aboutText =
-  'Největší parkourová komunita v regionu. Odvaha, hlava a kamarádi po boku — bezpečně, krok za krokem.';
+  'Učíme děti skákat, padat a zkusit to znovu. Salto za měsíc neslibujeme – nejdřív dopady, pak všechno ostatní. A k tomu parta, kvůli které se na trénink těší.';
 
 export const aboutPillars: AboutPillar[] = [
   {

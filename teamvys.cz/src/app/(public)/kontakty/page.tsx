@@ -1,5 +1,4 @@
-import { Mail, Phone } from 'lucide-react';
-import Link from 'next/link';
+import { ContactCompany, ContactLines, ContactMail } from '@/components/contact-sections';
 
 import { PageHero } from '@/components/page-hero';
 import { contacts, phoneLines } from '@shared/content';
@@ -46,62 +45,20 @@ export default function ContactsPage() {
         }
       />
 
-      <section className="section-shell py-12 md:py-24">
-        {/* Kontaktní údaje */}
-        <div className="mx-auto max-w-[760px] rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-8">
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-purple-light">Spojení</p>
-          <div className="mt-6 grid gap-3">
-            {/* Tři linky podle regionu — každé město má svého člověka. */}
-            {phoneLines.map((line) => (
-              <ContactRow
-                key={line.number}
-                icon={<Phone size={18} />}
-                label={line.label}
-                value={line.number}
-                href={`tel:+420${line.number.replaceAll(' ', '')}`}
-              />
-            ))}
-            <ContactRow icon={<Mail size={18} />} label="E-mail" value={contacts.email} href={`mailto:${contacts.email}`} />
-          </div>
+      {/* Tři linky podle regionu — každé město má svého člověka. */}
+      <ContactLines lines={phoneLines.map((line) => ({ number: line.number, label: line.label }))} />
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <Info label="IČO" value={contacts.ico} />
-            {contacts.bank ? <Info label="Účet" value={contacts.bank} /> : null}
-          </div>
+      <ContactMail email={contacts.email} />
 
-          <div className="mt-6 flex flex-wrap gap-2">
-            {contacts.social.map((item) => (
-              <span key={item} className="rounded-full border border-white/12 px-3 py-1.5 text-xs font-bold text-white/60">
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function ContactRow({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: string; href?: string }) {
-  const content = (
-    <div className="flex items-center gap-4 rounded-xl border border-white/10 p-4 transition-colors hover:border-brand-purple/50">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-purple/15 text-brand-purple-light ring-1 ring-inset ring-white/10">{icon}</span>
-      <div>
-        <p className="text-[12.5px] font-bold uppercase tracking-wide text-white/65 md:text-xs md:text-white/50">{label}</p>
-        <p className="mt-0.5 text-[17px] font-black text-white md:text-base">{value}</p>
-      </div>
-    </div>
-  );
-
-  if (!href) return content;
-  return <Link href={href}>{content}</Link>;
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 p-4">
-      <p className="text-[12.5px] font-bold uppercase tracking-wide text-white/65 md:text-xs md:text-white/50">{label}</p>
-      <p className="mt-1 text-base font-black text-white md:text-sm">{value}</p>
+      <ContactCompany
+        rows={[
+          { label: 'Firma', value: 'Team VYS s.r.o.' },
+          { label: 'IČO', value: contacts.ico },
+          { label: 'DIČ', value: `CZ${contacts.ico}` },
+          { label: 'Sídlo', value: 'Ruprechtov 198, 683 04 Ruprechtov' },
+          ...(contacts.bank ? [{ label: 'Účet', value: contacts.bank }] : []),
+        ]}
+      />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, Star } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { PublicCampCatalog } from '@/components/public-admin-products';
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
@@ -75,9 +75,104 @@ export function CampOffer() {
 const DAY_COLORS = ['#FFB21A', '#F12BB3', '#B23BFF', '#22D3EE'];
 const DAY_MS = 3400;
 
+// Obloha pro čtyři části dne: ráno slunce vychází, přes poledne je nahoře
+// a při odpoledním vyzvednutí zapadá za kopec. `t` je poloha na oblouku (0 = východ, 1 = západ).
+const SKY = [
+  { t: 0.12, top: '#33235F', mid: '#D9739A', low: '#FFD08A', sun: '#FFE7A6', glow: '#FFC36B', r: 17, cloud: 0.5, cloudFill: '#FFE3D2', dusk: 0.25 },
+  { t: 0.36, top: '#1B4A8C', mid: '#4C95D4', low: '#C9E6F5', sun: '#FFF9DC', glow: '#FFEFB0', r: 14, cloud: 0.85, cloudFill: '#FFFFFF', dusk: 0 },
+  { t: 0.6, top: '#1F5AA6', mid: '#62AEE4', low: '#DDF1FA', sun: '#FFFFFF', glow: '#FFF6CF', r: 13, cloud: 0.9, cloudFill: '#FFFFFF', dusk: 0 },
+  { t: 0.975, top: '#2B1150', mid: '#D8447A', low: '#FF9A3D', sun: '#FF6A2A', glow: '#FF4D2E', r: 24, cloud: 0.6, cloudFill: '#FF9E8A', dusk: 0.75 },
+];
+
+const sunPoint = (t: number) => ({ x: 30 + t * 240, y: 150 - Math.sin(t * Math.PI) * 112 });
+
+/** Cesta slunce mezi dvěma částmi dne — po oblouku, ne po přímce. Z večera do rána zajde za kopec a vyjde vlevo. */
+function sunPath(from: number, to: number) {
+  const a = SKY[from].t;
+  const b = SKY[to].t;
+  const wrap = from === SKY.length - 1 && to === 0;
+  const ts = wrap ? [a, 1.05, 1.12, -0.12, -0.05, b] : Array.from({ length: 9 }, (_, i) => a + ((b - a) * i) / 8);
+  const points = ts.map(sunPoint);
+  return {
+    x: points.map((p) => p.x),
+    y: points.map((p) => p.y),
+    times: wrap ? [0, 0.22, 0.36, 0.64, 0.78, 1] : undefined,
+    duration: wrap ? 2.4 : 1.7,
+  };
+}
+
+/** Malovaná obloha: slunce jede po oblouku, mění barvu a u poslední části dne zapadá za kopec s táborem. */
+function CampSky({ from, to }: { from: number; to: number }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const sky = SKY[to];
+  const path = useMemo(() => sunPath(from, to), [from, to]);
+  const slow = { duration: 1.6, ease: 'easeInOut' as const };
+
+  return (
+    <svg viewBox="0 0 300 200" className="relative block w-full" role="img" aria-label="Slunce nad táborem podle části dne">
+      <defs>
+        <linearGradient id={`${uid}-sky`} x1="0" y1="0" x2="0" y2="1">
+          <motion.stop offset="0" initial={false} animate={{ stopColor: sky.top }} transition={slow} />
+          <motion.stop offset="0.5" initial={false} animate={{ stopColor: sky.mid }} transition={slow} />
+          <motion.stop offset="0.78" initial={false} animate={{ stopColor: sky.low }} transition={slow} />
+        </linearGradient>
+        <filter id={`${uid}-soft`} x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="9" />
+        </filter>
+        <filter id={`${uid}-cloud`} x="-20%" y="-60%" width="140%" height="220%">
+          <feGaussianBlur stdDeviation="2.2" />
+        </filter>
+      </defs>
+
+      <rect width="300" height="188" fill={`url(#${uid}-sky)`} />
+
+      {/* záře u obzoru — navečer zčervená celé nebe nad kopcem */}
+      <motion.ellipse cx="250" cy="146" rx="150" ry="34" fill="#FF7A3D" filter={`url(#${uid}-soft)`} initial={false} animate={{ opacity: sky.dusk }} transition={slow} />
+
+      {/* slunce */}
+      <motion.g initial={false} animate={{ x: path.x, y: path.y }} transition={{ duration: path.duration, ease: 'easeInOut', times: path.times }}>
+        <motion.circle filter={`url(#${uid}-soft)`} opacity="0.55" initial={false} animate={{ r: sky.r * 2.6, fill: sky.glow }} transition={slow} />
+        <motion.circle initial={false} animate={{ r: sky.r, fill: sky.sun }} transition={slow} />
+      </motion.g>
+
+      {/* mraky pomalu plují */}
+      <motion.g filter={`url(#${uid}-cloud)`} initial={false} animate={{ opacity: sky.cloud, fill: sky.cloudFill }} transition={slow}>
+        <motion.g animate={{ x: [0, 22, 0] }} transition={{ duration: 26, repeat: Infinity, ease: 'easeInOut' }}>
+          <ellipse cx="78" cy="52" rx="26" ry="7" />
+          <ellipse cx="96" cy="46" rx="18" ry="7" />
+          <ellipse cx="62" cy="48" rx="14" ry="5" />
+        </motion.g>
+        <motion.g animate={{ x: [0, -18, 0] }} transition={{ duration: 32, repeat: Infinity, ease: 'easeInOut' }}>
+          <ellipse cx="214" cy="84" rx="30" ry="6" />
+          <ellipse cx="232" cy="79" rx="16" ry="6" />
+        </motion.g>
+      </motion.g>
+
+      {/* zadní kopec — za ním slunce zapadá */}
+      <path d="M0 140 C30 128 70 124 110 136 C150 148 190 138 230 140 C260 141 285 144 300 146 L300 200 L0 200 Z" fill="#2A1A4A" />
+      {/* přední kopec s lesem a stanem */}
+      <path d="M0 162 C60 152 110 156 160 163 C210 170 255 156 300 160 L300 200 L0 200 Z" fill="#130c22" />
+      <g fill="#130c22">
+        <path d="M22 162 l8 -24 l8 24 z M26 150 l4 -14 l4 14 z" />
+        <path d="M42 160 l10 -30 l10 30 z M47 146 l5 -17 l5 17 z" />
+        <path d="M66 159 l7 -20 l7 20 z" />
+        <path d="M270 160 l8 -24 l8 24 z M274 148 l4 -14 l4 14 z" />
+      </g>
+      <path d="M186 166 L203 141 L220 166 Z" fill="#1D1236" />
+      <motion.path d="M199 166 L203 153 L207 166 Z" fill="#FFB21A" initial={false} animate={{ opacity: 0.35 + sky.dusk * 0.85 }} transition={slow} />
+    </svg>
+  );
+}
+
 export function CampDay() {
   const reduced = useReducedMotion();
-  const [active, setActive] = useState(0);
+  const [move, setMove] = useState({ from: 0, to: 0 });
+  const active = move.to;
+  const setActive = (next: number | ((current: number) => number)) =>
+    setMove((current) => {
+      const to = typeof next === 'function' ? next(current.to) : next;
+      return to === current.to ? current : { from: current.to, to };
+    });
   const [auto, setAuto] = useState(true);
   const [inView, setInView] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -98,10 +193,6 @@ export function CampDay() {
     return () => window.clearTimeout(id);
   }, [running, active]);
 
-  // Slunce jede po oblouku zleva doprava podle části dne.
-  const t = (active + 0.5) / campSchedule.length;
-  const sunX = 20 + t * 260;
-  const sunY = 150 - Math.sin(t * Math.PI) * 118;
   const slot = campSchedule[active];
 
   return (
@@ -111,26 +202,10 @@ export function CampDay() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.8, ease: EASE }}
-        className="relative mx-auto w-full max-w-[460px] overflow-hidden rounded-[2rem] border border-white/10"
+        className="relative mx-auto w-full max-w-[460px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#130c22]"
       >
-        <motion.div
-          className="absolute inset-0"
-          animate={{ background: `linear-gradient(180deg, ${DAY_COLORS[active]}55 0%, #130c22 78%)` }}
-          transition={{ duration: 0.8 }}
-        />
-        <svg viewBox="0 0 300 190" className="relative block w-full">
-          <path d="M20 150 A130 118 0 0 1 280 150" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="2" strokeDasharray="3 7" strokeLinecap="round" />
-          {campSchedule.map((item, i) => {
-            const p = (i + 0.5) / campSchedule.length;
-            return <circle key={item.time} cx={20 + p * 260} cy={150 - Math.sin(p * Math.PI) * 118} r={i === active ? 0 : 4} fill="rgba(255,255,255,0.45)" />;
-          })}
-          <motion.g initial={false} animate={{ x: sunX, y: sunY }} transition={{ type: 'spring', stiffness: 70, damping: 15 }}>
-            <circle r="26" fill={DAY_COLORS[active]} opacity="0.28" />
-            <circle r="16" fill="#fff" />
-          </motion.g>
-          <line x1="0" y1="150" x2="300" y2="150" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
-        </svg>
-        <div className="relative px-7 pb-7">
+        <CampSky from={Math.min(move.from, SKY.length - 1)} to={Math.min(active, SKY.length - 1)} />
+        <div className="relative -mt-px bg-[#130c22] px-7 pb-7 pt-2">
           <motion.p key={slot.time} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }} className="text-4xl font-black tracking-tight text-white md:text-5xl" style={{ fontVariantNumeric: 'tabular-nums' }}>
             {slot.time}
           </motion.p>
