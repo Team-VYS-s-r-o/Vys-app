@@ -1,11 +1,12 @@
 'use client';
 
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight, Check, Play } from 'lucide-react';
+import { ArrowRight, Play } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { WorkshopBrowser } from '@/components/public-admin-products';
+import { SceneRows } from '@/components/scene-rows';
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
 
 /**
@@ -109,61 +110,94 @@ function SceneLive() {
   );
 }
 
-// Obrazec QR kódu — jen kresba, nic se z něj nedá načíst.
-const QR = Array.from({ length: 11 }, (_, row) => Array.from({ length: 11 }, (_, col) => ((row * 7 + col * 13 + row * col) % 5 < 2)));
-const inFinder = (row: number, col: number) => (row < 3 && col < 3) || (row < 3 && col > 7) || (row > 7 && col < 3);
+// Kresba QR kódu (25 × 25 teček) — jen obrázek, nic se z něj nedá načíst.
+const QR_SIZE = 25;
+const inFinder = (row: number, col: number) => (row < 8 && col < 8) || (row < 8 && col > QR_SIZE - 9) || (row > QR_SIZE - 9 && col < 8);
+const QR_DOTS: [number, number][] = [];
+for (let row = 0; row < QR_SIZE; row += 1) {
+  for (let col = 0; col < QR_SIZE; col += 1) {
+    if (inFinder(row, col)) continue;
+    if ((row * 31 + col * 17 + row * col * 7 + (row ^ col) * 13) % 7 < 3) QR_DOTS.push([row, col]);
+  }
+}
+const QR_FINDERS: [number, number][] = [[0, 0], [0, QR_SIZE - 7], [QR_SIZE - 7, 0]];
 
-/** Vstupenka s QR kódem: přejede po ní čtečka a naskočí potvrzení. */
+/** Vstupenka v telefonu: hledáček zaměří QR kód, přejede po něm světlo, kód zezelená a naskočí potvrzení. */
 function SceneTicket() {
-  const loop = { duration: 5.5, repeat: Infinity };
+  const loop = { duration: 6, repeat: Infinity };
+  const corner = 'absolute h-7 w-7 border-current';
   return (
-    <div className="relative w-full max-w-[300px]">
-      <motion.div
-        className="relative overflow-hidden rounded-3xl bg-white p-5 shadow-[0_30px_60px_-24px_rgba(139,29,255,0.8)]"
-        animate={{ rotate: [-3, -3, 0, 0, -3] }}
-        transition={{ ...loop, times: [0, 0.2, 0.3, 0.92, 1], ease: 'easeInOut' }}
-      >
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-xl font-black tracking-tight text-[#0B0B10]">Workshop</span>
-          <span className="text-sm font-black text-brand-purple">1 vstup</span>
-        </div>
-        <div className="relative mx-auto mt-4 w-[176px]">
-          <svg viewBox="0 0 11 11" className="block w-full" shapeRendering="crispEdges" aria-hidden>
-            {QR.map((cells, row) => cells.map((on, col) => (on && !inFinder(row, col) ? <rect key={`${row}-${col}`} x={col} y={row} width="1" height="1" fill="#0B0B10" /> : null)))}
-            {[[0, 0], [0, 8], [8, 0]].map(([row, col]) => (
+    <motion.div
+      className="relative w-full max-w-[290px] rounded-[30px] bg-white p-5 shadow-[0_30px_70px_-26px_rgba(139,29,255,0.9)]"
+      animate={{ y: [0, -6, 0] }}
+      transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-xl font-black tracking-tight text-[#0B0B10]">Workshop</span>
+        <span className="text-sm font-black text-brand-purple">1 vstup</span>
+      </div>
+
+      <div className="relative mx-auto mt-5 w-[188px]">
+        <svg viewBox={`0 0 ${QR_SIZE} ${QR_SIZE}`} className="block w-full" aria-hidden>
+          <motion.g animate={{ fill: ['#0B0B10', '#0B0B10', '#059669', '#059669', '#0B0B10'] }} transition={{ ...loop, times: [0, 0.52, 0.58, 0.94, 1] }}>
+            {QR_DOTS.map(([row, col]) => (
+              <rect key={`${row}-${col}`} x={col + 0.08} y={row + 0.08} width="0.84" height="0.84" rx="0.24" />
+            ))}
+            {QR_FINDERS.map(([row, col]) => (
               <g key={`${row}-${col}`}>
-                <rect x={col} y={row} width="3" height="3" fill="#0B0B10" />
-                <rect x={col + 0.5} y={row + 0.5} width="2" height="2" fill="#fff" />
-                <rect x={col + 1} y={row + 1} width="1" height="1" fill="#0B0B10" />
+                <rect x={col} y={row} width="7" height="7" rx="1.7" />
+                <rect x={col + 1} y={row + 1} width="5" height="5" rx="1.1" fill="#fff" />
+                <rect x={col + 2} y={row + 2} width="3" height="3" rx="0.75" />
               </g>
             ))}
+          </motion.g>
+        </svg>
+
+        {/* světlo čtečky */}
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-[-8px] h-14 bg-gradient-to-b from-transparent via-[#F12BB3]/40 to-transparent"
+          animate={{ top: ['-20%', '-20%', '95%', '95%'], opacity: [0, 0, 1, 1, 0, 0] }}
+          transition={{ top: { ...loop, times: [0, 0.22, 0.46, 1], ease: 'easeInOut' }, opacity: { ...loop, times: [0, 0.2, 0.26, 0.42, 0.48, 1] } }}
+        />
+
+        {/* hledáček: čtyři rohy se stáhnou na kód a po načtení zezelenají */}
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-[-12px]"
+          animate={{ scale: [1.28, 1.28, 1, 1, 1.06], opacity: [0, 0, 1, 1, 0], color: ['#F12BB3', '#F12BB3', '#F12BB3', '#10B981', '#10B981'] }}
+          transition={{ ...loop, times: [0, 0.1, 0.2, 0.58, 1], ease: 'easeOut' }}
+        >
+          <span className={`${corner} left-0 top-0 rounded-tl-2xl border-l-[3px] border-t-[3px]`} />
+          <span className={`${corner} right-0 top-0 rounded-tr-2xl border-r-[3px] border-t-[3px]`} />
+          <span className={`${corner} bottom-0 left-0 rounded-bl-2xl border-b-[3px] border-l-[3px]`} />
+          <span className={`${corner} bottom-0 right-0 rounded-br-2xl border-b-[3px] border-r-[3px]`} />
+        </motion.div>
+
+        {/* potvrzení: bílý kroužek, do kterého se dokreslí fajfka */}
+        <motion.span
+          className="absolute left-1/2 top-1/2 flex h-[76px] w-[76px] items-center justify-center rounded-full bg-white shadow-[0_12px_30px_-10px_rgba(5,150,105,0.9)] ring-4 ring-emerald-500"
+          style={{ x: '-50%', y: '-50%' }}
+          animate={{ scale: [0, 0, 1.18, 1, 0] }}
+          transition={{ ...loop, times: [0, 0.54, 0.62, 0.94, 1] }}
+        >
+          <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="#059669" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <motion.path d="M5 12.5l4.5 4.5L19 7.5" animate={{ pathLength: [0, 0, 1, 1, 0] }} transition={{ ...loop, times: [0, 0.58, 0.68, 0.94, 1] }} />
           </svg>
-          {/* čtečka */}
-          <motion.span
-            className="absolute inset-x-[-6px] h-[3px] rounded-full bg-[#F12BB3] shadow-[0_0_18px_4px_rgba(241,43,179,0.7)]"
-            animate={{ top: ['0%', '0%', '100%', '0%', '0%'], opacity: [0, 1, 1, 1, 0] }}
-            transition={{ ...loop, times: [0, 0.2, 0.42, 0.6, 0.64], ease: 'easeInOut' }}
-          />
-          <motion.span
-            className="absolute inset-0 flex items-center justify-center rounded-2xl bg-emerald-500/95 text-white"
-            animate={{ opacity: [0, 0, 1, 1, 0], scale: [0.8, 0.8, 1, 1, 0.96] }}
-            transition={{ ...loop, times: [0, 0.62, 0.7, 0.93, 1] }}
-          >
-            <Check size={64} strokeWidth={4} />
+        </motion.span>
+      </div>
+
+      <div className="mt-5 border-t-2 border-dashed border-[#0B0B10]/15 pt-3 text-center text-base font-black text-[#0B0B10]">
+        <span className="relative block h-6">
+          <motion.span className="absolute inset-0" animate={{ opacity: [1, 1, 0, 0, 1] }} transition={{ ...loop, times: [0, 0.54, 0.6, 0.95, 1] }}>
+            Ukaž u vstupu
           </motion.span>
-        </div>
-        <div className="mt-4 border-t-2 border-dashed border-[#0B0B10]/15 pt-3 text-center text-base font-black text-[#0B0B10]">
-          <span className="relative block h-6">
-            <motion.span className="absolute inset-0" animate={{ opacity: [1, 1, 0, 0, 1] }} transition={{ ...loop, times: [0, 0.62, 0.68, 0.95, 1] }}>
-              Ukaž u vstupu
-            </motion.span>
-            <motion.span className="absolute inset-0 text-emerald-600" animate={{ opacity: [0, 0, 1, 1, 0] }} transition={{ ...loop, times: [0, 0.62, 0.7, 0.93, 1] }}>
-              Vstup potvrzen
-            </motion.span>
-          </span>
-        </div>
-      </motion.div>
-    </div>
+          <motion.span className="absolute inset-0 text-emerald-600" animate={{ opacity: [0, 0, 1, 1, 0] }} transition={{ ...loop, times: [0, 0.56, 0.64, 0.94, 1] }}>
+            Vstup potvrzen
+          </motion.span>
+        </span>
+      </div>
+    </motion.div>
   );
 }
 
@@ -209,27 +243,7 @@ export function WorkshopSteps() {
   return (
     <section className="section-shell pb-20 md:pb-32">
       <h2 className="max-w-4xl text-balance text-3xl font-black leading-[1.02] tracking-tight text-white md:text-6xl">Jeden den, jeden trik navíc</h2>
-      <div className="mt-12 space-y-6 md:mt-16 md:space-y-8">
-        {STEPS.map((step, i) => (
-          <motion.div
-            key={step.title}
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.8, ease: EASE }}
-            className="grid items-center gap-8 overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-7 md:grid-cols-2 md:gap-12 md:rounded-[2.5rem] md:p-12"
-          >
-            <div className={i % 2 === 1 ? 'md:order-2' : ''}>
-              <p className="text-6xl font-black leading-none text-white/15 md:text-8xl" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                0{i + 1}
-              </p>
-              <h3 className="mt-4 text-balance text-3xl font-black leading-[1.02] tracking-tight text-white md:text-5xl">{step.title}</h3>
-              <p className="mt-4 max-w-md text-lg font-medium leading-relaxed text-white/70 md:text-xl">{step.text}</p>
-            </div>
-            <div className="flex justify-center">{step.scene}</div>
-          </motion.div>
-        ))}
-      </div>
+      <SceneRows items={STEPS} />
     </section>
   );
 }

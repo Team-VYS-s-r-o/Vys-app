@@ -4,6 +4,8 @@ import { animate, motion, useInView, useReducedMotion, useScroll, useTransform, 
 import { Check } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 
+import { SceneRows } from '@/components/scene-rows';
+
 /**
  * Sekce stránky O nás: čísla, která se dopočítají, věta, která se rozsvěcuje
  * scrollem, tři pilíře s malou animovanou scénou a pás tělocvičen.
@@ -278,8 +280,8 @@ function SceneParent() {
   const loop = { duration: 7, repeat: Infinity };
   const STEP = 70;
   const notes = [
-    { text: 'Eliška dorazila na trénink', at: 0.08, y: [0, 0, STEP, STEP, STEP * 2, STEP * 2], yTimes: [0, 0.34, 0.4, 0.62, 0.68, 1] },
-    { text: 'Zbývá 9 vstupů z 15', at: 0.36, y: [0, 0, STEP, STEP], yTimes: [0, 0.62, 0.68, 1] },
+    { text: 'Eliška dorazila na trénink', at: 0.08, y: [0, 0, STEP, STEP, STEP * 2, STEP * 2], yTimes: [0, 0.27, 0.34, 0.55, 0.62, 1] },
+    { text: 'Zbývá 9 vstupů z 15', at: 0.36, y: [0, 0, STEP, STEP], yTimes: [0, 0.55, 0.62, 1] },
     { text: 'Platba přijata', at: 0.64, y: [0, 0], yTimes: [0, 1] },
   ];
   return (
@@ -329,27 +331,7 @@ export function AboutPillars() {
   return (
     <section className="section-shell pb-20 md:pb-32">
       <h2 className="max-w-4xl text-balance text-3xl font-black leading-[1.02] tracking-tight text-white md:text-6xl">Parkour je cesta, ne jednorázový výkon</h2>
-      <div className="mt-12 space-y-6 md:mt-16 md:space-y-8">
-        {PILLARS.map((pillar, i) => (
-          <motion.div
-            key={pillar.title}
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.8, ease: EASE }}
-            className="grid items-center gap-8 overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-7 md:grid-cols-2 md:gap-12 md:rounded-[2.5rem] md:p-12"
-          >
-            <div className={i % 2 === 1 ? 'md:order-2' : ''}>
-              <p className="text-6xl font-black leading-none text-white/15 md:text-8xl" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                0{i + 1}
-              </p>
-              <h3 className="mt-4 text-balance text-3xl font-black leading-[1.02] tracking-tight text-white md:text-5xl">{pillar.title}</h3>
-              <p className="mt-4 max-w-md text-lg font-medium leading-relaxed text-white/70 md:text-xl">{pillar.text}</p>
-            </div>
-            <div className="flex justify-center">{pillar.scene}</div>
-          </motion.div>
-        ))}
-      </div>
+      <SceneRows items={PILLARS} />
     </section>
   );
 }
