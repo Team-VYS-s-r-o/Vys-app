@@ -229,7 +229,7 @@ export function HomeHero() {
             </h1>
 
             {/* Swappable headline word: "Team VYS" crossfades into each chapter's name, in place.
-                Rendered as an outlined (stroked) word so it reads as a secondary title. */}
+                Filled with the same flowing colour gradient as the subpage headings. */}
             <div className="relative grid w-full place-items-center sm:place-items-start">
               {words.map((word, index) => (
                 <motion.span
@@ -238,7 +238,7 @@ export function HomeHero() {
                     ...(prefersReducedMotion ? { opacity: index === 1 ? 1 : 0 } : slideMotion[index]),
                     ...capFor(wordEmWidths[word] ?? 8.4),
                   }}
-                  className={`${displayFont.className} hero-outline-text col-start-1 row-start-1 block text-[length:min(clamp(3rem,14vw,9.5rem),var(--hero-cap))] font-extrabold uppercase leading-[0.94] tracking-[-0.03em] sm:text-[length:min(clamp(2.3rem,11vw,9.5rem),var(--hero-cap))]`}
+                  className={`${displayFont.className} hero-accent col-start-1 row-start-1 block text-[length:min(clamp(3rem,14vw,9.5rem),var(--hero-cap))] font-extrabold uppercase leading-[0.94] tracking-[-0.03em] sm:text-[length:min(clamp(2.3rem,11vw,9.5rem),var(--hero-cap))]`}
                 >
                   {word}
                 </motion.span>
