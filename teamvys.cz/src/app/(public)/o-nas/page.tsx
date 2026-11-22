@@ -69,7 +69,7 @@ export default async function AboutPage() {
 
   return (
     <div className="bg-[#0B0B10] text-white">
-      <PageHero eyebrow="O nás" title="Pohyb s hlavou" word="komunita" />
+      <PageHero eyebrow="O nás" title="Pohyb s hlavou" accent="s hlavou" />
 
       <AboutStats stats={displayStats} />
 

@@ -41,7 +41,7 @@ const highlights = [
 export default function PomocnikPage() {
   return (
     <div className="bg-[#0B0B10] text-white">
-      <PageHero eyebrow="VYS pomocník" title="Zeptej se VYS kočky" word="pomoc" />
+      <PageHero eyebrow="VYS pomocník" title="Zeptej se VYS kočky" accent="VYS kočky" />
 
       <section className="section-shell grid gap-10 py-16 md:py-24 lg:grid-cols-[1.25fr_1fr] lg:items-center">
         {/* Chat */}

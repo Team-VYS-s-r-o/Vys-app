@@ -1,11 +1,13 @@
 'use client';
 
-import { Apple, LogIn } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Apple, ArrowDown, LogIn, Play } from 'lucide-react';
 import Image from 'next/image';
 
 import { AppGuide } from '@/components/app-guide';
 import { AppShowcase } from '@/components/app-showcase';
 import { NfcCardSpin } from '@/components/home/nfc-card-spin';
+import { HeroTitle } from '@/components/page-hero';
 
 const WEB_APP_URL = 'https://app.aplikacevys.cz/sign-in?source=pwa';
 const APP_STORE_URL = 'https://apps.apple.com/cz/app/vys/id6816709958';
@@ -24,17 +26,55 @@ export default function AplikacePage() {
         />
         <div className="section-shell relative grid items-center gap-14 lg:grid-cols-[1fr_360px]">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand-purple-light">Aplikace</p>
-            <h1 className="mt-4 max-w-[18ch] text-3xl font-black leading-[1.05] tracking-tight text-white md:text-6xl">
-              Celý Team VYS v telefonu
-            </h1>
-            <p className="mt-5 max-w-[46ch] text-sm leading-7 text-white/65 md:text-base">
+            <HeroTitle
+              title="Celý Team VYS v telefonu"
+              accent="v telefonu"
+              className="max-w-[12ch] text-[clamp(2.6rem,11vw,6.5rem)] font-black leading-[0.98] tracking-[-0.035em] text-white"
+            />
+            <motion.p
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-6 max-w-[46ch] text-base leading-7 text-white/65 md:text-lg"
+            >
               Stáhni si ji do iPhonu, nebo se přihlas rovnou v prohlížeči — bez stahování.
-            </p>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.68, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-9 flex flex-col gap-3 sm:flex-row"
+            >
               <AppStoreButton />
               <WebSignInButton />
-            </div>
+            </motion.div>
+            {/* Malý odkaz dolů na video návod */}
+            <motion.a
+              href="#navod"
+              onClick={(event) => {
+                const target = document.getElementById('navod');
+                if (!target) return;
+                event.preventDefault();
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.85 }}
+              className="group mt-6 inline-flex items-center gap-2.5 text-sm font-bold text-white/60 transition-colors hover:text-white"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 transition-colors group-hover:bg-brand-purple">
+                <Play size={11} className="translate-x-[1px] fill-current" />
+              </span>
+              Video návod: jak přidat dítě a koupit permanentku
+              <motion.span
+                aria-hidden
+                animate={{ y: [0, 3, 0] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                className="inline-flex"
+              >
+                <ArrowDown size={14} />
+              </motion.span>
+            </motion.a>
           </div>
 
           <div className="pointer-events-none relative mx-auto w-full max-w-[300px] lg:max-w-[360px]">

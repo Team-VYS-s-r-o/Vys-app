@@ -26,7 +26,7 @@ export default function CoursesPage() {
       <PageHero
         eyebrow="Pravidelné kroužky"
         title="Parkour kroužek u tebe ve městě"
-        word="kroužky"
+        accent="ve městě"
       />
 
       <section className="section-shell py-16 md:py-24">

@@ -28,7 +28,7 @@ export default function GiftVoucherPage() {
       <PageHero
         eyebrow="Dárkový poukaz"
         title="Darujte parkour"
-        word="Poukaz"
+        accent="parkour"
         ctaHref="#koupit"
         ctaLabel="Koupit poukaz"
       />

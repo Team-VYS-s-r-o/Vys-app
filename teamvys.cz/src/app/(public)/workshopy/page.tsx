@@ -25,7 +25,7 @@ export default function WorkshopsPage() {
       <PageHero
         eyebrow="Workshopy s youtuberem"
         title="Jednorázové akce pro rychlý progres"
-        word="workshopy"
+        accent="rychlý progres"
       />
 
       {/* Termíny, nebo „připravujeme", když žádný vypsaný není. */}

@@ -25,7 +25,7 @@ const EFFECTIVE_FROM = '14. 10. 2026';
 export default function PrivacyPolicyPage() {
   return (
     <div className="bg-[#0B0B10] text-white">
-      <PageHero eyebrow="Právní informace" title="Ochrana osobních údajů" word="gdpr" />
+      <PageHero eyebrow="Právní informace" title="Ochrana osobních údajů" />
 
       <section className="section-shell py-16 md:py-24">
         <div className="grid gap-6 lg:grid-cols-[1fr_0.62fr]">

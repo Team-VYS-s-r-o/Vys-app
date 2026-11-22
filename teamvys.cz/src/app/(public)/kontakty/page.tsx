@@ -24,7 +24,7 @@ export default function ContactsPage() {
       <PageHero
         eyebrow="Kontakty"
         title="Ozvi se nám"
-        word="kontakt"
+        accent="nám"
         media={
           // Telefonující maskot: Safari bere HEVC s alfou (.mov přes video/quicktime,
           // Chrome/Firefox ho přeskočí), ostatní VP9 webm s průhledností.

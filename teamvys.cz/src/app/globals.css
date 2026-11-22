@@ -315,3 +315,20 @@ a {
     animation: none;
   }
 }
+
+/* Konec velkého nadpisu na podstránkách — barevný přechod, který se pomalu přelévá. */
+.hero-accent {
+  background-image: linear-gradient(100deg, #c084fc 0%, #f12bb3 35%, #ffb21a 55%, #f12bb3 75%, #c084fc 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hero-accent-flow 7s ease-in-out infinite alternate;
+}
+@keyframes hero-accent-flow {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-accent { animation: none; }
+}

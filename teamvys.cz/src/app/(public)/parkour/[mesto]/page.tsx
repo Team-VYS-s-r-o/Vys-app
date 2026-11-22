@@ -150,7 +150,7 @@ export default async function CityPage({ params }: Props) {
       <PageHero
         eyebrow="Parkour kroužek"
         title={`Parkour kroužek ${city.name} pro děti`}
-        word="parkour"
+        accent="pro děti"
         media={
           // Jen na širokých obrazovkách — názvy měst jsou dlouhé a na mobilu by kočka překryla nadpis.
           <Image
