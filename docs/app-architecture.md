@@ -372,3 +372,12 @@ git -c credential.helper= -c "http.https://github.com/.extraheader=Authorization
 - **RLS** `course_documents parent write`: rodič z klienta nesmí vkládat/měnit řádky se `status='signed'` (čtení přes `scoped read` zůstává). Migrace `20261119120000_course_documents_signature_provenance.sql`.
 - Po podpisu jde rodiči automatický e-mail (SMTP přes `paymentEmailer`, jen Team VYS org) se zněním dokumentu, hodnotami a časem podpisu.
 - Admin (aplikacevys.cz, sekce dokumentů) ukazuje u podepsaného řádku kdo · kdy přesně · roli · verzi · IP a náhled „Znění dokumentu v okamžiku podpisu“ ze snapshotu.
+
+## SMS leadům z reklam (od 23. 11. 2026)
+
+Leady z Meta formulářů **nejsou v DB** — žijí v Google Tabulkách „Leady Meta - <Město>". Aby jim šla poslat SMS přes stejnou bránu (BulkGate) jako rodičům:
+
+- **Tabulka `lead_sms_outbox`** (`supabase/migrations/20261123170000_lead_sms_outbox.sql`): `phone`, `body`, `city`, `dedupe_key` (unikát `telefon|město` → stejné číslo nedostane návod dvakrát), `status` queued → sending → sent/failed, `provider_response`. RLS zapnuté bez policies = jen service role.
+- **`POST /api/lead-sms/flush`** (server.js, hned za `sendSmsToParents`): odešle, co je ve frontě (max 60 na zavolání, atomické převzetí řádku), vrátí `{sent, failed, remaining, credit}`. **Nepřijímá číslo ani text**, proto je veřejný — bez zápisu do DB přes něj nikdo SMS neodešle. Jen čísla +420, text bez diakritiky max 306 znaků (2 segmenty), **mimo 8–21 h neposílá** (vrací `deferred`).
+- **Kdo do fronty zapisuje:** marketingový autopilot skriptem `~/.claude/scheduled-tasks/marketing-autopilot/lead_sms.py <Mesto> <telefony…>` (SQL přes `npx supabase db query --linked`, pak flush). Šablona SMS a rozvrhy měst jsou v tom skriptu — při změně rozvrhu upravit i tam.
+- Kredit BulkGate: ~2 kredity za SMS (2 segmenty); stav vrací flush (`credit.credit`).

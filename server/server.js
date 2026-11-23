@@ -6203,6 +6203,109 @@ async function sendSmsToParents(parentProfileIds, title, body) {
   return sent;
 }
 
+// ── SMS leadům z reklam (fronta `lead_sms_outbox`) ──────────────────────────
+// Leady z Meta formulářů nejsou v DB (žijí v Google Tabulkách), takže je do
+// fronty zapisuje marketingový autopilot přes SQL. Endpoint jen odešle, co už
+// ve frontě je — sám žádné číslo ani text nepřijímá, proto může být veřejný:
+// bez přístupu do databáze přes něj nikdo SMS neodešle. Mimo 8–21 h nic
+// neposílá (lidem v noci nepíšeme), fronta počká na další zavolání.
+async function bulkgateCreditInfo() {
+  try {
+    const response = await fetch('https://portal.bulkgate.com/api/2.0/advanced/info', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ application_id: smsBulkgateAppId, application_token: smsBulkgateToken }),
+    });
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => null);
+    const data = payload?.data || null;
+    if (!data) return null;
+    return { credit: data.credit ?? null, currency: data.currency ?? null };
+  } catch {
+    return null;
+  }
+}
+
+app.post('/api/lead-sms/flush', asyncRoute(async (request, response) => {
+  if (!smsConfigured()) {
+    response.status(503).json({ error: 'SMS brána není zapojená.' });
+    return;
+  }
+  const pragueHour = Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Prague', hour: '2-digit', hour12: false,
+  }).format(new Date()));
+  if (pragueHour < 8 || pragueHour >= 21) {
+    response.json({ deferred: true, reason: 'Mimo 8–21 h se SMS neposílají.' });
+    return;
+  }
+
+  const { data: queued, error } = await supabase
+    .from('lead_sms_outbox')
+    .select('id, phone, body')
+    .eq('status', 'queued')
+    .order('created_at', { ascending: true })
+    .limit(60);
+  if (error) throw error;
+
+  let sent = 0;
+  let failed = 0;
+  for (const row of queued || []) {
+    // Atomické převzetí řádku — dvě souběžná zavolání nepošlou SMS dvakrát.
+    const { data: claimed, error: claimError } = await supabase
+      .from('lead_sms_outbox')
+      .update({ status: 'sending' })
+      .eq('id', row.id)
+      .eq('status', 'queued')
+      .select('id');
+    if (claimError) throw claimError;
+    if (!claimed || claimed.length === 0) continue;
+
+    const number = normalizePhoneForSms(row.phone);
+    // 2 spojené segmenty bez diakritiky = 306 znaků.
+    const text = smsPlainText(row.body).slice(0, 306);
+    let ok = false;
+    let detail = '';
+    if (!number || !number.startsWith('+420') || !text) {
+      detail = 'Neplatné číslo (jen +420) nebo prázdný text.';
+    } else {
+      try {
+        const smsResponse = await fetch('https://portal.bulkgate.com/api/2.0/advanced/transactional', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            application_id: smsBulkgateAppId,
+            application_token: smsBulkgateToken,
+            number,
+            text,
+            sender_id: 'gSystem',
+            country: 'cz',
+          }),
+        });
+        detail = (await smsResponse.text().catch(() => '')).slice(0, 500);
+        ok = smsResponse.ok;
+      } catch (smsError) {
+        detail = String(smsError?.message || smsError).slice(0, 500);
+      }
+    }
+    const { error: markError } = await supabase
+      .from('lead_sms_outbox')
+      .update({
+        status: ok ? 'sent' : 'failed',
+        sent_at: ok ? new Date().toISOString() : null,
+        provider_response: detail,
+      })
+      .eq('id', row.id);
+    if (markError) console.error('lead_sms_outbox mark failed:', markError.message);
+    if (ok) sent += 1; else failed += 1;
+  }
+
+  const { count: remaining } = await supabase
+    .from('lead_sms_outbox')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'queued');
+  response.json({ sent, failed, remaining: remaining || 0, credit: await bulkgateCreditInfo() });
+}));
+
 async function emailBroadcastToParents(parentProfileIds, title, body) {
   const emailer = paymentEmailer();
   if (!emailer || parentProfileIds.length === 0) return 0;
