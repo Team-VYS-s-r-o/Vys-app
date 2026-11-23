@@ -124,6 +124,10 @@ status „Zapsáno koordinátorem"); admin to vypíná/zapíná přes `PATCH /ap
 — celá odpověď má ~5,5 MB. Appka proto volá `?lite=1` (jen jména, lokality a odkaz na fotku) a obrázek bere z
 `GET /api/public/coaches/:id/photo` (jen schválení trenéři, cache 1 den / CDN 7 dní). Weby zatím používají plný seznam.
 
+**Dokumenty dítěte u koordinátora:** `GET /api/coordinator/participants/:id/documents` — platné verze `course_documents` jednoho dítěte
+(znění při podpisu, vyplněné údaje, kdo a kdy podepsal; bez IP). Jen děti z jeho kraje a jen s oprávněním `children_data`.
+V appce: karta účastníka (`components/coordinator/participant-modal.tsx`) → sekce Dokumenty → `signed-document.tsx` (na PC iPhone + důkaz o podpisu v okně).
+
 **Mapa měst koordinátora:** `GET /api/coordinator/overview` vrací i `locations` (+ `locationsMissingPins`) —
 rozpad kraje po městech (`buildRegionLocations`): souřadnice, termíny, děti, trenéři, dokumenty dětí,
 hodnocení, zisk a výdaje za tento/minulý měsíc/celkem, smlouvy s halou (`product_admin_info`) a faktury

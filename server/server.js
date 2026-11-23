@@ -9286,6 +9286,58 @@ app.get('/api/coordinator/overview', asyncRoute(async (request, response) => {
 // Podepsaný odkaz na soubor k městu z mapy koordinátora: smlouva s halou
 // (product_admin_info) nebo faktura přiřazená k hale. Jen pro kraj koordinátora
 // a jen s oprávněním Finance.
+// Dokumenty jednoho dítěte pro koordinátora — stejný pohled, jaký má admin v detailu
+// účastníka: znění dokumentu ve chvíli podpisu, vyplněné údaje a kdo a kdy podepsal.
+// Jen děti z jeho kraje a jen s oprávněním „údaje dětí". IP adresu podpisu neposíláme —
+// k ověření, že je podepsáno, ji koordinátor nepotřebuje (zůstává jen adminovi).
+app.get('/api/coordinator/participants/:id/documents', asyncRoute(async (request, response) => {
+  requireServices();
+  const profile = await requireAuthenticatedProfile(request);
+  if (profile.role !== 'coordinator') throw httpError('Tahle sekce je pouze pro koordinátora.', 403);
+  const { data: coordinatorProfile, error: coordinatorProfileError } = await supabase
+    .from('coordinator_profiles')
+    .select('id,org_id,region,percent,permissions,commission_enabled')
+    .eq('id', profile.id)
+    .maybeSingle();
+  if (coordinatorProfileError) throw coordinatorProfileError;
+  if (!coordinatorProfile) throw httpError('Koordinátor ještě nemá přiřazený kraj.', 403);
+  const permissions = normalizeCoordinatorPermissions(coordinatorProfile.permissions);
+  if (!permissions.children_data) throw httpError('Údaje dětí ti organizace nezpřístupnila.', 403);
+
+  const participantId = String(request.params.id || '').trim();
+  if (!participantId) throw httpError('Chybí účastník.', 400);
+  const orgId = coordinatorProfile.org_id || VYS_ORG_ID;
+  const financeData = await computeRegionFinance(orgId, coordinatorProfile.region, coordinatorProfile.percent ?? 30, coordinatorProfile.id, coordinatorProfile.commission_enabled !== false);
+  if (!(financeData.participants || []).some((participant) => participant.id === participantId)) {
+    throw httpError('Tohle dítě nepatří do tvého kraje.', 403);
+  }
+
+  const { data: rows, error: documentsError } = await supabase
+    .from('course_documents')
+    .select('id,title,kind,status,activity_type,course_place,parent_name,signed_at,signed_at_text,signed_by_role,version,payload,template_snapshot,updated_at_text,updated_at')
+    .eq('participant_id', participantId)
+    .is('superseded_by', null)
+    .order('updated_at', { ascending: false });
+  if (documentsError) throw documentsError;
+
+  response.json({
+    documents: (rows || []).map((row) => ({
+      id: row.id,
+      title: row.title || 'Dokument',
+      status: row.status || 'missing',
+      activityType: row.activity_type || null,
+      coursePlace: row.course_place || null,
+      parentName: row.parent_name || null,
+      signedAt: row.signed_at || null,
+      signedAtText: row.signed_at_text || row.updated_at_text || null,
+      signedByRole: row.signed_by_role || null,
+      version: Number(row.version) || 1,
+      payload: row.payload && typeof row.payload === 'object' ? row.payload : null,
+      templateSnapshot: row.template_snapshot && typeof row.template_snapshot === 'object' ? row.template_snapshot : null,
+    })),
+  });
+}));
+
 app.get('/api/coordinator/location-file-url', asyncRoute(async (request, response) => {
   requireServices();
   const coordinator = await requireCoordinator(request);
