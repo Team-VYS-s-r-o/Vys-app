@@ -5759,6 +5759,78 @@ async function sendDocumentSignedEmail({ to, document, product, participantName,
   return true;
 }
 
+// ─── Zdravotní údaje z podepsaného prohlášení → karta dítěte ─────────────────
+// Trenér čte alergie, omezení, léky a nouzový kontakt z `participants`. Rodič
+// je ale vyplňuje (a podepisuje) v dokumentu „Prohlášení o zdravotním stavu" —
+// a při registraci dítěte často nechal výchozí „Bez alergií". Bez přepisu sem
+// trenér viděl „Bez zdravotních omezení" u dítěte s astmatem. Podepsaný údaj
+// má přednost; údaj z karty se nezahazuje, když říká něco jiného.
+
+/** Vrátí text jen tehdy, když opravdu něco říká („Bez alergií", „nemá", „——" = nic). */
+function meaningfulHealthText(value) {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  const bare = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, '').trim();
+  if (bare.length < 3) return '';
+  if (/^(bez|zadn|nema|neni|nejsou|nic|zdrav|v poradku|vse ok|ne ne)/.test(bare)) return '';
+  return text;
+}
+
+function mergeHealthText(signed, current) {
+  const fromDocument = meaningfulHealthText(signed);
+  const onCard = meaningfulHealthText(current);
+  if (!fromDocument) return null; // dokument nic nového neříká → kartu neměnit
+  if (!onCard) return fromDocument;
+  if (fromDocument.toLowerCase() === onCard.toLowerCase()) return null;
+  const tokens = (text) => Array.from(new Set(text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z0-9]+/).filter((word) => word.length > 2)));
+  const a = tokens(fromDocument);
+  const b = tokens(onCard);
+  const shared = a.filter((word) => b.some((other) => other === word || (word.length >= 4 && other.startsWith(word.slice(0, 4))))).length;
+  // Stejná informace jinými slovy / s překlepem → stačí podepsané znění.
+  if (shared / Math.max(1, Math.min(a.length, b.length)) >= 0.5) return fromDocument;
+  return onCard.includes(fromDocument) ? null : `${fromDocument} · ${onCard}`;
+}
+
+function mergeEmergencyPhone(signed, current) {
+  const digits = (value) => String(value ?? '').replace(/\D/g, '');
+  const fromDocument = String(signed ?? '').replace(/\s+/g, ' ').trim();
+  if (digits(fromDocument).length < 9) return null;
+  if (digits(current).length < 9) return fromDocument;
+  const known = digits(current);
+  const fresh = fromDocument.split(/[,;/]+/).map((part) => part.trim())
+    .filter((part) => digits(part).length >= 9 && !known.includes(digits(part).slice(-9)));
+  return fresh.length > 0 ? `${String(current).trim()}, ${fresh.join(', ')}` : null;
+}
+
+async function syncHealthFromSignedDocument(participantId, payload) {
+  if (!participantId || !payload || typeof payload !== 'object') return null;
+  const has = (key) => Object.prototype.hasOwnProperty.call(payload, key);
+  if (!['allergies', 'health_limits', 'healthLimits', 'medication', 'medicationNote', 'emergency_phone', 'emergencyPhone'].some(has)) return null;
+
+  const { data: participant, error } = await supabase
+    .from('participants')
+    .select('id,allergies,health_limits,medication_note,emergency_phone')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!participant) return null;
+
+  const updates = {};
+  const allergies = mergeHealthText(payload.allergies, participant.allergies);
+  if (allergies) updates.allergies = allergies;
+  const limits = mergeHealthText(payload.health_limits ?? payload.healthLimits, participant.health_limits);
+  if (limits) updates.health_limits = limits;
+  const medication = mergeHealthText(payload.medication ?? payload.medicationNote, participant.medication_note);
+  if (medication) updates.medication_note = medication;
+  const emergency = mergeEmergencyPhone(payload.emergency_phone ?? payload.emergencyPhone, participant.emergency_phone);
+  if (emergency) updates.emergency_phone = emergency;
+
+  if (Object.keys(updates).length === 0) return null;
+  const { error: updateError } = await supabase.from('participants').update(updates).eq('id', participantId);
+  if (updateError) throw updateError;
+  return updates;
+}
+
 app.post('/api/course-documents/sign', asyncRoute(async (request, response) => {
   requireServices();
   const actor = await requireParentOrAdmin(request);
@@ -5878,6 +5950,13 @@ app.post('/api/course-documents/sign', asyncRoute(async (request, response) => {
     app_version: optionalString(request.body.appVersion),
     ...scanColumns,
   });
+
+  // Co rodič v dokumentu uvedl o zdraví, musí hned vidět trenér.
+  try {
+    await syncHealthFromSignedDocument(participantId, payload);
+  } catch (error) {
+    console.error(`Health sync from document ${document.id} failed:`, error);
+  }
 
   let emailed = false;
   if (String(orgId) === VYS_ORG_ID) {
