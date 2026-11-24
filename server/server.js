@@ -3646,6 +3646,31 @@ app.post('/api/staff/child-attendance/backdated', asyncRoute(async (request, res
   const dateText = czechDayText(isoDay);
   const recordId = `children-manual-${locationSlug(location)}-${isoDay}`;
 
+  // Dítě se dvěma místy (permanentka na jedno, chodí i na druhé): zápis pod
+  // místo, kde se ten den netrénuje, vytvořil v adminu „lekci" s jedním dítětem
+  // a bez trenéra. Když se ten den trénuje na jeho druhém místě, pošleme tam.
+  const weekdayName = SCHEDULE_DAY_NAMES[(new Date(`${isoDay}T12:00:00Z`).getUTCDay() + 6) % 7];
+  const childLocations = Array.from(new Set([
+    participant.active_course,
+    ...(Array.isArray(participant.extra_courses) ? participant.extra_courses : []),
+  ].filter(Boolean)));
+  const { data: scheduleRows, error: scheduleError } = await supabase
+    .from('products')
+    .select('place,primary_meta')
+    .eq('org_id', actorOrgId)
+    .eq('type', 'Krouzek')
+    .in('place', Array.from(new Set([location, ...childLocations])));
+  if (scheduleError) throw scheduleError;
+  const trainsOn = (place, dayName) => (scheduleRows || []).some((row) =>
+    row.place === place && normalizeDayName(row.primary_meta).startsWith(normalizeDayName(dayName)));
+  const hasSchedule = SCHEDULE_DAY_NAMES.some((dayName) => trainsOn(location, dayName));
+  if (hasSchedule && !trainsOn(location, weekdayName)) {
+    const otherPlace = childLocations.find((place) => place !== location && trainsOn(place, weekdayName));
+    if (otherPlace) {
+      throw httpError(`${dateText} je ${weekdayName.toLowerCase()} a na místě „${location}" se ten den netrénuje. ${childName} chodí ten den na „${otherPlace}" — vyber prosím tohle místo.`, 409);
+    }
+  }
+
   // Idempotence: dvakrát za stejný den na stejném místě se dítě nezapíše.
   const { data: existing, error: existingError } = await supabase
     .from('child_attendance_records')
