@@ -3658,7 +3658,6 @@ app.post('/api/staff/child-attendance/backdated', asyncRoute(async (request, res
     .from('products')
     .select('place,primary_meta')
     .eq('org_id', actorOrgId)
-    .eq('type', 'Krouzek')
     .in('place', Array.from(new Set([location, ...childLocations])));
   if (scheduleError) throw scheduleError;
   const trainsOn = (place, dayName) => (scheduleRows || []).some((row) =>
