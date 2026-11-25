@@ -1763,11 +1763,15 @@ async function createDigitalPassForPurchase(purchase, productOverride) {
 
   const { data: existingPass, error: existingPassError } = await supabase
     .from('digital_passes')
-    .select('used_entries,last_scan_at,last_scan_place')
+    .select('used_entries,last_scan_at,last_scan_place,nfc_chip_id')
     .eq('id', passId)
     .maybeSingle();
 
   if (existingPassError) throw existingPassError;
+
+  // Opakované zpracování téže platby (retry webhooku) nesmí přepsat už spárovanou
+  // kartičku zpět na zástupné ID — dítě by ji muselo párovat znovu.
+  const placeholderChip = `${chipPrefix}-${purchase.participant_id.slice(0, 8).toUpperCase()}-${purchase.product_id.slice(0, 8).toUpperCase()}`;
 
   const { error } = await supabase
     .from('digital_passes')
@@ -1777,7 +1781,7 @@ async function createDigitalPassForPurchase(purchase, productOverride) {
       holder_name: purchase.participant_name,
       title: passTitle,
       location: purchase.place,
-      nfc_chip_id: `${chipPrefix}-${purchase.participant_id.slice(0, 8).toUpperCase()}-${purchase.product_id.slice(0, 8).toUpperCase()}`,
+      nfc_chip_id: optionalString(existingPass?.nfc_chip_id) || placeholderChip,
       total_entries: totalEntries,
       used_entries: Number(existingPass?.used_entries || 0),
       last_scan_at: existingPass?.last_scan_at ?? null,
