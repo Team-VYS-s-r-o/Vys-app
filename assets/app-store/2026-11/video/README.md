@@ -1,6 +1,6 @@
 # Video o aplikaci VYS (25. 11. 2026)
 
-`VYS-aplikace-video-v2.mp4` — 29,5 s, 1080 × 1920, 30 fps. Čtyři role (rodič, dítě, trenér, koordinátor),
+`VYS-aplikace-video-v3.mp4` — 29,5 s, 1080 × 1920, 30 fps. Čtyři role (rodič, dítě, trenér, koordinátor),
 tři záběry s kocourem z Higgsfieldu (úvod, pípnutí kartičky, závěr), texty, hudba.
 
 - `video.html` — celá animace; čas se nastavuje funkcí `setTime(t)`, nic neběží samo.
@@ -14,3 +14,10 @@ nejsou v repu kvůli velikosti: `~/Downloads/VYS-aplikace-video-podklady/`. `vid
 a záběry převedené na H.264 po jednom snímku (`-g 1`) v `clips/clipA|B|C.mp4`.
 
 Pro App Store (náhled aplikace) je potřeba jiný formát: 886 × 1920 a nejvýš 30 s — tohle video je 1080 × 1920.
+
+## Verze 3 (25. 11. večer)
+- Z telefonu „vyskakují" zvětšené výřezy obrazovky (`CALLOUTS` ve `video.html`: čas, obrazovka, výřez v bodech, cílová šířka a výška).
+- Každá role přichází jinak (zdola, shora, z boku, přiblížením), na střizích světelný pruh, v pozadí prach.
+- Závěr: vějíř čtyř telefonů „Čtyři role. Jedna aplikace.", pak kocour jen v úseku se zavřenou pusou (od 2,95 s původního
+  záběru; dopočítané mezisnímky `minterpolate`, protože běží 1:1).
+- `VYS-aplikace-video-v3-bez-hudby.mp4` = stejný obraz bez zvuku, pro Instagram (hudba se přidá až tam).

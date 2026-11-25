@@ -259,13 +259,15 @@ brass.add(pad(['E1', 'E2', 'B2', 'E3'], final, cutoff=1000, attack=0.05, release
 brass.add(pad(['G#3', 'B3', 'E4', 'G#4'], final, cutoff=2200, attack=0.1, release=2.2), S['outro'], 0.5)
 choir.add(aah(['E4', 'G#4', 'B4', 'E5'], final, attack=0.3), S['outro'], 0.7)
 strings.add(pad(['E5', 'B5'], final, cutoff=3600, attack=0.4, release=2.2), S['outro'], 0.26)
-drums.add(taiko(1.0), S['outro'] + 2.0, 0.7)
-hits.add(impact(), S['outro'] + 2.0, 0.45)
+drums.add(taiko(1.0), S['outro'] + 1.35, 0.8)
+hits.add(impact(), S['outro'] + 1.35, 0.75)
 
 # — zvuky střihu (časy z animace)
 events = json.load(open(sys.argv[2])) if len(sys.argv) > 2 else {}
 for t in events.get('whoosh', []):
     fx.add(whoosh(), t - 0.2, 0.55, pan=0.0)
+for t in events.get('swish', []):
+    fx.add(whoosh(0.3), t - 0.12, 0.3, pan=0.0)
 for t in events.get('pop', []):
     fx.add(blip(1320) + np.pad(blip(1980, 0.07), (int(0.06 * SR), 0))[: int(0.09 * SR)], t, 0.35)
 for t in events.get('beep', []):

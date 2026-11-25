@@ -49,6 +49,19 @@
   #outro .who { position: absolute; left: 0; right: 0; top: 618px; font-size: 42px; letter-spacing: -0.5px; font-weight: 700; opacity: 0; text-shadow: 0 6px 24px rgba(0,0,0,0.6); }
   #cta { position: absolute; left: 50%; top: 1585px; transform: translateX(-50%); padding: 30px 62px; border-radius: 60px; background: #fff; color: #2a0b57; font-size: 50px; font-weight: 900; letter-spacing: -1px; white-space: nowrap; opacity: 0; box-shadow: 0 26px 60px -18px rgba(0,0,0,0.6); }
   #flash { background: #fff; opacity: 0; }
+  .callout { position: absolute; left: 0; top: 0; overflow: hidden; border-radius: 40px; opacity: 0; background: #fff; box-shadow: 0 50px 90px -30px rgba(6,2,18,0.75), 0 0 0 4px rgba(255,255,255,0.85); will-change: transform; }
+  .callout img { position: absolute; left: 0; top: 0; max-width: none; }
+  .callout .tap { position: absolute; width: 170px; height: 170px; margin: -85px 0 0 -85px; border-radius: 50%; background: rgba(255,255,255,0.6); box-shadow: 0 0 0 7px rgba(139,29,255,0.45); opacity: 0; }
+  #sweep { position: absolute; top: -200px; left: 0; width: 520px; height: 2400px; background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 100%); transform: translateX(-900px) skewX(-18deg); opacity: 0; mix-blend-mode: screen; }
+  .dust { position: absolute; border-radius: 50%; background: #fff; opacity: 0; }
+  #fan { position: absolute; inset: 0; opacity: 0; background: radial-gradient(900px 700px at 50% 62%, #5B1FC4 0%, rgba(91,31,196,0) 70%), linear-gradient(180deg, #1B0F38 0%, #0C0718 100%); }
+  .mini { position: absolute; left: 0; top: 0; width: 392px; padding: 10px; border-radius: 62px; background: linear-gradient(145deg, #6a6874, #17161c 30%, #3d3c46 60%, #0e0d12); box-shadow: 0 50px 80px -30px rgba(0,0,0,0.85); }
+  .mini div { position: relative; border-radius: 52px; overflow: hidden; height: 806px; background: #fff; }
+  .mini img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; display: block; }
+  .mini i { position: absolute; left: 50%; top: 14px; width: 110px; height: 31px; margin-left: -55px; border-radius: 16px; background: #000; }
+  #fanText { position: absolute; left: 60px; right: 60px; top: 190px; text-align: center; font-size: 104px; line-height: 1.04; font-weight: 900; letter-spacing: -2.5px; }
+  #fanText span { display: block; opacity: 0; }
+  #fanText .b { background: linear-gradient(90deg, #C9A0FF, #FF7AD0 60%, #FFC56B); -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -81,6 +94,9 @@
     <span id="home"></span>
   </div></div></div></div></div>
   <div id="coins"></div>
+  <div id="dust"></div>
+  <div id="callouts"></div>
+  <div id="fan"><div id="fanText"><span class="a">Čtyři role.</span><span class="b">Jedna aplikace.</span></div><div id="minis"></div></div>
 
   <div id="roles"><div id="rolesTrack"><div id="rolePill"></div>
     <div class="role" data-role="parent">Rodič</div><div class="role" data-role="kid">Dítě</div><div class="role" data-role="coach">Trenér</div><div class="role" data-role="coord">Koordinátor</div>
@@ -89,6 +105,7 @@
   <div id="intro"><div class="a">Celý kroužek</div><div class="b">v jedné aplikaci</div></div>
   <div id="outro"><div class="logo">VYS</div><div class="sub">Kroužky, docházka<br>a platby v telefonu</div><div class="who">Rodiče · Děti · Trenéři · Koordinátoři</div></div>
   <div id="cta">Stáhněte si aplikaci VYS</div>
+  <div id="sweep"></div>
   <div class="layer" id="flash"></div>
 
 <script>
@@ -127,6 +144,21 @@ const CAPTIONS = [
   [S.coord + 2.2, S.outro, 'Nové město rozjede krok za krokem.'],
 ];
 
+// Zvětšené výřezy, které „vyskočí" z telefonu: [od, do, obrazovka, [x, y, š, v] v bodech, šířka na plátně, střed Y, natočení, klepnutí?]
+const CALLOUTS = [
+  [S.parent + 1.85, S.parent + 2.8, 'p1', [16, 612, 398, 192], 830, 1500, -2.5],
+  [S.parent + 3.5, S.parent + 5.3, 'p2', [16, 244, 398, 228], 830, 1090, 2.5, [0.656, 0.838, S.parent + 4.3]],
+  [S.kid + 0.7, S.kid + 1.75, 'k1', [108, 283, 214, 222], 560, 1130, 3.5],
+  [S.kid + 2.5, S.kid + 3.55, 'k2', [14, 486, 402, 268], 820, 1400, -2.5],
+  [S.kid + 4.35, S.kid + 5.3, 'k3', [38, 490, 354, 236], 800, 1420, 2.5],
+  [S.coach + 0.7, S.coach + 1.55, 'c1', [16, 312, 398, 170], 850, 1150, -2],
+  [S.coach + 2.3, S.coach + 3.25, 'c2', [32, 255, 366, 105], 900, 1010, 2],
+  [S.coach + 4.0, S.coach + 4.85, 'c3', [33, 415, 338, 180], 820, 1290, -2.5],
+  [S.coord + 2.85, S.coord + 3.8, 'r2', [16, 82, 398, 178], 850, 860, 2.5],
+];
+const OUTRO_CAT = S.outro + 1.35;   // do té doby vějíř čtyř telefonů, pak kocour
+const FAN = ['p1', 'k2', 'c1', 'r1'];
+
 const $ = (id) => document.getElementById(id);
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const lerp = (a, b, x) => a + (b - a) * x;
@@ -154,6 +186,24 @@ const capEls = CAPTIONS.map(([, , text]) => {
   $('caption').appendChild(el);
   return el;
 });
+const calloutEls = CALLOUTS.map(([, , key, [x, y, w, h], width, , , tap]) => {
+  const scale = width / w;
+  const el = document.createElement('div');
+  el.className = 'callout';
+  el.style.width = width + 'px';
+  el.style.height = h * scale + 'px';
+  const img = new Image();
+  img.src = RAW + SHOTS.find(([k]) => k === key)[1];
+  img.style.width = 430 * scale + 'px';
+  img.style.left = -x * scale + 'px';
+  img.style.top = -y * scale + 'px';
+  el.appendChild(img);
+  if (tap) { const dot = document.createElement('div'); dot.className = 'tap'; dot.style.left = tap[0] * 100 + '%'; dot.style.top = tap[1] * 100 + '%'; el.appendChild(dot); }
+  $('callouts').appendChild(el);
+  return el;
+});
+const dust = Array.from({ length: 30 }, (_, i) => { const d = document.createElement('div'); d.className = 'dust'; const size = 5 + (i * 7) % 12; d.style.width = d.style.height = size + 'px'; $('dust').appendChild(d); return d; });
+const minis = FAN.map((key) => { const m = document.createElement('div'); m.className = 'mini'; m.innerHTML = `<div><img src="${RAW + SHOTS.find(([k]) => k === key)[1]}"><i></i></div>`; $('minis').appendChild(m); return m; });
 const coins = Array.from({ length: 14 }, (_, i) => { const c = document.createElement('div'); c.className = 'coin'; $('coins').appendChild(c); return c; });
 for (const key of ['A', 'B', 'C']) if (CLIPS[key].src) $('clip' + key).src = CLIPS[key].src;
 
@@ -211,8 +261,8 @@ window.setTime = async function setTime(t) {
   $('orbs').style.opacity = scene === 'intro' || scene === 'tap' || scene === 'outro' ? 0 : 1;
 
   // záběry s kocourem
-  const clipOn = { A: scene === 'intro', B: scene === 'tap', C: scene === 'outro' };
-  const clipStart = { A: 0, B: S.tap, C: S.outro };
+  const clipOn = { A: scene === 'intro', B: scene === 'tap', C: t >= OUTRO_CAT };
+  const clipStart = { A: 0, B: S.tap, C: OUTRO_CAT };
   const seeks = [];
   for (const key of ['A', 'B', 'C']) {
     const v = $('clip' + key);
@@ -276,12 +326,18 @@ window.setTime = async function setTime(t) {
     const leaveD = scene === 'kid' || scene === 'coord' ? 0.34 : 0.3;
     const leave = inCubic(prog(t, end - leaveD, leaveD));
     const dir = scene === 'parent' || scene === 'coach' ? 1 : -1;
-    const ry = lerp(dir * 38, dir * -7 + Math.sin(u * 0.9) * 4, enter) + leave * dir * -60;
-    const rx = lerp(12, 3 + Math.cos(u * 0.7) * 1.2, enter);
-    const y = lerp(1500, 0, enter) + Math.sin(u * 1.3) * 6;
-    const x = leave * dir * -900;
-    const scale = lerp(0.82, 1, enter) * (1 - leave * 0.12);
-    phone.style.opacity = 1 - leave * 0.4;
+    // každá role přijde jinak: rodič zdola, dítě shora s odrazem, trenér z boku, koordinátor „odletí" zblízka
+    const from = { parent: [0, 1500, 0.82, 38, 12], kid: [0, -1700, 0.9, -30, -16], coach: [1100, 60, 0.9, -55, 6], coord: [0, 260, 2.3, 0, 0] }[scene];
+    // když je venku zvětšený výřez, telefon o kousek ustoupí a ztmavne
+    let focus = 0;
+    for (const [a, b] of CALLOUTS) focus = Math.max(focus, Math.min(prog(t, a, 0.3), 1 - prog(t, b - 0.25, 0.25)));
+    const ry = lerp(from[3], dir * -7 + Math.sin(u * 0.9) * 4, enter) + leave * dir * -60;
+    const rx = lerp(from[4], 3 + Math.cos(u * 0.7) * 1.2, enter);
+    const y = lerp(from[1], 0, enter) + Math.sin(u * 1.3) * 6;
+    const x = lerp(from[0], 0, enter) + leave * dir * -900;
+    const scale = lerp(from[2], 1, enter) * (1 - leave * 0.12) * (1 - focus * 0.06);
+    phone.style.opacity = (1 - leave * 0.4) * (scene === 'coord' ? clamp(prog(u, 0, 0.25)) : 1);
+    phone.style.filter = `brightness(${1 - focus * 0.28})`;
     phone.style.transform = `translate3d(${x}px, ${y}px, 0) rotateX(${rx}deg) rotateY(${ry}deg) scale(${scale})`;
   } else {
     phone.style.opacity = 0;
@@ -321,17 +377,17 @@ window.setTime = async function setTime(t) {
 
   // oznámení rodiči
   const n = $('notif');
-  const nu = t - (S.parent + 1.3);
+  const nu = t - (S.parent + 0.65);
   const nIn = spring(prog(nu, 0, 0.6));
-  const nOut = inCubic(prog(nu, 1.35, 0.25));
-  n.style.opacity = nu > 0 && nu < 1.6 ? 1 - nOut : 0;
+  const nOut = inCubic(prog(nu, 1.0, 0.22));
+  n.style.opacity = nu > 0 && nu < 1.22 ? 1 - nOut : 0;
   n.style.transform = `translateY(${lerp(-220, 0, nIn) - nOut * 220}px) scale(${0.94 + 0.06 * nIn})`;
 
   // klepnutí na Koupit
   const r = $('ripple');
   const ru = t - (S.parent + 4.2);
   r.style.left = '62%'; r.style.top = '52.8%';
-  r.style.opacity = ru > 0 && ru < 0.6 ? (1 - prog(ru, 0, 0.6)) * 0.9 : 0;
+  r.style.opacity = 0;
   r.style.transform = `scale(${0.3 + outCubic(prog(ru, 0, 0.6)) * 1.6})`;
 
   // špendlíky na mapě kraje
@@ -355,6 +411,65 @@ window.setTime = async function setTime(t) {
     c.style.transform = `scale(${0.7 + (i % 3) * 0.25})`;
   });
 
+  // zvětšené výřezy z telefonu
+  CALLOUTS.forEach(([a, b, , [cx, cy, cw, ch], width, targetY, rot, tap], i) => {
+    const el = calloutEls[i];
+    if (t < a || t > b) { el.style.opacity = 0; return; }
+    const k = spring(prog(t, a, 0.55));
+    const out = inCubic(prog(t, b - 0.22, 0.22));
+    const height = ch * (width / cw);
+    // začíná tam, kde výřez leží v telefonu (obrazovka: x 234, y 545, 1,423 px na bod)
+    const startX = 234 + (cx + cw / 2) * 1.423, startY = 545 + (cy + ch / 2) * 1.423, startScale = (cw * 1.423) / width;
+    const m = k * (1 - out);
+    const x = lerp(startX, 540, m), y = lerp(startY, targetY, m), sc = lerp(startScale, 1, m);
+    const float = Math.sin((t - a) * 2.2) * 6 * k;
+    el.style.opacity = Math.min(prog(t, a, 0.1), 1 - out * 0.9);
+    el.style.transform = `translate(${x - width / 2}px, ${y - height / 2 + float}px) rotate(${rot * m}deg) scale(${sc})`;
+    if (tap) {
+      const dot = el.querySelector('.tap');
+      const tu2 = t - tap[2];
+      dot.style.opacity = tu2 > 0 && tu2 < 0.6 ? (1 - prog(tu2, 0, 0.6)) * 0.9 : 0;
+      dot.style.transform = `scale(${0.3 + outCubic(prog(tu2, 0, 0.6)) * 1.5})`;
+    }
+  });
+
+  // světelný pruh přes střih
+  let sweepX = -900, sweepO = 0;
+  for (const cut of [S.kid, S.coach, S.coord, S.outro]) {
+    const p = prog(t, cut - 0.16, 0.5);
+    if (p > 0 && p < 1) { sweepX = lerp(-800, 1500, inOut(p)); sweepO = Math.sin(Math.PI * p); }
+  }
+  $('sweep').style.opacity = sweepO * 0.9;
+  $('sweep').style.transform = `translateX(${sweepX}px) skewX(-18deg)`;
+
+  // prach ve světle — pomalu stoupá, dává scéně hloubku
+  const dustOn = phoneOn ? Math.min(1, prog(t, S[scene], 0.5)) : 0;
+  dust.forEach((d, i) => {
+    const speed = 40 + (i % 5) * 22;
+    const yy = 1920 - ((t * speed + i * 173) % 2100);
+    const xx = (i * 211) % 1080 + Math.sin(t * 0.6 + i) * 30;
+    d.style.transform = `translate(${xx}px, ${yy}px)`;
+    d.style.opacity = dustOn * (0.1 + (i % 4) * 0.05);
+  });
+
+  // závěr: vějíř čtyř telefonů, pak kocour
+  const fu = t - S.outro;
+  const fanOn = fu >= 0 && t < OUTRO_CAT;
+  $('fan').style.opacity = fanOn ? 1 : 0;
+  if (fanOn) {
+    minis.forEach((m, i) => {
+      const k = spring(prog(fu, 0.05 + i * 0.07, 0.6));
+      const spread = (i - 1.5);
+      const x = 540 - 196 + spread * 212 * k;
+      const y = lerp(1950, 770 + Math.abs(spread) * 80, k);
+      m.style.transform = `translate(${x}px, ${y}px) rotate(${spread * 9 * k}deg) scale(${0.8 + 0.2 * k})`;
+      m.style.zIndex = i === 1 || i === 2 ? 2 : 1;
+    });
+    const [fa, fb] = $('fanText').children;
+    fa.style.opacity = clamp(prog(fu, 0.1, 0.15)); fa.style.transform = `translateY(${(1 - spring(prog(fu, 0.1, 0.5))) * 50}px)`;
+    fb.style.opacity = clamp(prog(fu, 0.42, 0.15)); fb.style.transform = `translateY(${(1 - spring(prog(fu, 0.42, 0.5))) * 50}px)`;
+  }
+
   // prstenec při pípnutí
   const tu = t - (S.tap + CLIPS.B.tapAt);
   $('tapRing').style.opacity = !CLIPS.B.noRing && tu > 0 && tu < 0.8 ? (1 - prog(tu, 0, 0.8)) * 0.9 : 0;
@@ -370,22 +485,23 @@ window.setTime = async function setTime(t) {
   b1.style.opacity = clamp(prog(t, 1.25, 0.18)) * (1 - iOut);
   b1.style.transform = `translateY(${(1 - ib) * 70}px) scale(${0.9 + 0.1 * ib})`;
 
-  const ou = t - S.outro;
+  const ou = t - OUTRO_CAT;
   const [logo, sub, who] = $('outro').children;
   const lo = spring(prog(ou, 0.12, 0.7));
   logo.style.opacity = clamp(prog(ou, 0.12, 0.15));
   logo.style.transform = `scale(${0.6 + 0.4 * lo})`;
-  sub.style.opacity = clamp(prog(ou, 0.7, 0.3));
-  sub.style.transform = `translateY(${(1 - outCubic(prog(ou, 0.7, 0.5))) * 40}px)`;
-  who.style.opacity = clamp(prog(ou, 1.5, 0.35));
-  const cta = spring(prog(ou, 2.0, 0.6));
-  $('cta').style.opacity = clamp(prog(ou, 2.0, 0.15));
+  sub.style.opacity = clamp(prog(ou, 0.5, 0.25));
+  sub.style.transform = `translateY(${(1 - outCubic(prog(ou, 0.5, 0.45))) * 40}px)`;
+  who.style.opacity = clamp(prog(ou, 1.25, 0.3));
+  const cta = spring(prog(ou, 0.9, 0.6));
+  $('cta').style.opacity = clamp(prog(ou, 0.9, 0.15));
   $('cta').style.transform = `translateX(-50%) scale(${0.8 + 0.2 * cta})`;
 
   // záblesky na střizích
   let flash = 0;
   flash = Math.max(flash, prog(t, S.parent - 0.28, 0.28) * (t < S.parent ? 1 : 0), (1 - prog(t, S.parent, 0.4)) * (t >= S.parent ? 1 : 0));
-  for (const cut of [S.kid, S.coach, S.coord, S.outro]) flash = Math.max(flash, t >= cut ? (1 - prog(t, cut, 0.3)) * 0.35 : 0);
+  for (const cut of [S.kid, S.coach, S.coord, S.outro]) flash = Math.max(flash, t >= cut ? (1 - prog(t, cut, 0.3)) * 0.3 : 0);
+  flash = Math.max(flash, t >= OUTRO_CAT ? (1 - prog(t, OUTRO_CAT, 0.35)) * 0.85 : prog(t, OUTRO_CAT - 0.12, 0.12) * 0.85 * (t > S.outro ? 1 : 0));
   flash = Math.max(flash, tu > 0 ? (1 - prog(tu, 0, 0.25)) * 0.3 : 0);
   $('flash').style.opacity = flash;
   $('flash').style.background = scene === 'intro' || (scene === 'parent' && t < S.parent + 0.4) ? '#EBD9FF' : '#fff';
