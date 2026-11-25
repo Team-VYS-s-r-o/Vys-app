@@ -18,9 +18,37 @@
   #caption { position: absolute; left: 60px; right: 60px; top: 186px; height: 250px; display: flex; align-items: center; justify-content: center; text-align: center; }
   .cap { position: absolute; left: 0; right: 0; font-size: 88px; line-height: 1.04; font-weight: 900; letter-spacing: -2px; text-wrap: balance; text-shadow: 0 8px 30px rgba(0,0,0,0.22); }
   .cap span { display: inline-block; white-space: pre; }
-  #stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 2400px; perspective-origin: 50% 46%; }
+  #stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 1900px; perspective-origin: 50% 46%; transform-origin: 540px 560px; }
   #phone { position: absolute; left: 212px; top: 468px; width: 656px; transform-style: preserve-3d; will-change: transform; }
-  .frame { padding: 13px; border-radius: 96px; background: linear-gradient(145deg, #6a6874 0%, #17161c 24%, #3d3c46 52%, #0e0d12 78%, #55545f 100%); box-shadow: 0 70px 110px -40px rgba(4,2,12,0.8), 0 0 0 1.5px rgba(255,255,255,0.1) inset; }
+  /* Telefon má skutečnou tloušťku: přední sklo, 26 vrstev boku a záda s foťákem — při natočení je vidět hrana */
+  .frame { position: relative; padding: 13px; border-radius: 96px; background: linear-gradient(145deg, #6a6874 0%, #17161c 24%, #3d3c46 52%, #0e0d12 78%, #55545f 100%); box-shadow: 0 0 0 1.5px rgba(255,255,255,0.12) inset; backface-visibility: hidden; }
+  .edge { position: absolute; inset: 0; border-radius: 96px; }
+  .back { position: absolute; inset: 0; border-radius: 96px; backface-visibility: hidden; background: linear-gradient(155deg, #4a4853 0%, #23222a 40%, #34333c 70%, #1a191f 100%); box-shadow: 0 0 0 3px rgba(255,255,255,0.08) inset; }
+  .back .cam { position: absolute; right: 44px; top: 44px; width: 250px; height: 250px; border-radius: 62px; background: linear-gradient(145deg, #2c2b33, #141318); box-shadow: 0 0 0 3px rgba(255,255,255,0.07) inset, 0 10px 30px rgba(0,0,0,0.5); }
+  .back .cam i { position: absolute; width: 92px; height: 92px; border-radius: 50%; background: radial-gradient(circle at 38% 34%, #4b5a86 0%, #10121c 46%, #05060a 100%); box-shadow: 0 0 0 7px #2b2a31, 0 0 0 9px rgba(255,255,255,0.1); }
+  .back b { position: absolute; left: 0; right: 0; top: 46%; text-align: center; font-size: 120px; font-weight: 900; letter-spacing: -4px; color: rgba(255,255,255,0.16); }
+  .pshadow { position: absolute; left: 30px; right: 30px; top: 90px; bottom: -40px; border-radius: 110px; background: rgba(6,2,18,0.6); filter: blur(46px); }
+  #glare { position: absolute; inset: 0; z-index: 9; pointer-events: none; background: linear-gradient(112deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.2) 46%, rgba(255,255,255,0) 60%); background-size: 260% 100%; }
+  .footIn { position: absolute; left: 0; top: 77px; width: 100%; opacity: 0; z-index: 2; }
+  .foot { position: absolute; inset: 0; overflow: hidden; opacity: 0; background: #0c0718; }
+  .foot video { position: absolute; left: 0; top: 0; width: 1080px; height: 2205px; inset: auto; object-fit: fill; opacity: 1; }
+  #tapCard { position: absolute; left: 90px; top: 790px; width: 900px; padding: 44px 48px 46px; border-radius: 56px; background: #fff; color: #17121f; opacity: 0; box-shadow: 0 60px 110px -30px rgba(4,1,14,0.85); }
+  #tapCard .who { display: flex; align-items: center; gap: 24px; }
+  #tapCard .av { width: 92px; height: 92px; border-radius: 50%; background: rgba(124,58,237,0.12); color: #7C3AED; font-size: 34px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+  #tapCard .nm { flex: 1; font-size: 46px; font-weight: 900; letter-spacing: -1px; }
+  #tapCard .ok { padding: 12px 26px; border-radius: 40px; background: #159A74; color: #fff; font-size: 32px; font-weight: 900; }
+  #tapCard .lab { margin-top: 34px; display: flex; justify-content: space-between; align-items: baseline; font-size: 34px; font-weight: 800; color: #6D667A; }
+  #tapCard .lab b { font-size: 40px; color: #17121f; font-variant-numeric: tabular-nums; }
+  #tapCard .dots { margin-top: 18px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 14px; }
+  #tapCard .dot { aspect-ratio: 1; border-radius: 50%; border: 5px solid rgba(124,58,237,0.28); display: flex; align-items: center; justify-content: center; }
+  #tapCard .dot.on { background: #7C3AED; border-color: #7C3AED; }
+  #tapCard .dot svg { width: 52%; opacity: 0; }
+  #tapCard .dot.on svg { opacity: 1; }
+  #tapCard .pts { margin-top: 34px; padding-top: 30px; border-top: 3px solid rgba(23,18,31,0.08); display: flex; align-items: center; gap: 22px; }
+  #tapCard .yarn { width: 74px; height: 74px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #FF8D8D, #E0283C 58%, #9E1024); box-shadow: inset -6px -8px 0 rgba(0,0,0,0.12); }
+  #tapCard .pts span { flex: 1; font-size: 40px; font-weight: 900; }
+  #tapCard .pts b { font-size: 64px; font-weight: 900; letter-spacing: -2px; color: #E0283C; font-variant-numeric: tabular-nums; }
+  #tapCard .plus { position: absolute; right: 54px; bottom: 122px; font-size: 54px; font-weight: 900; color: #159A74; opacity: 0; }
   .glass { border-radius: 84px; background: #000; padding: 9px; }
   #screen { position: relative; border-radius: 78px; overflow: hidden; background: #fff; height: 1326px; }
   #status { position: absolute; left: 0; right: 0; top: 0; height: 77px; z-index: 5; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 52px 14px 60px; font-size: 25px; font-weight: 600; }
@@ -81,19 +109,28 @@
   <div class="layer" id="shade"></div>
   <div id="tapRing"></div>
 
-  <div id="stage"><div id="phone"><div class="frame"><div class="glass"><div id="screen">
+  <div id="stage"><div id="phone"><div class="pshadow"></div><div id="edges"></div><div class="back"><div class="cam"><i style="left:22px;top:22px"></i><i style="right:22px;top:80px"></i><i style="left:22px;bottom:22px"></i></div><b>VYS</b></div><div class="frame"><div class="glass"><div id="screen">
     <div id="status"><span>9:41</span><span id="island"></span><span>
       <svg viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8.2" width="3" height="3.8" rx="0.9"/><rect x="5" y="5.6" width="3" height="6.4" rx="0.9"/><rect x="10" y="2.9" width="3" height="9.1" rx="0.9"/><rect x="15" y="0" width="3" height="12" rx="0.9"/></svg>
       <svg viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M1.2 4.2a9.6 9.6 0 0 1 13.6 0"/><path d="M3.6 6.7a6.2 6.2 0 0 1 8.8 0"/><path d="M6.1 9.2a2.7 2.7 0 0 1 3.8 0"/></svg>
       <svg viewBox="0 0 27 12"><rect x="0.6" y="0.6" width="22.8" height="10.8" rx="3.4" fill="none" stroke="currentColor" stroke-width="1.1" opacity="0.4"/><rect x="2.2" y="2.2" width="19.6" height="7.6" rx="2" fill="currentColor"/></svg>
     </span></div>
     <div id="shots"></div>
+    <div id="glare"></div>
     <div id="notif"><div class="icon">VYS</div><div><b>Eliška dorazila na trénink</b><i>Právě pípla kartičkou v hale.</i></div><em>teď</em></div>
     <div id="ripple"></div>
     <div class="pin" id="pin1"></div><div class="pin" id="pin2"></div><div class="pin" id="pin3"></div>
     <span id="home"></span>
   </div></div></div></div></div>
   <div id="coins"></div>
+  <div id="foots"></div>
+  <div id="tapCard">
+    <div class="who"><div class="av">EN</div><div class="nm">Eliška Nováková</div><div class="ok">Zapsáno</div></div>
+    <div class="lab"><span>Permanentka</span><b id="tcLeft">zbývá 9</b></div>
+    <div class="dots" id="tcDots"></div>
+    <div class="pts"><div class="yarn"></div><span>Klubíčka za docházku</span><b id="tcPts">50</b></div>
+    <div class="plus" id="tcPlus">+10</div>
+  </div>
   <div id="dust"></div>
   <div id="callouts"></div>
   <div id="fan"><div id="fanText"><span class="a">Čtyři role.</span><span class="b">Jedna aplikace.</span></div><div id="minis"></div></div>
@@ -118,7 +155,22 @@ const RAW = CONFIG.raw || '../out/store/';
 // střihy uvnitř scén (výměna obrazovky v telefonu) a okamžik, kdy závěr přejde na kocoura
 const C = Object.assign({ p2: S.parent + 2.9, k2: S.kid + 1.9, k3: S.kid + 3.7, c2: S.coach + 1.7, c3: S.coach + 3.4, r2: S.coord + 2.2, cat: S.outro + 1.35 }, CONFIG.cuts || {});
 // tyhle výměny obrazovky udělá telefon otočkou kolem osy, ostatní posunem do strany
-const SPIN = new Set([C.k2, C.c2, C.r2]);
+const SPIN = new Set([C.c2, C.r2]);
+const B = (k) => (GRID ? GRID.t0 + k * GRID.p : 3.5 + k * 0.5);   // čas k-té doby skladby
+// Účastník: 2 doby v telefonu, pak krátké prostřihy skutečného hraní přes celou obrazovku
+const KF = C.kf ?? B(10);
+const BOTTOM = 1480;   // posun titulku dolů, když je nahoře záběr přes celou obrazovku
+// Záběry natočené z běžící aplikace: [od, do, soubor, začátek v souboru, { režim, výřez }]
+const FOOT = [
+  [S.kid, KF, 'clips/g_triky.mp4', 0, { phone: true }],
+  [KF, B(12), 'clips/g_cesta.mp4', 0.02, { oy: 0, cy: -130, z0: 1.0, z1: 1.05 }],
+  [B(12), B(14), 'clips/g_bedny.mp4', 0.0, { oy: 0, cy: -130, z0: 1.0, z1: 1.04 }],
+  [B(14), B(16), 'clips/g_souboj.mp4', 0.02, { oy: 0, cy: -70, z0: 1.0, z1: 1.04 }],
+  [B(16), B(18), 'clips/g_souboj.mp4', 2.3, { oy: 0.672, cy: 1130, z0: 1.42, z1: 1.52 }],
+  [B(18), S.tap, 'clips/g_souboj.mp4', 3.05, { oy: 0.233, cy: 900, z0: 1.3, z1: 1.38 }],
+];
+const HARD_CUTS = FOOT.slice(1).map(([a]) => a);
+const TAP = { hit: S.tap + CLIPS.B.tapAt, card: B(23), entry: B(24), points: B(25.5) };
 const ROLE_COLOR = { parent: '#6A1FD6', kid: '#D61F8E', coach: '#241A44', coord: '#C2334B' };
 
 // Obrazovky aplikace: [klíč, soubor, tmavý stavový řádek?]
@@ -131,18 +183,21 @@ const SHOTS = [
 // Časová osa obrazovek v telefonu: [od, do, klíč] — mezi sousedními v téže scéně se přejíždí do strany.
 const SCREENS = [
   [S.parent, C.p2, 'p1'], [C.p2, S.kid, 'p2'],
-  [S.kid, C.k2, 'k1'], [C.k2, C.k3, 'k2'], [C.k3, S.tap, 'k3'],
+  [S.kid, KF, 'k1'],
   [S.coach, C.c2, 'c1'], [C.c2, C.c3, 'c2'], [C.c3, S.coord, 'c3'],
   [S.coord, C.r2, 'r1'], [C.r2, S.outro, 'r2'],
 ];
 const CAPTIONS = [
   [S.parent + 0.15, C.p2, 'Ví, že dítě dorazilo.'],
   [C.p2, S.kid, 'Kroužek koupí za minutu.'],
-  [S.kid + 0.15, C.k2, 'Za triky sbírá náramky.'],
-  [C.k2, C.k3, 'Každý trénink ho posune dál.'],
-  [C.k3, S.tap, 'A hraje Souboj maskotů.'],
-  [S.tap + 0.15, S.tap + CLIPS.B.tapAt, 'Docházka?', 1420],
-  [S.tap + CLIPS.B.tapAt, S.coach, 'Jedno pípnutí.', 1420],
+  [S.kid + 0.15, KF, 'Za triky sbírá náramky.'],
+  [KF, B(12), 'Každý trénink ho posune dál.', BOTTOM],
+  [B(12), B(14), 'Za docházku sbírá klubíčka.', BOTTOM],
+  [B(14), S.tap, 'A hraje Souboj maskotů.', BOTTOM + 30, 74],
+  [S.tap + 0.15, TAP.hit, 'Docházka?', 1420],
+  [TAP.hit, TAP.entry, 'Jedno pípnutí.', 1420],
+  [TAP.entry, TAP.points, 'Vstup se odečte.', 1420],
+  [TAP.points, S.coach, 'Body naskočí.', 1420],
   [S.coach + 0.15, C.c2, 'Všechny děti má po ruce.'],
   [C.c2, C.c3, 'Ví, kdo dítě vyzvedne.'],
   [C.c3, S.coord, 'Tréninky má v kalendáři.'],
@@ -175,9 +230,10 @@ for (const [key, file] of SHOTS) {
   $('shots').appendChild(img);
   shotEls[key] = img;
 }
-const capEls = CAPTIONS.map(([, , text]) => {
+const capEls = CAPTIONS.map(([, , text, , size]) => {
   const el = document.createElement('div');
   el.className = 'cap';
+  if (size) el.style.fontSize = size + 'px';
   el.innerHTML = text.split(' ').map((w) => `<span>${w} </span>`).join('');
   $('caption').appendChild(el);
   return el;
@@ -202,6 +258,25 @@ const dust = Array.from({ length: 30 }, (_, i) => { const d = document.createEle
 const minis = FAN.map((key) => { const m = document.createElement('div'); m.className = 'mini'; m.innerHTML = `<div><img src="${RAW + SHOTS.find(([k]) => k === key)[1]}"><i></i></div>`; $('minis').appendChild(m); return m; });
 const coins = Array.from({ length: 14 }, (_, i) => { const c = document.createElement('div'); c.className = 'coin'; $('coins').appendChild(c); return c; });
 for (const key of ['A', 'B', 'C']) if (CLIPS[key].src) $('clip' + key).src = CLIPS[key].src;
+// bok telefonu: vrstvy od předního skla dozadu, uprostřed světlejší (kovový pásek)
+const DEPTH = 62, LAYERS = 26;
+for (let i = 0; i < LAYERS; i += 1) {
+  const e = document.createElement('div'); e.className = 'edge';
+  const mid = 1 - Math.abs(i / (LAYERS - 1) - 0.5) * 2;
+  e.style.background = `hsl(248, 7%, ${20 + mid * 34}%)`;
+  e.style.transform = `translateZ(${-(i + 1) * (DEPTH / LAYERS)}px)`;
+  $('edges').appendChild(e);
+}
+document.querySelector('.back').style.transform = `translateZ(${-DEPTH - 1}px) rotateY(180deg)`;
+document.querySelector('.pshadow').style.transform = `translateZ(${-DEPTH - 90}px)`;
+const footEls = FOOT.map(([, , src, , opt]) => {
+  const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = src;
+  if (opt.phone) { v.className = 'footIn'; $('shots').appendChild(v); return { v, box: null }; }
+  const box = document.createElement('div'); box.className = 'foot'; box.appendChild(v); $('foots').appendChild(box);
+  v.style.transformOrigin = `50% ${opt.oy * 100}%`;
+  return { v, box };
+});
+for (let i = 0; i < 15; i += 1) { const d = document.createElement('div'); d.className = 'dot' + (i < 6 ? ' on' : ''); d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'; $('tcDots').appendChild(d); }
 
 async function ready() {
   await Promise.all(Object.values(shotEls).map((img) => img.decode()));
@@ -212,9 +287,8 @@ async function ready() {
     const [r, gr, b] = g.getImageData(2, 2, 1, 1).data;
     dark[key] = { bg: `rgb(${r},${gr},${b})`, dark: 0.299 * r + 0.587 * gr + 0.114 * b < 140 };
   }
-  await Promise.all(['A', 'B', 'C'].map((key) => new Promise((resolve) => {
-    const v = $('clip' + key);
-    if (!CLIPS[key].src) return resolve();
+  await Promise.all(Array.from(document.querySelectorAll('video')).map((v) => new Promise((resolve) => {
+    if (!v.getAttribute('src')) return resolve();
     if (v.readyState >= 2) return resolve();
     v.addEventListener('loadeddata', resolve, { once: true });
     v.addEventListener('error', resolve, { once: true });
@@ -273,14 +347,34 @@ window.setTime = async function setTime(t) {
     const local = t - clipStart[key];
     if (clipOn[key]) {
       seeks.push(seek(v, Math.max(0, CLIPS[key].offset + local * (CLIPS[key].speed || 1))));
+      // po pípnutí kocour ustoupí do pozadí, ať vynikne karta s odečteným vstupem
+      const back = key === 'B' ? inOut(prog(t, TAP.card - 0.1, 0.4)) : 0;
+      v.style.filter = back ? `blur(${back * 14}px) brightness(${1 - back * 0.5})` : 'none';
       const zoom = key === 'A' ? 1.02 + local * 0.012 : key === 'B' ? 1.06 + local * 0.02 : 1.04 + local * 0.01;
       v.style.opacity = 1;
       v.style.transform = `scale(${zoom})`;
     } else v.style.opacity = 0;
   }
-  $('shade').style.opacity = clipOn.A || clipOn.B || clipOn.C ? 1 : 0;
+  // prostřihy skutečného hraní
+  let fullOn = false;
+  FOOT.forEach(([a, b, , off, opt], i) => {
+    const { v, box } = footEls[i];
+    const on = t >= a && t < b;
+    if (opt.phone) { v.style.opacity = on ? 1 : 0; if (on) seeks.push(seek(v, off + (t - a))); return; }
+    box.style.opacity = on ? 1 : 0;
+    if (!on) return;
+    fullOn = true;
+    seeks.push(seek(v, off + (t - a)));
+    const k = (t - a) / (b - a);
+    const hit = 1 - prog(t, a, 0.28);                       // krátký „náraz" na střihu
+    const z = lerp(opt.z0, opt.z1, k) * (1 + 0.05 * hit * hit);
+    v.style.transform = `translateY(${opt.cy - opt.oy * 2205}px) scale(${z})`;
+  });
+  $('shade').style.opacity = clipOn.A || clipOn.B || clipOn.C || fullOn ? 1 : 0;
   // ztmavení jen tam, kde je text — u pípnutí zůstane telefon s prstenci světlý
-  $('shade').style.background = clipOn.B
+  $('shade').style.background = fullOn
+    ? 'linear-gradient(180deg, rgba(10,5,22,0.72) 0%, rgba(10,5,22,0) 16%, rgba(10,5,22,0) 76%, rgba(10,5,22,0.9) 90%, rgba(10,5,22,0.97) 100%)'
+    : clipOn.B
     ? 'linear-gradient(180deg, rgba(10,5,22,0.5) 0%, rgba(10,5,22,0) 18%, rgba(10,5,22,0) 78%, rgba(10,5,22,0.92) 100%)'
     : clipOn.A
       ? 'linear-gradient(180deg, rgba(10,5,22,0.3) 0%, rgba(10,5,22,0) 18%, rgba(10,5,22,0) 70%, rgba(10,5,22,0.85) 88%, rgba(10,5,22,0.95) 100%)'
@@ -322,42 +416,49 @@ window.setTime = async function setTime(t) {
   // otočka telefonu: natočí se hranou k divákovi, tam se vymění obrazovka, a dotočí se zpět
   let spin = 0, spinLift = 0;
   for (const cut of SPIN) {
-    const p = prog(t, cut - 0.16, 0.44);
-    if (p > 0 && p < 1) { spin = p < 0.5 ? 92 * inCubic(p * 2) : -92 * (1 - outCubic((p - 0.5) * 2)); spinLift = Math.sin(Math.PI * p); }
+    const p = prog(t, cut - 0.3, 0.72);
+    if (p > 0 && p < 1) { spin = 360 * inOut(p); spinLift = Math.sin(Math.PI * p); }
   }
 
   // telefon
   const phone = $('phone');
-  const phoneOn = scene === 'parent' || scene === 'kid' || scene === 'coach' || scene === 'coord';
+  const phoneOn = scene === 'parent' || (scene === 'kid' && t < KF) || scene === 'coach' || scene === 'coord';
+  // přiblížení na oznámení rodiči
+  const zoomN = inOut(prog(t, S.parent + 0.6, 0.42)) - inOut(prog(t, S.parent + 1.85, 0.42));
   if (phoneOn) {
     const start = S[scene];
-    const end = scene === 'parent' ? S.kid : scene === 'kid' ? S.tap : scene === 'coach' ? S.coord : S.outro;
+    const end = scene === 'parent' ? S.kid : scene === 'kid' ? KF : scene === 'coach' ? S.coord : S.outro;
+    const push = scene === 'kid' ? inCubic(prog(t, end - 0.3, 0.3)) : 0;   // nájezd dovnitř telefonu před prostřihy
     const u = t - start;
     const enter = spring(prog(u, 0, 0.75));
     const leaveD = scene === 'kid' || scene === 'coord' ? 0.34 : 0.3;
-    const leave = inCubic(prog(t, end - leaveD, leaveD));
+    const leave = scene === 'kid' ? 0 : inCubic(prog(t, end - leaveD, leaveD));
     const dir = scene === 'parent' || scene === 'coach' ? 1 : -1;
     // každá role přijde jinak: rodič zdola, dítě shora s odrazem, trenér z boku, koordinátor „odletí" zblízka
     const from = { parent: [0, 1500, 0.82, 38, 12], kid: [0, -1700, 0.9, -30, -16], coach: [1100, 60, 0.9, -55, 6], coord: [0, 260, 2.3, 0, 0] }[scene];
     // když je venku zvětšený výřez, telefon o kousek ustoupí a ztmavne
     let focus = 0;
     for (const [a, b] of CALLOUTS) focus = Math.max(focus, Math.min(prog(t, a, 0.3), 1 - prog(t, b - 0.25, 0.25)));
-    const ry = lerp(from[3], dir * -7 + Math.sin(u * 0.9) * 4, enter) + leave * dir * -60 + spin;
-    const rx = lerp(from[4], 3 + Math.cos(u * 0.7) * 1.2, enter);
-    const y = lerp(from[1], 0, enter) + Math.sin(u * 1.3) * 6;
+    const nShake = scene === 'parent' ? Math.sin((t - S.parent - 0.7) * 46) * 2.2 * Math.exp(-Math.max(0, t - S.parent - 0.7) * 7) * (t > S.parent + 0.7 ? 1 : 0) : 0;
+    const rest = (dir * -15 + Math.sin(u * 0.9) * 6) * (1 - zoomN * 0.75) * (1 - push);
+    const ry = lerp(from[3], rest, enter) + leave * dir * -60 + spin + nShake;
+    const rx = lerp(from[4], (5 + Math.cos(u * 0.7) * 1.5) * (1 - push), enter);
+    const y = lerp(from[1], 0, enter) + Math.sin(u * 1.3) * 6 - push * 250;
     const x = lerp(from[0], 0, enter) + leave * dir * -900;
-    const scale = lerp(from[2], 1, enter) * (1 - leave * 0.12) * (1 - focus * 0.06) * (1 + spinLift * 0.07) * (1 + pulse * 0.014);
-    phone.style.opacity = (1 - leave * 0.4) * (scene === 'coord' ? clamp(prog(u, 0, 0.25)) : 1);
-    phone.style.filter = `brightness(${1 - focus * 0.28})`;
+    const scale = lerp(from[2], 1, enter) * (1 - leave * 0.12) * (1 + spinLift * 0.05) * (1 + pulse * 0.014) * (1 + push * 1.9);
+    // průhlednost ani filtr na telefonu být nesmí — prohlížeč by ho zploštil a přišel by o tloušťku
+    phone.style.opacity = 1;
+    phone.style.visibility = 'visible';
+    $('glare').style.backgroundPosition = `${50 + ry * 2.2}% 0`;
     phone.style.transform = `translate3d(${x}px, ${y}px, 0) rotateX(${rx}deg) rotateY(${ry}deg) scale(${scale})`;
   } else {
-    phone.style.opacity = 0;
+    phone.style.visibility = 'hidden';
   }
 
   // úder na střihu: celá scéna na okamžik „poskočí" k divákovi
   let punch = 0;
   for (const cut of [S.parent, S.kid, S.coach, S.coord]) if (t >= cut) punch = Math.max(punch, 1 - prog(t, cut, 0.4));
-  $('stage').style.transform = `scale(${1 + 0.04 * punch * punch})`;
+  $('stage').style.transform = `scale(${(1 + 0.04 * punch * punch) * (1 + 0.62 * zoomN)})`;
 
   // obrazovky v telefonu
   let activeKey = null;
@@ -388,10 +489,10 @@ window.setTime = async function setTime(t) {
 
   // oznámení rodiči
   const n = $('notif');
-  const nu = t - (S.parent + 0.65);
+  const nu = t - (S.parent + 0.7);
   const nIn = spring(prog(nu, 0, 0.6));
-  const nOut = inCubic(prog(nu, 1.0, 0.22));
-  n.style.opacity = nu > 0 && nu < 1.22 ? 1 - nOut : 0;
+  const nOut = inCubic(prog(nu, 1.35, 0.22));
+  n.style.opacity = nu > 0 && nu < 1.57 ? 1 - nOut : 0;
   n.style.transform = `translateY(${lerp(-220, 0, nIn) - nOut * 220}px) scale(${0.94 + 0.06 * nIn})`;
 
   // klepnutí na Koupit
@@ -482,6 +583,28 @@ window.setTime = async function setTime(t) {
     fb.style.opacity = clamp(prog(fu, 0.42, 0.15)); fb.style.transform = `translateY(${(1 - spring(prog(fu, 0.42, 0.5))) * 50}px)`;
   }
 
+  // karta po pípnutí: sedmý vstup se odškrtne, „zbývá" klesne, klubíčka naskočí
+  const card = $('tapCard');
+  const cardIn = spring(prog(t, TAP.card, 0.6));
+  const cardOn = t >= TAP.card && t < S.coach;
+  card.style.opacity = cardOn ? clamp(prog(t, TAP.card, 0.14)) * (1 - prog(t, S.coach - 0.16, 0.16)) : 0;
+  card.style.transform = `translateY(${(1 - cardIn) * 260}px) scale(${0.9 + 0.1 * cardIn})`;
+  const dot = $('tcDots').children[6];
+  const entered = t >= TAP.entry;
+  const pop = spring(prog(t, TAP.entry, 0.5));
+  dot.className = 'dot' + (entered ? ' on' : '');
+  dot.style.transform = entered ? `scale(${1 + (1 - pop) * 0.55})` : 'scale(1)';
+  dot.style.boxShadow = entered ? `0 0 0 ${(1 - prog(t, TAP.entry, 0.55)) * 26}px rgba(124,58,237,${0.35 * (1 - prog(t, TAP.entry, 0.55))})` : 'none';
+  $('tcLeft').textContent = entered ? 'zbývá 8' : 'zbývá 9';
+  $('tcLeft').style.transform = entered ? `scale(${1 + (1 - pop) * 0.3})` : 'scale(1)';
+  $('tcLeft').style.color = entered && t < TAP.entry + 0.5 ? '#7C3AED' : '#17121f';
+  const pk = outCubic(prog(t, TAP.points, 0.7));
+  $('tcPts').textContent = String(Math.round(50 + 10 * pk));
+  $('tcPts').style.transform = `scale(${1 + Math.sin(Math.PI * prog(t, TAP.points, 0.7)) * 0.22})`;
+  const plus = $('tcPlus');
+  plus.style.opacity = t >= TAP.points ? Math.min(prog(t, TAP.points, 0.12), 1 - prog(t, TAP.points + 0.55, 0.35)) : 0;
+  plus.style.transform = `translateY(${-outCubic(prog(t, TAP.points, 0.9)) * 34}px)`;
+
   // prstenec při pípnutí
   const tu = t - (S.tap + CLIPS.B.tapAt);
   $('tapRing').style.opacity = !CLIPS.B.noRing && tu > 0 && tu < 0.8 ? (1 - prog(tu, 0, 0.8)) * 0.9 : 0;
@@ -515,6 +638,7 @@ window.setTime = async function setTime(t) {
   for (const cut of [S.kid, S.coach, S.coord, S.outro]) flash = Math.max(flash, t >= cut ? (1 - prog(t, cut, 0.3)) * 0.3 : 0);
   flash = Math.max(flash, t >= OUTRO_CAT ? (1 - prog(t, OUTRO_CAT, 0.35)) * 0.85 : prog(t, OUTRO_CAT - 0.12, 0.12) * 0.85 * (t > S.outro ? 1 : 0));
   flash = Math.max(flash, tu > 0 ? (1 - prog(tu, 0, 0.25)) * 0.3 : 0);
+  for (const cut of HARD_CUTS) flash = Math.max(flash, t >= cut ? (1 - prog(t, cut, 0.2)) * 0.28 : 0);
   $('flash').style.opacity = flash;
   $('flash').style.background = scene === 'intro' || (scene === 'parent' && t < S.parent + 0.4) ? '#EBD9FF' : '#fff';
 
