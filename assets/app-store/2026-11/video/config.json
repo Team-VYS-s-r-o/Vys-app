@@ -1,1 +1,50 @@
-{ "raw": "../out/store878/", "clips": { "A": { "src": "clips/clipA.mp4", "offset": 0.25, "speed": 1.43 }, "B": { "src": "clips/clipB.mp4", "offset": 0.6042, "speed": 1.25, "tapAt": 1.5, "noRing": true }, "C": { "src": "clips/clipC.mp4", "offset": 2.95 } } }
+{
+ "raw": "../out/store878/",
+ "song": {
+  "file": "~/Downloads/Aura_Farming_KLICKAUD.mp3",
+  "start": 39.863,
+  "bpm": 110.52
+ },
+ "grid": {
+  "t0": 3.692,
+  "p": 0.5428881650380022
+ },
+ "S": {
+  "intro": 0,
+  "parent": 3.5,
+  "kid": 8.0351,
+  "tap": 14.5498,
+  "coach": 16.7213,
+  "coord": 23.236,
+  "outro": 27.5791,
+  "end": 32.42
+ },
+ "cuts": {
+  "p2": 5.8636,
+  "k2": 10.2067,
+  "k3": 12.3782,
+  "c2": 18.8929,
+  "c3": 21.0644,
+  "r2": 25.4075,
+  "cat": 29.7506
+ },
+ "clips": {
+  "A": {
+   "src": "clips/clipA.mp4",
+   "offset": 0.25,
+   "speed": 1.43
+  },
+  "B": {
+   "src": "clips/clipB.mp4",
+   "offset": 0.4442,
+   "speed": 1.25,
+   "tapAt": 1.6287,
+   "noRing": true
+  },
+  "C": {
+   "src": "clips/clipC60.mp4",
+   "offset": 0.15,
+   "speed": 0.78
+  }
+ }
+}

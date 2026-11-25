@@ -110,9 +110,15 @@
 
 <script>
 const CONFIG = window.CONFIG || {};
-const S = { intro: 0, parent: 3.5, kid: 9.0, tap: 14.5, coach: 17.0, coord: 22.0, outro: 26.0, end: 29.5 };
+const S = Object.assign({ intro: 0, parent: 3.5, kid: 9.0, tap: 14.5, coach: 17.0, coord: 22.0, outro: 26.0, end: 29.5 }, CONFIG.S || {});
+// doby skladby (první doba po dropu a délka doby) — na ně „dýchá" pozadí i telefon
+const GRID = CONFIG.grid || null;
 const CLIPS = Object.assign({ A: { offset: 0.4 }, B: { offset: 0.6, tapAt: 1.3 }, C: { offset: 0.5 } }, CONFIG.clips || {});
 const RAW = CONFIG.raw || '../out/store/';
+// střihy uvnitř scén (výměna obrazovky v telefonu) a okamžik, kdy závěr přejde na kocoura
+const C = Object.assign({ p2: S.parent + 2.9, k2: S.kid + 1.9, k3: S.kid + 3.7, c2: S.coach + 1.7, c3: S.coach + 3.4, r2: S.coord + 2.2, cat: S.outro + 1.35 }, CONFIG.cuts || {});
+// tyhle výměny obrazovky udělá telefon otočkou kolem osy, ostatní posunem do strany
+const SPIN = new Set([C.k2, C.c2, C.r2]);
 const ROLE_COLOR = { parent: '#6A1FD6', kid: '#D61F8E', coach: '#241A44', coord: '#C2334B' };
 
 // Obrazovky aplikace: [klíč, soubor, tmavý stavový řádek?]
@@ -124,39 +130,29 @@ const SHOTS = [
 ];
 // Časová osa obrazovek v telefonu: [od, do, klíč] — mezi sousedními v téže scéně se přejíždí do strany.
 const SCREENS = [
-  [S.parent, S.parent + 2.9, 'p1'], [S.parent + 2.9, S.kid, 'p2'],
-  [S.kid, S.kid + 1.9, 'k1'], [S.kid + 1.9, S.kid + 3.7, 'k2'], [S.kid + 3.7, S.tap, 'k3'],
-  [S.coach, S.coach + 1.7, 'c1'], [S.coach + 1.7, S.coach + 3.4, 'c2'], [S.coach + 3.4, S.coord, 'c3'],
-  [S.coord, S.coord + 2.2, 'r1'], [S.coord + 2.2, S.outro, 'r2'],
+  [S.parent, C.p2, 'p1'], [C.p2, S.kid, 'p2'],
+  [S.kid, C.k2, 'k1'], [C.k2, C.k3, 'k2'], [C.k3, S.tap, 'k3'],
+  [S.coach, C.c2, 'c1'], [C.c2, C.c3, 'c2'], [C.c3, S.coord, 'c3'],
+  [S.coord, C.r2, 'r1'], [C.r2, S.outro, 'r2'],
 ];
 const CAPTIONS = [
-  [S.parent + 0.15, S.parent + 2.9, 'Ví, že dítě dorazilo.'],
-  [S.parent + 2.9, S.kid, 'Kroužek koupí za minutu.'],
-  [S.kid + 0.15, S.kid + 1.9, 'Za triky sbírá náramky.'],
-  [S.kid + 1.9, S.kid + 3.7, 'Každý trénink ho posune dál.'],
-  [S.kid + 3.7, S.tap, 'A hraje Souboj maskotů.'],
+  [S.parent + 0.15, C.p2, 'Ví, že dítě dorazilo.'],
+  [C.p2, S.kid, 'Kroužek koupí za minutu.'],
+  [S.kid + 0.15, C.k2, 'Za triky sbírá náramky.'],
+  [C.k2, C.k3, 'Každý trénink ho posune dál.'],
+  [C.k3, S.tap, 'A hraje Souboj maskotů.'],
   [S.tap + 0.15, S.tap + CLIPS.B.tapAt, 'Docházka?', 1420],
   [S.tap + CLIPS.B.tapAt, S.coach, 'Jedno pípnutí.', 1420],
-  [S.coach + 0.15, S.coach + 1.7, 'Všechny děti má po ruce.'],
-  [S.coach + 1.7, S.coach + 3.4, 'Ví, kdo dítě vyzvedne.'],
-  [S.coach + 3.4, S.coord, 'Tréninky má v kalendáři.'],
-  [S.coord + 0.15, S.coord + 2.2, 'Celý kraj na jedné mapě.'],
-  [S.coord + 2.2, S.outro, 'Nové město rozjede krok za krokem.'],
+  [S.coach + 0.15, C.c2, 'Všechny děti má po ruce.'],
+  [C.c2, C.c3, 'Ví, kdo dítě vyzvedne.'],
+  [C.c3, S.coord, 'Tréninky má v kalendáři.'],
+  [S.coord + 0.15, C.r2, 'Celý kraj na jedné mapě.'],
+  [C.r2, S.outro, 'Nové město rozjede krok za krokem.'],
 ];
 
 // Zvětšené výřezy, které „vyskočí" z telefonu: [od, do, obrazovka, [x, y, š, v] v bodech, šířka na plátně, střed Y, natočení, klepnutí?]
-const CALLOUTS = [
-  [S.parent + 1.85, S.parent + 2.8, 'p1', [16, 612, 398, 192], 830, 1500, -2.5],
-  [S.parent + 3.5, S.parent + 5.3, 'p2', [16, 244, 398, 228], 830, 1090, 2.5, [0.656, 0.838, S.parent + 4.3]],
-  [S.kid + 0.7, S.kid + 1.75, 'k1', [108, 283, 214, 222], 560, 1130, 3.5],
-  [S.kid + 2.5, S.kid + 3.55, 'k2', [14, 486, 402, 268], 820, 1400, -2.5],
-  [S.kid + 4.35, S.kid + 5.3, 'k3', [38, 490, 354, 236], 800, 1420, 2.5],
-  [S.coach + 0.7, S.coach + 1.55, 'c1', [16, 312, 398, 170], 850, 1150, -2],
-  [S.coach + 2.3, S.coach + 3.25, 'c2', [32, 255, 366, 105], 900, 1010, 2],
-  [S.coach + 4.0, S.coach + 4.85, 'c3', [33, 415, 338, 180], 820, 1290, -2.5],
-  [S.coord + 2.85, S.coord + 3.8, 'r2', [16, 82, 398, 178], 850, 860, 2.5],
-];
-const OUTRO_CAT = S.outro + 1.35;   // do té doby vějíř čtyř telefonů, pak kocour
+const CALLOUTS = [];   // zvětšené výřezy z telefonu vypnuté — „zvětšování random objektů" se nelíbilo
+const OUTRO_CAT = C.cat;   // do té doby vějíř čtyř telefonů, pak kocour
 const FAN = ['p1', 'k2', 'c1', 'r1'];
 
 const $ = (id) => document.getElementById(id);
@@ -248,6 +244,12 @@ function sceneOf(t) {
 window.setTime = async function setTime(t) {
   const scene = sceneOf(t);
   const role = scene === 'tap' ? 'coach' : scene;
+  // pulz na každou dobu skladby (jen v hlasité části)
+  let pulse = 0;
+  if (GRID && t >= S.parent && t < C.cat) {
+    const since = (((t - GRID.t0) % GRID.p) + GRID.p) % GRID.p;
+    pulse = Math.pow(Math.max(0, 1 - since / 0.2), 2);
+  }
 
   // pozadí podle role (prolnutí 0,5 s)
   for (const key of ['intro', 'parent', 'kid', 'coach', 'coord']) {
@@ -259,6 +261,8 @@ window.setTime = async function setTime(t) {
   $('orb2').style.transform = `translate(${640 + Math.cos(t * 0.45) * 130}px, ${900 + Math.sin(t * 0.6) * 160}px)`;
   $('orb3').style.transform = `translate(${200 + Math.sin(t * 0.3 + 2) * 160}px, ${1300 + Math.cos(t * 0.35) * 120}px)`;
   $('orbs').style.opacity = scene === 'intro' || scene === 'tap' || scene === 'outro' ? 0 : 1;
+  $('orbs').style.filter = `brightness(${1 + pulse * 0.9})`;
+  $('orbs').style.transform = `scale(${1 + pulse * 0.05})`;
 
   // záběry s kocourem
   const clipOn = { A: scene === 'intro', B: scene === 'tap', C: t >= OUTRO_CAT };
@@ -315,6 +319,13 @@ window.setTime = async function setTime(t) {
     });
   });
 
+  // otočka telefonu: natočí se hranou k divákovi, tam se vymění obrazovka, a dotočí se zpět
+  let spin = 0, spinLift = 0;
+  for (const cut of SPIN) {
+    const p = prog(t, cut - 0.16, 0.44);
+    if (p > 0 && p < 1) { spin = p < 0.5 ? 92 * inCubic(p * 2) : -92 * (1 - outCubic((p - 0.5) * 2)); spinLift = Math.sin(Math.PI * p); }
+  }
+
   // telefon
   const phone = $('phone');
   const phoneOn = scene === 'parent' || scene === 'kid' || scene === 'coach' || scene === 'coord';
@@ -331,11 +342,11 @@ window.setTime = async function setTime(t) {
     // když je venku zvětšený výřez, telefon o kousek ustoupí a ztmavne
     let focus = 0;
     for (const [a, b] of CALLOUTS) focus = Math.max(focus, Math.min(prog(t, a, 0.3), 1 - prog(t, b - 0.25, 0.25)));
-    const ry = lerp(from[3], dir * -7 + Math.sin(u * 0.9) * 4, enter) + leave * dir * -60;
+    const ry = lerp(from[3], dir * -7 + Math.sin(u * 0.9) * 4, enter) + leave * dir * -60 + spin;
     const rx = lerp(from[4], 3 + Math.cos(u * 0.7) * 1.2, enter);
     const y = lerp(from[1], 0, enter) + Math.sin(u * 1.3) * 6;
     const x = lerp(from[0], 0, enter) + leave * dir * -900;
-    const scale = lerp(from[2], 1, enter) * (1 - leave * 0.12) * (1 - focus * 0.06);
+    const scale = lerp(from[2], 1, enter) * (1 - leave * 0.12) * (1 - focus * 0.06) * (1 + spinLift * 0.07) * (1 + pulse * 0.014);
     phone.style.opacity = (1 - leave * 0.4) * (scene === 'coord' ? clamp(prog(u, 0, 0.25)) : 1);
     phone.style.filter = `brightness(${1 - focus * 0.28})`;
     phone.style.transform = `translate3d(${x}px, ${y}px, 0) rotateX(${rx}deg) rotateY(${ry}deg) scale(${scale})`;
@@ -358,8 +369,8 @@ window.setTime = async function setTime(t) {
     const sameSceneAsPrev = prev && sceneOf(prev[0]) === sceneOf(a);
     const next = SCREENS[i + 1];
     const sameSceneAsNext = next && sceneOf(next[0]) === sceneOf(a);
-    const slideIn = sameSceneAsPrev ? outCubic(prog(t, a, 0.38)) : 1;
-    const slideOut = sameSceneAsNext ? outCubic(prog(t, b, 0.38)) : 0;
+    const slideIn = !sameSceneAsPrev ? 1 : SPIN.has(a) ? (t >= a + 0.06 ? 1 : 0) : outCubic(prog(t, a, 0.38));
+    const slideOut = !sameSceneAsNext ? 0 : SPIN.has(b) ? (t >= b + 0.06 ? 1 : 0) : outCubic(prog(t, b, 0.38));
     if (t >= b && !sameSceneAsNext) return;
     const u = t - a;
     let extra = '';
@@ -385,15 +396,15 @@ window.setTime = async function setTime(t) {
 
   // klepnutí na Koupit
   const r = $('ripple');
-  const ru = t - (S.parent + 4.2);
-  r.style.left = '62%'; r.style.top = '52.8%';
-  r.style.opacity = 0;
+  const ru = t - (C.p2 + (S.kid - C.p2) * 0.5);
+  r.style.left = '64.4%'; r.style.top = '52.5%';
+  r.style.opacity = ru > 0 && ru < 0.6 ? (1 - prog(ru, 0, 0.6)) * 0.9 : 0;
   r.style.transform = `scale(${0.3 + outCubic(prog(ru, 0, 0.6)) * 1.6})`;
 
   // špendlíky na mapě kraje
   [['pin1', 0.5, 0.477, 0.5], ['pin2', 0.335, 0.608, 0.8], ['pin3', 0.51, 0.783, 1.1]].forEach(([id, x, y, d]) => {
     const pu = (t - S.coord - d) % 1.1;
-    const on = t > S.coord + d && t < S.coord + 2.2;
+    const on = t > S.coord + d && t < C.r2;
     const el = $(id);
     el.style.left = x * 100 + '%'; el.style.top = y * 100 + '%';
     el.style.opacity = on ? (1 - prog(pu, 0, 1.0)) * 0.95 : 0;
@@ -402,7 +413,7 @@ window.setTime = async function setTime(t) {
 
   // mince u hry
   coins.forEach((c, i) => {
-    const cu = t - (S.kid + 3.9) - i * 0.07;
+    const cu = t - (C.k3 + 0.2) - i * 0.07;
     const life = prog(cu, 0, 1.25);
     const sx = 250 + ((i * 97) % 580);
     c.style.left = sx + Math.sin(i * 2.1 + cu * 3) * 30 + 'px';
@@ -456,6 +467,7 @@ window.setTime = async function setTime(t) {
   const fu = t - S.outro;
   const fanOn = fu >= 0 && t < OUTRO_CAT;
   $('fan').style.opacity = fanOn ? 1 : 0;
+  $('fan').style.transform = `scale(${1 + Math.max(0, fu) * 0.03})`;
   if (fanOn) {
     minis.forEach((m, i) => {
       const k = spring(prog(fu, 0.05 + i * 0.07, 0.6));
