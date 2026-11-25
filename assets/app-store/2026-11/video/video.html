@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0c0718; }
+  body { font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; color: #fff; position: relative; }
+  .layer { position: absolute; inset: 0; }
+  .bg { opacity: 0; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.55; }
+  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; }
+  #shade { background: linear-gradient(180deg, rgba(10,5,22,0.55) 0%, rgba(10,5,22,0) 26%, rgba(10,5,22,0) 46%, rgba(10,5,22,0.9) 78%, rgba(10,5,22,0.96) 100%); opacity: 0; }
+  #roles { position: absolute; left: 0; right: 0; top: 104px; display: flex; justify-content: center; }
+  #rolesTrack { position: relative; display: flex; gap: 6px; padding: 8px; border-radius: 60px; background: rgba(255,255,255,0.14); box-shadow: 0 0 0 1.5px rgba(255,255,255,0.18) inset; }
+  #rolePill { position: absolute; top: 8px; height: 76px; border-radius: 40px; background: #fff; box-shadow: 0 10px 28px rgba(0,0,0,0.25); }
+  .role { position: relative; height: 76px; padding: 0 34px; display: flex; align-items: center; font-size: 37px; font-weight: 800; letter-spacing: -0.5px; color: rgba(255,255,255,0.82); }
+  #caption { position: absolute; left: 60px; right: 60px; top: 250px; height: 260px; display: flex; align-items: center; justify-content: center; text-align: center; }
+  .cap { position: absolute; left: 0; right: 0; font-size: 88px; line-height: 1.04; font-weight: 900; letter-spacing: -2px; text-wrap: balance; text-shadow: 0 8px 30px rgba(0,0,0,0.22); }
+  .cap span { display: inline-block; white-space: pre; }
+  #stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 2400px; perspective-origin: 50% 46%; }
+  #phone { position: absolute; left: 228px; top: 566px; width: 624px; transform-style: preserve-3d; will-change: transform; }
+  .frame { padding: 13px; border-radius: 96px; background: linear-gradient(145deg, #6a6874 0%, #17161c 24%, #3d3c46 52%, #0e0d12 78%, #55545f 100%); box-shadow: 0 70px 110px -40px rgba(4,2,12,0.8), 0 0 0 1.5px rgba(255,255,255,0.1) inset; }
+  .glass { border-radius: 84px; background: #000; padding: 9px; }
+  #screen { position: relative; border-radius: 75px; overflow: hidden; background: #fff; height: 1379px; }
+  #status { position: absolute; left: 0; right: 0; top: 0; height: 74px; z-index: 5; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 52px 14px 60px; font-size: 25px; font-weight: 600; }
+  #island { position: absolute; left: 50%; top: 20px; width: 174px; height: 50px; border-radius: 26px; background: #000; transform: translateX(-50%); }
+  #status svg { height: 18px; margin-left: 8px; }
+  .shot { position: absolute; left: 0; top: 74px; width: 100%; opacity: 0; transform-origin: 50% 0; }
+  #home { position: absolute; left: 50%; bottom: 12px; width: 196px; height: 8px; border-radius: 4px; transform: translateX(-50%); opacity: 0.5; z-index: 6; }
+  #notif { position: absolute; left: 24px; right: 24px; top: 92px; z-index: 7; border-radius: 34px; background: rgba(250,250,252,0.96); color: #0b0a1a; padding: 22px 24px; display: flex; gap: 18px; align-items: center; box-shadow: 0 24px 50px -18px rgba(0,0,0,0.55); opacity: 0; }
+  #notif .icon { width: 70px; height: 70px; border-radius: 18px; background: #1D0D31; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 24px; color: #fff; letter-spacing: -0.5px; }
+  #notif b { display: block; font-size: 27px; font-weight: 800; }
+  #notif i { display: block; font-style: normal; font-size: 25px; font-weight: 600; opacity: 0.72; margin-top: 2px; }
+  #notif em { margin-left: auto; align-self: flex-start; font-style: normal; font-size: 21px; font-weight: 600; opacity: 0.45; }
+  #ripple, .pin { position: absolute; border-radius: 50%; z-index: 6; opacity: 0; pointer-events: none; }
+  #ripple { width: 150px; height: 150px; margin: -75px 0 0 -75px; background: rgba(255,255,255,0.55); box-shadow: 0 0 0 6px rgba(139,29,255,0.5); }
+  .pin { width: 120px; height: 120px; margin: -60px 0 0 -60px; border: 7px solid #E2475D; }
+  #tapRing { position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; margin: -150px 0 0 -150px; border-radius: 50%; border: 12px solid #fff; opacity: 0; }
+  .coin { position: absolute; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #FFF3B0, #F6B300 60%, #B97700); box-shadow: 0 0 22px rgba(255,200,40,0.8); opacity: 0; }
+  #intro, #outro { position: absolute; left: 60px; right: 60px; text-align: center; }
+  #intro { top: 1622px; }
+  #intro div, #outro div { font-weight: 900; letter-spacing: -3px; text-shadow: 0 10px 40px rgba(0,0,0,0.55); opacity: 0; }
+  #intro .a { font-size: 106px; line-height: 1; }
+  #intro .b { font-size: 106px; line-height: 1.02; background: linear-gradient(90deg, #C9A0FF, #FF7AD0 60%, #FFC56B); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.5)); padding-bottom: 14px; }
+  #outro { top: 1130px; }
+  #outro .logo { font-size: 210px; line-height: 0.9; letter-spacing: -7px; }
+  #outro .sub { font-size: 60px; line-height: 1.08; letter-spacing: -1.5px; margin-top: 14px; font-weight: 800; }
+  #outro .who { position: absolute; left: 0; right: 0; top: 618px; font-size: 42px; letter-spacing: -0.5px; font-weight: 700; opacity: 0; text-shadow: 0 6px 24px rgba(0,0,0,0.6); }
+  #cta { position: absolute; left: 50%; top: 1585px; transform: translateX(-50%); padding: 30px 62px; border-radius: 60px; background: #fff; color: #2a0b57; font-size: 50px; font-weight: 900; letter-spacing: -1px; white-space: nowrap; opacity: 0; box-shadow: 0 26px 60px -18px rgba(0,0,0,0.6); }
+  #flash { background: #fff; opacity: 0; }
+</style>
+</head>
+<body>
+  <div class="layer bg" id="bg-intro" style="background: #0c0718"></div>
+  <div class="layer bg" id="bg-parent" style="background: linear-gradient(165deg, #9B3BFF 0%, #4A0FA3 100%)"></div>
+  <div class="layer bg" id="bg-kid" style="background: linear-gradient(165deg, #FF4FB0 0%, #7A18D8 100%)"></div>
+  <div class="layer bg" id="bg-coach" style="background: linear-gradient(165deg, #33265A 0%, #120C22 100%)"></div>
+  <div class="layer bg" id="bg-coord" style="background: linear-gradient(165deg, #F0566C 0%, #8C1D3A 100%)"></div>
+  <div class="layer" id="orbs">
+    <div class="orb" id="orb1" style="width: 720px; height: 720px; background: #ffffff; opacity: 0.16"></div>
+    <div class="orb" id="orb2" style="width: 620px; height: 620px; background: #FFC56B; opacity: 0.16"></div>
+    <div class="orb" id="orb3" style="width: 800px; height: 800px; background: #2a0b57; opacity: 0.4"></div>
+  </div>
+  <video id="clipA" muted playsinline preload="auto"></video>
+  <video id="clipB" muted playsinline preload="auto"></video>
+  <video id="clipC" muted playsinline preload="auto"></video>
+  <div class="layer" id="shade"></div>
+  <div id="tapRing"></div>
+
+  <div id="stage"><div id="phone"><div class="frame"><div class="glass"><div id="screen">
+    <div id="status"><span>9:41</span><span id="island"></span><span>
+      <svg viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8.2" width="3" height="3.8" rx="0.9"/><rect x="5" y="5.6" width="3" height="6.4" rx="0.9"/><rect x="10" y="2.9" width="3" height="9.1" rx="0.9"/><rect x="15" y="0" width="3" height="12" rx="0.9"/></svg>
+      <svg viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M1.2 4.2a9.6 9.6 0 0 1 13.6 0"/><path d="M3.6 6.7a6.2 6.2 0 0 1 8.8 0"/><path d="M6.1 9.2a2.7 2.7 0 0 1 3.8 0"/></svg>
+      <svg viewBox="0 0 27 12"><rect x="0.6" y="0.6" width="22.8" height="10.8" rx="3.4" fill="none" stroke="currentColor" stroke-width="1.1" opacity="0.4"/><rect x="2.2" y="2.2" width="19.6" height="7.6" rx="2" fill="currentColor"/></svg>
+    </span></div>
+    <div id="shots"></div>
+    <div id="notif"><div class="icon">VYS</div><div><b>Eliška dorazila na trénink</b><i>Právě pípla kartičkou v hale.</i></div><em>teď</em></div>
+    <div id="ripple"></div>
+    <div class="pin" id="pin1"></div><div class="pin" id="pin2"></div><div class="pin" id="pin3"></div>
+    <span id="home"></span>
+  </div></div></div></div></div>
+  <div id="coins"></div>
+
+  <div id="roles"><div id="rolesTrack"><div id="rolePill"></div>
+    <div class="role" data-role="parent">Rodič</div><div class="role" data-role="kid">Dítě</div><div class="role" data-role="coach">Trenér</div><div class="role" data-role="coord">Koordinátor</div>
+  </div></div>
+  <div id="caption"></div>
+  <div id="intro"><div class="a">Celý kroužek</div><div class="b">v jedné aplikaci</div></div>
+  <div id="outro"><div class="logo">VYS</div><div class="sub">Kroužky, docházka<br>a platby v telefonu</div><div class="who">Rodiče · Děti · Trenéři · Koordinátoři</div></div>
+  <div id="cta">Stáhněte si aplikaci VYS</div>
+  <div class="layer" id="flash"></div>
+
+<script>
+const CONFIG = window.CONFIG || {};
+const S = { intro: 0, parent: 3.5, kid: 9.0, tap: 14.5, coach: 17.0, coord: 22.0, outro: 26.0, end: 29.5 };
+const CLIPS = Object.assign({ A: { offset: 0.4 }, B: { offset: 0.6, tapAt: 1.3 }, C: { offset: 0.5 } }, CONFIG.clips || {});
+const RAW = CONFIG.raw || '../out/store/';
+const ROLE_COLOR = { parent: '#6A1FD6', kid: '#D61F8E', coach: '#241A44', coord: '#C2334B' };
+
+// Obrazovky aplikace: [klíč, soubor, tmavý stavový řádek?]
+const SHOTS = [
+  ['p1', 'raw-parent-deti.png'], ['p2', 'raw-parent-platby.png'],
+  ['k1', 'raw-participant-tricks.png'], ['k2', 'raw-participant-rewards.png'], ['k3', 'raw-participant-souboj.png'],
+  ['c1', 'raw-coach-wards.png'], ['c2', 'raw-coach-ward_detail_id_demo_w2.png'], ['c3', 'raw-coach-calendar.png'],
+  ['r1', 'raw-koordinator-koordinator.png'], ['r2', 'raw-koordinator-ukoly.png'],
+];
+// Časová osa obrazovek v telefonu: [od, do, klíč] — mezi sousedními v téže scéně se přejíždí do strany.
+const SCREENS = [
+  [S.parent, S.parent + 2.9, 'p1'], [S.parent + 2.9, S.kid, 'p2'],
+  [S.kid, S.kid + 1.9, 'k1'], [S.kid + 1.9, S.kid + 3.7, 'k2'], [S.kid + 3.7, S.tap, 'k3'],
+  [S.coach, S.coach + 1.7, 'c1'], [S.coach + 1.7, S.coach + 3.4, 'c2'], [S.coach + 3.4, S.coord, 'c3'],
+  [S.coord, S.coord + 2.2, 'r1'], [S.coord + 2.2, S.outro, 'r2'],
+];
+const CAPTIONS = [
+  [S.parent + 0.15, S.parent + 2.9, 'Ví, že dítě dorazilo.'],
+  [S.parent + 2.9, S.kid, 'Kroužek koupí za minutu.'],
+  [S.kid + 0.15, S.kid + 1.9, 'Za triky sbírá náramky.'],
+  [S.kid + 1.9, S.kid + 3.7, 'Každý trénink ho posune dál.'],
+  [S.kid + 3.7, S.tap, 'A hraje Souboj maskotů.'],
+  [S.tap + 0.15, S.tap + CLIPS.B.tapAt, 'Docházka?', 1370],
+  [S.tap + CLIPS.B.tapAt, S.coach, 'Jedno pípnutí.', 1370],
+  [S.coach + 0.15, S.coach + 1.7, 'Všechny děti má po ruce.'],
+  [S.coach + 1.7, S.coach + 3.4, 'Ví, kdo dítě vyzvedne.'],
+  [S.coach + 3.4, S.coord, 'Tréninky má v kalendáři.'],
+  [S.coord + 0.15, S.coord + 2.2, 'Celý kraj na jedné mapě.'],
+  [S.coord + 2.2, S.outro, 'Nové město rozjede krok za krokem.'],
+];
+
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, x) => a + (b - a) * x;
+const prog = (t, a, d) => clamp((t - a) / d);
+const outCubic = (x) => 1 - Math.pow(1 - x, 3);
+const inCubic = (x) => x * x * x;
+const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const spring = (x) => (x <= 0 ? 0 : 1 - Math.exp(-7 * x) * Math.cos(11 * x));
+const bell = (t, a, b, inD = 0.25, outD = 0.25) => Math.min(prog(t, a, inD), 1 - prog(t, b - outD, outD));
+
+// příprava prvků
+const shotEls = {};
+const dark = {};
+for (const [key, file] of SHOTS) {
+  const img = new Image();
+  img.className = 'shot';
+  img.src = RAW + file;
+  $('shots').appendChild(img);
+  shotEls[key] = img;
+}
+const capEls = CAPTIONS.map(([, , text]) => {
+  const el = document.createElement('div');
+  el.className = 'cap';
+  el.innerHTML = text.split(' ').map((w) => `<span>${w} </span>`).join('');
+  $('caption').appendChild(el);
+  return el;
+});
+const coins = Array.from({ length: 14 }, (_, i) => { const c = document.createElement('div'); c.className = 'coin'; $('coins').appendChild(c); return c; });
+for (const key of ['A', 'B', 'C']) if (CLIPS[key].src) $('clip' + key).src = CLIPS[key].src;
+
+async function ready() {
+  await Promise.all(Object.values(shotEls).map((img) => img.decode()));
+  // barva stavového řádku = horní okraj každé obrazovky
+  for (const [key] of SHOTS) {
+    const c = document.createElement('canvas'); c.width = c.height = 4;
+    const g = c.getContext('2d'); g.drawImage(shotEls[key], 20, 6, 60, 60, 0, 0, 4, 4);
+    const [r, gr, b] = g.getImageData(2, 2, 1, 1).data;
+    dark[key] = { bg: `rgb(${r},${gr},${b})`, dark: 0.299 * r + 0.587 * gr + 0.114 * b < 140 };
+  }
+  await Promise.all(['A', 'B', 'C'].map((key) => new Promise((resolve) => {
+    const v = $('clip' + key);
+    if (!CLIPS[key].src) return resolve();
+    if (v.readyState >= 2) return resolve();
+    v.addEventListener('loadeddata', resolve, { once: true });
+    v.addEventListener('error', resolve, { once: true });
+  })));
+}
+
+function seek(video, time) {
+  return new Promise((resolve) => {
+    if (!video.src || Math.abs(video.currentTime - time) < 0.001) return resolve();
+    const done = () => { video.removeEventListener('seeked', done); resolve(); };
+    video.addEventListener('seeked', done);
+    video.currentTime = time;
+    setTimeout(done, 1500);
+  });
+}
+
+function sceneOf(t) {
+  if (t < S.parent) return 'intro';
+  if (t < S.kid) return 'parent';
+  if (t < S.tap) return 'kid';
+  if (t < S.coach) return 'tap';
+  if (t < S.coord) return 'coach';
+  if (t < S.outro) return 'coord';
+  return 'outro';
+}
+
+window.setTime = async function setTime(t) {
+  const scene = sceneOf(t);
+  const role = scene === 'tap' ? 'coach' : scene;
+
+  // pozadí podle role (prolnutí 0,5 s)
+  for (const key of ['intro', 'parent', 'kid', 'coach', 'coord']) {
+    const start = key === 'intro' ? 0 : S[key];
+    const end = key === 'intro' ? S.parent : key === 'parent' ? S.kid : key === 'kid' ? S.coach : key === 'coach' ? S.coord : S.end;
+    $('bg-' + key).style.opacity = key === 'intro' ? 1 : Math.min(prog(t, start - 0.05, 0.45), 1 - prog(t, end, 0.45));
+  }
+  $('orb1').style.transform = `translate(${-200 + Math.sin(t * 0.5) * 120}px, ${180 + Math.cos(t * 0.4) * 140}px)`;
+  $('orb2').style.transform = `translate(${640 + Math.cos(t * 0.45) * 130}px, ${900 + Math.sin(t * 0.6) * 160}px)`;
+  $('orb3').style.transform = `translate(${200 + Math.sin(t * 0.3 + 2) * 160}px, ${1300 + Math.cos(t * 0.35) * 120}px)`;
+  $('orbs').style.opacity = scene === 'intro' || scene === 'tap' || scene === 'outro' ? 0 : 1;
+
+  // záběry s kocourem
+  const clipOn = { A: scene === 'intro', B: scene === 'tap', C: scene === 'outro' };
+  const clipStart = { A: 0, B: S.tap, C: S.outro };
+  const seeks = [];
+  for (const key of ['A', 'B', 'C']) {
+    const v = $('clip' + key);
+    const local = t - clipStart[key];
+    if (clipOn[key]) {
+      seeks.push(seek(v, Math.max(0, CLIPS[key].offset + local * (CLIPS[key].speed || 1))));
+      const zoom = key === 'A' ? 1.02 + local * 0.012 : key === 'B' ? 1.06 + local * 0.02 : 1.04 + local * 0.01;
+      v.style.opacity = 1;
+      v.style.transform = `scale(${zoom})`;
+    } else v.style.opacity = 0;
+  }
+  $('shade').style.opacity = clipOn.A || clipOn.B || clipOn.C ? 1 : 0;
+  // ztmavení jen tam, kde je text — u pípnutí zůstane telefon s prstenci světlý
+  $('shade').style.background = clipOn.B
+    ? 'linear-gradient(180deg, rgba(10,5,22,0.5) 0%, rgba(10,5,22,0) 18%, rgba(10,5,22,0) 78%, rgba(10,5,22,0.92) 100%)'
+    : clipOn.A
+      ? 'linear-gradient(180deg, rgba(10,5,22,0.3) 0%, rgba(10,5,22,0) 18%, rgba(10,5,22,0) 70%, rgba(10,5,22,0.85) 88%, rgba(10,5,22,0.95) 100%)'
+      : 'linear-gradient(180deg, rgba(10,5,22,0.4) 0%, rgba(10,5,22,0) 22%, rgba(10,5,22,0) 46%, rgba(10,5,22,0.9) 78%, rgba(10,5,22,0.96) 100%)';
+
+  // přepínač rolí nahoře — pilulka klouže
+  const rolesVisible = scene !== 'intro' && scene !== 'outro';
+  $('roles').style.opacity = rolesVisible ? prog(t, S.parent + 0.05, 0.35) * (1 - prog(t, S.outro - 0.3, 0.3)) : 0;
+  $('roles').style.transform = `translateY(${lerp(-30, 0, outCubic(prog(t, S.parent + 0.05, 0.4)))}px)`;
+  const order = ['parent', 'kid', 'coach', 'coord'];
+  const starts = { parent: S.parent, kid: S.kid, coach: S.tap, coord: S.coord };
+  const els = order.map((key) => document.querySelector(`.role[data-role=${key}]`));
+  let px = els[0].offsetLeft, pw = els[0].offsetWidth, mix = [1, 0, 0, 0];
+  for (let i = 1; i < order.length; i += 1) {
+    const k = spring(prog(t, starts[order[i]] - 0.05, 0.55));
+    px = lerp(px, els[i].offsetLeft, k);
+    pw = lerp(pw, els[i].offsetWidth, k);
+    const kk = clamp(prog(t, starts[order[i]] - 0.05, 0.3));
+    mix = mix.map((m, j) => (j === i ? kk : m * (1 - kk)));
+  }
+  $('rolePill').style.left = px + 'px';
+  $('rolePill').style.width = pw + 'px';
+  els.forEach((el, i) => { el.style.color = mix[i] > 0.5 ? ROLE_COLOR[order[i]] : 'rgba(255,255,255,0.82)'; });
+
+  // titulky — slovo po slovu vyskočí, staré odjedou nahoru
+  CAPTIONS.forEach(([a, b, , shift = 0], i) => {
+    const el = capEls[i];
+    const out = prog(t, b - 0.22, 0.22);
+    const visible = t >= a - 0.01 && t < b + 0.01;
+    el.style.opacity = visible ? 1 - out : 0;
+    el.style.transform = `translateY(${shift - 40 * inCubic(out)}px)`;
+    Array.from(el.children).forEach((word, wi) => {
+      const k = spring(prog(t, a + wi * 0.07, 0.5));
+      word.style.transform = `translateY(${(1 - k) * 46}px) scale(${0.86 + 0.14 * k})`;
+      word.style.opacity = clamp(prog(t, a + wi * 0.07, 0.16));
+    });
+  });
+
+  // telefon
+  const phone = $('phone');
+  const phoneOn = scene === 'parent' || scene === 'kid' || scene === 'coach' || scene === 'coord';
+  if (phoneOn) {
+    const start = S[scene];
+    const end = scene === 'parent' ? S.kid : scene === 'kid' ? S.tap : scene === 'coach' ? S.coord : S.outro;
+    const u = t - start;
+    const enter = spring(prog(u, 0, 0.75));
+    const leaveD = scene === 'kid' || scene === 'coord' ? 0.34 : 0.3;
+    const leave = inCubic(prog(t, end - leaveD, leaveD));
+    const dir = scene === 'parent' || scene === 'coach' ? 1 : -1;
+    const ry = lerp(dir * 38, dir * -7 + Math.sin(u * 0.9) * 4, enter) + leave * dir * -60;
+    const rx = lerp(14, 5 + Math.cos(u * 0.7) * 1.5, enter);
+    const y = lerp(1500, 0, enter) + Math.sin(u * 1.3) * 8;
+    const x = leave * dir * -900;
+    const scale = lerp(0.82, 1, enter) * (1 - leave * 0.12);
+    phone.style.opacity = 1 - leave * 0.4;
+    phone.style.transform = `translate3d(${x}px, ${y}px, 0) rotateX(${rx}deg) rotateY(${ry}deg) scale(${scale})`;
+  } else {
+    phone.style.opacity = 0;
+  }
+
+  // úder na střihu: celá scéna na okamžik „poskočí" k divákovi
+  let punch = 0;
+  for (const cut of [S.parent, S.kid, S.coach, S.coord]) if (t >= cut) punch = Math.max(punch, 1 - prog(t, cut, 0.4));
+  $('stage').style.transform = `scale(${1 + 0.04 * punch * punch})`;
+
+  // obrazovky v telefonu
+  let activeKey = null;
+  for (const [key] of SHOTS) shotEls[key].style.opacity = 0;
+  SCREENS.forEach(([a, b, key], i) => {
+    if (t < a - 0.001 || t >= b + 0.35) return;
+    const img = shotEls[key];
+    const prev = SCREENS[i - 1];
+    const sameSceneAsPrev = prev && sceneOf(prev[0]) === sceneOf(a);
+    const next = SCREENS[i + 1];
+    const sameSceneAsNext = next && sceneOf(next[0]) === sceneOf(a);
+    const slideIn = sameSceneAsPrev ? outCubic(prog(t, a, 0.38)) : 1;
+    const slideOut = sameSceneAsNext ? outCubic(prog(t, b, 0.38)) : 0;
+    if (t >= b && !sameSceneAsNext) return;
+    const u = t - a;
+    let extra = '';
+    if (key === 'k2') extra = ` scale(${1 + u * 0.022})`;
+    if (key === 'r1') extra = ` scale(${1 + u * 0.018})`;
+    img.style.opacity = 1;
+    img.style.transform = `translateX(${(1 - slideIn) * 100 - slideOut * 100}%)${extra}`;
+    if (t < b) activeKey = key;
+  });
+  if (activeKey && dark[activeKey]) {
+    $('status').style.background = dark[activeKey].bg;
+    $('status').style.color = dark[activeKey].dark ? '#fff' : '#0b0a1a';
+    $('home').style.background = dark[activeKey].dark ? '#fff' : '#0b0a1a';
+  }
+
+  // oznámení rodiči
+  const n = $('notif');
+  const nu = t - (S.parent + 1.3);
+  const nIn = spring(prog(nu, 0, 0.6));
+  const nOut = inCubic(prog(nu, 1.35, 0.25));
+  n.style.opacity = nu > 0 && nu < 1.6 ? 1 - nOut : 0;
+  n.style.transform = `translateY(${lerp(-220, 0, nIn) - nOut * 220}px) scale(${0.94 + 0.06 * nIn})`;
+
+  // klepnutí na Koupit
+  const r = $('ripple');
+  const ru = t - (S.parent + 4.2);
+  r.style.left = '62%'; r.style.top = '48.2%';
+  r.style.opacity = ru > 0 && ru < 0.6 ? (1 - prog(ru, 0, 0.6)) * 0.9 : 0;
+  r.style.transform = `scale(${0.3 + outCubic(prog(ru, 0, 0.6)) * 1.6})`;
+
+  // špendlíky na mapě kraje
+  [['pin1', 0.5, 0.435, 0.5], ['pin2', 0.335, 0.555, 0.8], ['pin3', 0.51, 0.715, 1.1]].forEach(([id, x, y, d]) => {
+    const pu = (t - S.coord - d) % 1.1;
+    const on = t > S.coord + d && t < S.coord + 2.2;
+    const el = $(id);
+    el.style.left = x * 100 + '%'; el.style.top = y * 100 + '%';
+    el.style.opacity = on ? (1 - prog(pu, 0, 1.0)) * 0.95 : 0;
+    el.style.transform = `scale(${0.3 + outCubic(prog(pu, 0, 1.0)) * 1.5})`;
+  });
+
+  // mince u hry
+  coins.forEach((c, i) => {
+    const cu = t - (S.kid + 3.9) - i * 0.07;
+    const life = prog(cu, 0, 1.25);
+    const sx = 250 + ((i * 97) % 580);
+    c.style.left = sx + Math.sin(i * 2.1 + cu * 3) * 30 + 'px';
+    c.style.top = 1500 - outCubic(life) * (520 + (i % 5) * 90) + 'px';
+    c.style.opacity = cu > 0 && life < 1 ? Math.min(1, life * 6) * (1 - inCubic(life)) : 0;
+    c.style.transform = `scale(${0.7 + (i % 3) * 0.25})`;
+  });
+
+  // prstenec při pípnutí
+  const tu = t - (S.tap + CLIPS.B.tapAt);
+  $('tapRing').style.opacity = !CLIPS.B.noRing && tu > 0 && tu < 0.8 ? (1 - prog(tu, 0, 0.8)) * 0.9 : 0;
+  $('tapRing').style.transform = `scale(${0.4 + outCubic(prog(tu, 0, 0.8)) * 2.6})`;
+  if (CLIPS.B.tapXY) { $('tapRing').style.left = CLIPS.B.tapXY[0] * 100 + '%'; $('tapRing').style.top = CLIPS.B.tapXY[1] * 100 + '%'; }
+
+  // úvodní a závěrečné texty
+  const ia = spring(prog(t, 0.5, 0.6)), ib = spring(prog(t, 1.25, 0.6));
+  const iOut = prog(t, S.parent - 0.5, 0.3);
+  const [a1, b1] = $('intro').children;
+  a1.style.opacity = clamp(prog(t, 0.5, 0.18)) * (1 - iOut);
+  a1.style.transform = `translateY(${(1 - ia) * 70}px) scale(${0.9 + 0.1 * ia})`;
+  b1.style.opacity = clamp(prog(t, 1.25, 0.18)) * (1 - iOut);
+  b1.style.transform = `translateY(${(1 - ib) * 70}px) scale(${0.9 + 0.1 * ib})`;
+
+  const ou = t - S.outro;
+  const [logo, sub, who] = $('outro').children;
+  const lo = spring(prog(ou, 0.12, 0.7));
+  logo.style.opacity = clamp(prog(ou, 0.12, 0.15));
+  logo.style.transform = `scale(${0.6 + 0.4 * lo})`;
+  sub.style.opacity = clamp(prog(ou, 0.7, 0.3));
+  sub.style.transform = `translateY(${(1 - outCubic(prog(ou, 0.7, 0.5))) * 40}px)`;
+  who.style.opacity = clamp(prog(ou, 1.5, 0.35));
+  const cta = spring(prog(ou, 2.0, 0.6));
+  $('cta').style.opacity = clamp(prog(ou, 2.0, 0.15));
+  $('cta').style.transform = `translateX(-50%) scale(${0.8 + 0.2 * cta})`;
+
+  // záblesky na střizích
+  let flash = 0;
+  flash = Math.max(flash, prog(t, S.parent - 0.28, 0.28) * (t < S.parent ? 1 : 0), (1 - prog(t, S.parent, 0.4)) * (t >= S.parent ? 1 : 0));
+  for (const cut of [S.kid, S.coach, S.coord, S.outro]) flash = Math.max(flash, t >= cut ? (1 - prog(t, cut, 0.3)) * 0.35 : 0);
+  flash = Math.max(flash, tu > 0 ? (1 - prog(tu, 0, 0.25)) * 0.3 : 0);
+  $('flash').style.opacity = flash;
+  $('flash').style.background = scene === 'intro' || (scene === 'parent' && t < S.parent + 0.4) ? '#EBD9FF' : '#fff';
+
+  await Promise.all(seeks);
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+};
+window.prepare = ready;
+</script>
+</body>
+</html>
