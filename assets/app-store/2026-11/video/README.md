@@ -42,3 +42,10 @@ Pro App Store (náhled aplikace) je potřeba jiný formát: 886 × 1920 a nejvý
 - **Pípnutí:** scéna má 8 dob; po pípnutí vyjede karta (`#tapCard`): 7. vstup se odškrtne, „zbývá 9 → 8", klubíčka 50 → 60.
   Čísla na kartě jsou ilustrační.
 - Záběry s kocourem běží z verzí dopočítaných na 60 fps (`clipB60`, `clipC60`), aby šly pouštět pomaleji bez trhání.
+
+## Kde video je (25. 11. večer)
+- **aplikacevys.cz:** `public/video/aplikace.mp4` (720 × 1280, 4,3 MB, bez zvuku) v sekci „Podívejte se dovnitř systému"
+  (`src/components/landing/app-video.tsx`) — spustí se samo, až když je vidět.
+- **App Store:** `VYS-app-store-nahled-886x1920.mp4` (26,3 s, 886 × 1920, tichá zvuková stopa, bez úvodu a závěru s kocourem —
+  Apple chce v náhledu záběry z aplikace). Render: `STORE=1 node render.mjs 3.5 29.75 1 frames-store`.
+  **Nenahráno:** App Store Connect nepustí založení nové verze, dokud držitel účtu nepotvrdí aktualizovanou licenční smlouvu.

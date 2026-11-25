@@ -77,6 +77,16 @@
   #outro .who { position: absolute; left: 0; right: 0; top: 618px; font-size: 42px; letter-spacing: -0.5px; font-weight: 700; opacity: 0; text-shadow: 0 6px 24px rgba(0,0,0,0.6); }
   #cta { position: absolute; left: 50%; top: 1585px; transform: translateX(-50%); padding: 30px 62px; border-radius: 60px; background: #fff; color: #2a0b57; font-size: 50px; font-weight: 900; letter-spacing: -1px; white-space: nowrap; opacity: 0; box-shadow: 0 26px 60px -18px rgba(0,0,0,0.6); }
   #flash { background: #fff; opacity: 0; }
+  /* Verze pro App Store (886 × 1920): plátno je vyšší (1080 × 2341) a celé zmenšené, obsah posunutý doprostřed */
+  html.store { width: 886px; height: 1920px; background: #0c0718; }
+  html.store body { width: 1080px; height: 2341px; transform: scale(0.82037); transform-origin: 0 0; }
+  html.store #stage { top: 210px; }
+  html.store #roles { top: 284px; }
+  html.store #caption { top: 396px; }
+  html.store #tapCard { top: 1000px; }
+  html.store #fanText { top: 400px; }
+  html.store #minis { position: absolute; left: 0; top: 210px; }
+  html.store .foot video { top: 140px; }
   .callout { position: absolute; left: 0; top: 0; overflow: hidden; border-radius: 40px; opacity: 0; background: #fff; box-shadow: 0 50px 90px -30px rgba(6,2,18,0.75), 0 0 0 4px rgba(255,255,255,0.85); will-change: transform; }
   .callout img { position: absolute; left: 0; top: 0; max-width: none; }
   .callout .tap { position: absolute; width: 170px; height: 170px; margin: -85px 0 0 -85px; border-radius: 50%; background: rgba(255,255,255,0.6); box-shadow: 0 0 0 7px rgba(139,29,255,0.45); opacity: 0; }
@@ -147,6 +157,7 @@
 
 <script>
 const CONFIG = window.CONFIG || {};
+if (CONFIG.store) document.documentElement.classList.add('store');
 const S = Object.assign({ intro: 0, parent: 3.5, kid: 9.0, tap: 14.5, coach: 17.0, coord: 22.0, outro: 26.0, end: 29.5 }, CONFIG.S || {});
 // doby skladby (první doba po dropu a délka doby) — na ně „dýchá" pozadí i telefon
 const GRID = CONFIG.grid || null;

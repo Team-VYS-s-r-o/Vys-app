@@ -11,6 +11,7 @@ const outDir = process.argv[5] ?? 'frames';
 const WORKERS = step === 1 ? 4 : 1;
 mkdirSync(outDir, { recursive: true });
 const config = existsSync('config.json') ? JSON.parse(readFileSync('config.json', 'utf8')) : {};
+if (process.env.STORE) config.store = true;   // verze pro App Store: 886 × 1920
 
 const first = Math.round(from * FPS);
 const last = Math.round(to * FPS);
@@ -19,7 +20,7 @@ for (let f = first; f < last; f += step) frames.push(f);
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--allow-file-access-from-files', '--autoplay-policy=no-user-gesture-required'] });
 async function worker(index) {
-  const ctx = await browser.newContext({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport: { width: config.store ? 886 : 1080, height: 1920 }, deviceScaleFactor: 1 });
   await ctx.addInitScript((cfg) => { window.CONFIG = cfg; }, config);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.log('PAGEERROR', String(e).slice(0, 300)));
