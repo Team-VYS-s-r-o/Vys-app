@@ -49,3 +49,5 @@ Pro App Store (náhled aplikace) je potřeba jiný formát: 886 × 1920 a nejvý
 - **App Store:** `VYS-app-store-nahled-886x1920.mp4` (26,3 s, 886 × 1920, tichá zvuková stopa, bez úvodu a závěru s kocourem —
   Apple chce v náhledu záběry z aplikace). Render: `STORE=1 node render.mjs 3.5 29.75 1 frames-store`.
   **Nenahráno:** App Store Connect nepustí založení nové verze, dokud držitel účtu nepotvrdí aktualizovanou licenční smlouvu.
+
+**25. 11. 13:28:** verze 1.0.10 (build 40) s tímhle náhledem, novými snímky a texty je odeslaná ke kontrole Applu.
