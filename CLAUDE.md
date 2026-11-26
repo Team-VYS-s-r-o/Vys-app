@@ -40,3 +40,50 @@ git -c credential.helper= -c "http.https://github.com/.extraheader=Authorization
 ## Důležité záznamy
 - Legal verze webu: aplikacevys.cz `src/components/legal/legal-layout.tsx` (`LEGAL_VERSION`) + vys-aplikace `lib/legal.ts` — **bumpovat obě současně** při změně podmínek.
 - Platby rodičů jen přes web/aplikaci (Stripe), ne in-app purchases (30% poplatek storů).
+
+---
+
+# Team VYS — společná pravidla pro všechny tři složky
+(Přesunuto z globálního `~/.claude/CLAUDE.md` 26. 11. 2026, aby se Team VYS nemíchal s jinými Davidovými projekty.
+Platí jen pro Team VYS. Složky `aplikacevys.cz`, `vys-aplikace` a `Team VYS s.r.o..o` sem odkazují.)
+
+## Stálá svolení (Team VYS)
+- Výplaty trenérům jen přes Stripe, ruční bankovní převod nikdy nenabízet.
+
+## Mapa projektu Team VYS — tři složky, jeden byznys
+| Složka | Co to je | Deploy |
+|---|---|---|
+| `~/Documents/GitHub/Vys-app` | Express API (`server/`), web teamvys.cz (`teamvys.cz/`), Supabase migrace, docs | `cd` do kořene repa, `npx vercel deploy --prod --yes` |
+| `~/Desktop/aplikacevys.cz` | Admin web aplikacevys.cz (Next.js 15) | `npx vercel --prod --yes` |
+| `~/Desktop/vys-aplikace` | Expo appka pro rodiče + trenéry (`com.teamvys.app`) | `npm run deploy:web`; store přes `eas submit` |
+
+Každá z těch složek má **vlastní `CLAUDE.md`** s detaily — přečíst ho, když se v ní pracuje.
+
+**Kompletní mapa celé platformy: `~/Documents/GitHub/Vys-app/docs/app-architecture.md`.**
+Tři repa, jedna Supabase, jeden Stripe. Endpointy, tabulky, role, deploy, pasti.
+U technických úkolů ho číst jako první. Když se změní struktura, aktualizovat ho.
+
+## Paměť — kde je společné vědění
+Ověřená fakta o byznysu žijí v `~/.claude/projects/-Users-davidkropac-Documents-GitHub-Vys-app/memory/`
+(index `MEMORY.md` + tematické soubory: byznys, marketing, deploy, admin…).
+
+**Tahle paměť se načítá jen u chatů spuštěných ve složce `Vys-app`.** Pokud pracuješ v jiné
+složce Team VYS a narazíš na fakt o byznysu, přečti si ten adresář přímo — je to jediný zdroj pravdy.
+
+Nová ověřená fakta tam zapisovat, ne je držet jen v konverzaci.
+
+## Jak jsou rozdělené chaty — TŘI, nic víc
+David vede **tři** chaty nad **stejnou složkou** `Vys-app`. Sdílejí CLAUDE.md a paměť,
+ale **ne historii konverzace**.
+
+| Chat | Co se v něm řeší |
+|---|---|
+| **Technika** | kód, appka, server, Supabase, deploy, bugy, buildy a Google Play po technické stránce |
+| **Úřední a smlouvy** | s.r.o., IČO/DIČ, finanční úřad, obchodní podmínky a GDPR, smlouvy s halami, DPP a výplaty trenérů |
+| **Marketing** | Meta reklamy, nábor, leady, texty, weby z pohledu propagace |
+
+Pravidla:
+- Na začátku chatu si z jeho názvu odvoď téma a **drž se ho**.
+- Když přijde dotaz mimo téma chatu, krátce odpověz, ale řekni, do kterého chatu patří.
+- Nepředpokládej, že víš, co padlo v jiném chatu — **co má přežít, patří do paměti**.
+- Každý chat čte `MEMORY.md` → sekci **Základ** + svou sekci (1 Technika / 2 Úřední / 3 Marketing).
