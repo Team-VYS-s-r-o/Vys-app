@@ -22,7 +22,7 @@ type Props = {
 };
 
 /**
- * Velký nadpis, jehož slova postupně vyjedou zpod linky. Slova z `accent`
+ * Velký nadpis, jehož slova se postupně zaostří a doplavou na místo. Slova z `accent`
  * mají barevný přechod, který se pomalu přelévá. Nic dalšího v pozadí.
  * Sdílí ho hlavička podstránek i úvod stránky Aplikace.
  */
@@ -37,13 +37,14 @@ export function HeroTitle({ title, accent, className, delay = 0.05 }: { title: s
       {words.map((word, i) => {
         const isAccent = i >= accentFrom;
         return (
-          // pb/-mb: maska nesmí useknout ocásky písmen (ý, p, j)
-          <span key={`${word}-${i}`} aria-hidden className="mr-[0.22em] inline-block overflow-hidden pb-[0.14em] -mb-[0.14em] align-bottom last:mr-0">
+          // Slova se nevysouvají zpod masky (při pomalém načtení z ní čouhaly barevné
+          // kousky a písmena vypadala ukousnutá) — celé slovo se zaostří a doplave na místo.
+          <span key={`${word}-${i}`} aria-hidden className="mr-[0.22em] inline-block align-bottom last:mr-0">
             <motion.span
               className={isAccent ? 'hero-accent inline-block' : 'inline-block'}
-              initial={reduced ? false : { y: '108%', rotate: 4 }}
-              animate={{ y: '0%', rotate: 0 }}
-              transition={{ duration: 0.9, delay: delay + i * 0.075, ease: EASE }}
+              initial={reduced ? false : { opacity: 0, y: '0.42em', filter: 'blur(14px)' }}
+              animate={{ opacity: 1, y: '0em', filter: 'blur(0px)' }}
+              transition={{ duration: 0.85, delay: delay + i * 0.075, ease: EASE }}
             >
               {word}
             </motion.span>
