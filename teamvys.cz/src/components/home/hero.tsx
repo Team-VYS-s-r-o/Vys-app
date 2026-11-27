@@ -41,7 +41,7 @@ const chapters: Chapter[] = [
     key: 'workshopy',
     label: 'Workshopy',
     copy: 'Jednorázové akce s youtuberem a jasným tématem — konkrétní triky krok za krokem.',
-    cta: { label: 'Vybrat workshop s youtuberem', href: '/workshopy' },
+    cta: { label: 'Vybrat workshop', href: '/workshopy' },
     color: 'rgba(244,114,182,0.30)',
     mascot: '/cats/apka-xp.webp',
     mascotSizeClassName: MASCOT_SIZE_WIDE,
