@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { WorkshopBrowser } from '@/components/public-admin-products';
+import { FEATURED, useFeaturedUpcoming } from '@/components/workshop-feature';
 import { SceneRows } from '@/components/scene-rows';
 import { useAdminCreatedProducts } from '@/lib/admin-created-products';
 
@@ -24,17 +25,23 @@ export function WorkshopOffer() {
   const { products, loading, error } = useAdminCreatedProducts();
   // Počítá se jen workshop, který teprve bude — prošlé termíny by jinak ukazovaly prázdný kalendář.
   const today = new Date().toISOString().slice(0, 10);
-  const hasWorkshops = products.some((product) => {
+  const featuredUpcoming = useFeaturedUpcoming();
+  const isUpcoming = (product: (typeof products)[number]) => {
     if (product.type !== 'Workshop') return false;
     const match = /(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/.exec(product.primaryMeta ?? '');
     if (!match) return true; // bez data nejde poznat, že už proběhl
     return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}` >= today;
-  });
+  };
+  const hasWorkshops = products.some(isUpcoming);
+  // Vypsaný workshop s hostem má nahoře vlastní velkou sekci — prohlížeč termínů
+  // se pod ní ukáže, jen když je vedle něj vypsaný ještě jiný workshop.
+  const hasOtherWorkshops = products.some((product) => isUpcoming(product) && product.id !== FEATURED.id);
+  if (featuredUpcoming && !hasOtherWorkshops) return null;
 
   if (loading || error || hasWorkshops) {
     return (
       <section className="section-shell py-16 md:py-24">
-        <h2 className="text-3xl font-black tracking-tight text-white md:text-5xl">Vyber si termín</h2>
+        <h2 className="text-3xl font-black tracking-tight text-white md:text-5xl">{featuredUpcoming ? 'Další termíny' : 'Vyber si termín'}</h2>
         <div className="mx-[calc(50%-50vw)] mt-10 bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:mx-0 md:rounded-[28px] md:p-6 lg:p-8">
           <WorkshopBrowser />
         </div>
@@ -240,6 +247,9 @@ const STEPS: { title: string; text: string; scene: ReactNode }[] = [
 ];
 
 export function WorkshopSteps() {
+  // U vypsaného workshopu je místo obecných kroků konkrétní program a návod.
+  const featuredUpcoming = useFeaturedUpcoming();
+  if (featuredUpcoming) return null;
   return (
     <section className="section-shell pb-20 md:pb-32">
       <h2 className="max-w-4xl text-balance text-3xl font-black leading-[1.02] tracking-tight text-white md:text-6xl">Jeden den, jeden trik navíc</h2>

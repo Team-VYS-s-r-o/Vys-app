@@ -314,7 +314,6 @@ const rewardDiscountRules = [
 ];
 
 const WORKSHOP_INTEREST_THRESHOLD = 9;
-const WORKSHOP_PAYMENT_OPEN_DAYS = 2;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_COURSE_ATTENDANCE_RATE = 500;
 const VYS_ORG_ID = '00000000-0000-4000-8000-000000000001';
@@ -1199,16 +1198,20 @@ function workshopEventDate(product) {
 function workshopPurchaseGate(product, interestCount) {
   if (!isWorkshopProduct(product)) return { canPurchase: true, interestCount };
 
+  // Vstupenky se prodávají hned po zveřejnění workshopu (rozhodnutí 27. 11. 2026).
+  // Dřívější pravidlo „až při 9 zájemcích nebo 2 dny před termínem" je zrušené —
+  // workshop s vypsaným datem a místem by jinak dva týdny nešel koupit.
+  // Zavřeno je jen při sběru zájmu (interest_mode) a po termínu.
   const eventDate = workshopEventDate(product);
-  const opensByInterest = interestCount >= WORKSHOP_INTEREST_THRESHOLD;
-  const opensByDate = eventDate ? Date.now() >= eventDate.getTime() - WORKSHOP_PAYMENT_OPEN_DAYS * MS_PER_DAY : true;
+  const isOver = eventDate ? Date.now() > eventDate.getTime() + MS_PER_DAY : false;
+  const collectingInterest = product?.interest_mode === true;
 
   return {
-    canPurchase: opensByInterest || opensByDate,
+    canPurchase: !collectingInterest && !isOver,
     interestCount,
     threshold: WORKSHOP_INTEREST_THRESHOLD,
-    opensByInterest,
-    opensByDate,
+    isOver,
+    collectingInterest,
     eventDate: eventDate ? eventDate.toISOString().slice(0, 10) : null,
   };
 }
@@ -1803,7 +1806,7 @@ async function ensureProductCapacity(productId) {
     const interestCount = await countWorkshopInterests(product.id);
     const gate = workshopPurchaseGate(product, interestCount);
     if (!gate.canPurchase) {
-      throw httpError(`Workshop s youtuberem zatím nejde zaplatit. Platba se otevře ${WORKSHOP_PAYMENT_OPEN_DAYS} dny před termínem nebo při ${WORKSHOP_INTEREST_THRESHOLD} zájemcích. Teď má ${interestCount} zájemců.`, 409);
+      throw httpError(gate.isOver ? 'Tenhle workshop už proběhl, vstupenku na něj koupit nejde.' : 'Tenhle workshop zatím jen sbírá zájemce — prodej vstupenek spustíme později.', 409);
     }
   }
 
@@ -2325,9 +2328,13 @@ app.post('/api/workshop-interests', asyncRoute(async (request, response) => {
     participant_name: participantName,
   };
 
-  // Count before, so we can detect the moment the workshop crosses the
-  // threshold and opens for payment — then notify everyone who's interested.
-  const prevCount = await countWorkshopInterests(product.id);
+  // Zájem téhož dítěte se počítá jednou — zpráva s návodem jde jen napoprvé.
+  const { data: existingInterest } = await supabase
+    .from('workshop_interests')
+    .select('id')
+    .eq('product_id', product.id)
+    .eq('participant_id', participantId)
+    .maybeSingle();
 
   const { data, error } = await supabase
     .from('workshop_interests')
@@ -2340,16 +2347,20 @@ app.post('/api/workshop-interests', asyncRoute(async (request, response) => {
   const interestCount = await countWorkshopInterests(product.id);
   const gate = workshopPurchaseGate(product, interestCount);
 
-  // Just opened by interest? (crossed the threshold with this registration)
-  if (prevCount < WORKSHOP_INTEREST_THRESHOLD && interestCount >= WORKSHOP_INTEREST_THRESHOLD) {
-    const { data: interestRows } = await supabase
-      .from('workshop_interests')
-      .select('parent_profile_id')
-      .eq('product_id', product.id);
-    const parentIds = (interestRows || []).map((r) => r.parent_profile_id);
-    const title = 'Workshop s youtuberem se otevřel k platbě';
-    const body = `${product.title} má dost zájemců — teď ho můžeš zaplatit a rezervovat místo.`;
-    void sendExpoPushToProfiles(parentIds, title, body);
+  // Starší verze aplikace u workshopu nemá tlačítko Koupit, jen „Mám zájem".
+  // Kdo ho zmáčkne u workshopu, který se už prodává, dostane hned zprávu,
+  // kde vstupenku koupí — jinak by čekal na něco, co nepřijde.
+  if (gate.canPurchase && !existingInterest) {
+    const title = `Vstupenka na ${product.title}`;
+    const body = `Díky za zájem! Vstupenku koupíš v aplikaci v záložce Platby → Workshopy tlačítkem Koupit. Pokud ho tam nevidíš, máš starší verzi aplikace: aktualizuj ji, nebo kup vstupenku ve webové verzi ${PARENT_APP_URL} (stejné přihlášení).`;
+    // Čeká se na dokončení — po odeslání odpovědi už serverless funkce nemusí doběhnout.
+    await deliverPassReminderInApp({
+      orgId: product.org_id || VYS_ORG_ID,
+      orgName: 'Team VYS',
+      parentProfileId,
+      title,
+      body,
+    }).catch((error) => console.warn('[workshop-interest] zpráva se neodeslala', error?.message || error));
   }
 
   response.status(201).json({ interest: data, interestCount, canPurchase: gate.canPurchase, threshold: WORKSHOP_INTEREST_THRESHOLD });
@@ -5542,6 +5553,29 @@ app.post('/api/participants/extra-courses', asyncRoute(async (request, response)
 
 // Veřejná stránka vstupenky — otevírá se z QR kódu v potvrzovacím e-mailu.
 // Odkaz je podepsaný HMAC tokenem, takže nejde uhodnout cizí vstupenku.
+// Odkaz na vstupenku pro QR kód v aplikaci — stejný, jaký jde rodiči e-mailem.
+// Podpis se počítá jen na serveru, proto si ho aplikace vyžádá (s přihlášením).
+app.get('/api/parent/purchases/:id/ticket-link', asyncRoute(async (request, response) => {
+  requireServices();
+  const actor = await requireParentOrAdmin(request);
+  const purchaseId = String(request.params.id || '').trim();
+  if (!purchaseId) throw httpError('Chybí id nákupu.', 400);
+  const { data: purchase, error } = await supabase
+    .from('parent_purchases')
+    .select('id,parent_profile_id,participant_id,status,type')
+    .eq('id', purchaseId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!purchase) throw httpError('Vstupenka nenalezena.', 404);
+  if (actor.role !== 'admin' && purchase.parent_profile_id !== actor.id) {
+    // Účastník s vlastním účtem smí vidět jen vstupenku vystavenou na sebe.
+    const ownTicket = actor.role === 'participant' && purchase.participant_id === actor.id;
+    if (!ownTicket) throw httpError('Tato vstupenka nepatří k tvému účtu.', 403);
+  }
+  if (purchase.status !== 'Zaplaceno') throw httpError('Vstupenka není zaplacená.', 409);
+  response.json({ url: ticketUrl(purchase.id) });
+}));
+
 app.get('/api/ticket/:purchaseId', asyncRoute(async (request, response) => {
   const purchaseId = String(request.params.purchaseId || '');
   const token = String(request.query.t || '');

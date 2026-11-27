@@ -12,9 +12,9 @@ import { useEffect, useRef, useState } from 'react';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-type Phase = { from: number; to: number; title: string; text: string; color: string };
+export type DialPhase = { from: number; to: number; title: string; text: string; color: string };
 
-const PHASES: Phase[] = [
+const TRAINING_PHASES: DialPhase[] = [
   { from: 0, to: 15, title: 'Rozcvička hrou', text: 'Honička nebo hra. Tělo se zahřeje a nikdo nestojí.', color: '#FFB21A' },
   { from: 15, to: 25, title: 'Průprava', text: 'Cviky, které tělo připraví na dnešní trik.', color: '#B23BFF' },
   { from: 25, to: 40, title: 'Trik dne', text: 'Nový trik krok za krokem, s dopomocí trenéra.', color: '#F12BB3' },
@@ -23,9 +23,25 @@ const PHASES: Phase[] = [
 ];
 
 const AUTO_MS = 3400;
-const GAP = 0.9; // mezera mezi oblouky v „minutách"
+
+/** Čas na hodinách: začátek akce + minuty od začátku → „15:05". */
+function clockLabel(startMinutes: number, offset: number) {
+  const value = startMinutes + offset;
+  return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
+}
 
 export function TrainingTimeline() {
+  return <PhaseDial phases={TRAINING_PHASES} total={60} />;
+}
+
+/**
+ * Ciferník s částmi programu. Bez `clockStart` ukazuje délku části v minutách
+ * (trénink), s `clockStart` (minuty od půlnoci) skutečný čas na hodinách (workshop).
+ */
+export function PhaseDial({ phases, total, clockStart }: { phases: DialPhase[]; total: number; clockStart?: number }) {
+  const PHASES = phases;
+  const GAP = total * 0.015; // mezera mezi oblouky v „minutách"
+  const withClock = typeof clockStart === 'number';
   const reduced = useReducedMotion();
   const [active, setActive] = useState(0);
   const [auto, setAuto] = useState(true);
@@ -55,7 +71,7 @@ export function TrainingTimeline() {
   const lastActive = useRef(0);
   if (active < lastActive.current) turns.current += 1;
   lastActive.current = active;
-  const handAngle = ((phase.from + phase.to) / 2 / 60) * 360 + turns.current * 360;
+  const handAngle = ((phase.from + phase.to) / 2 / total) * 360 + turns.current * 360;
   const angle = useSpring(handAngle, { stiffness: 90, damping: 16 });
   useEffect(() => {
     angle.set(handAngle);
@@ -91,10 +107,10 @@ export function TrainingTimeline() {
                 cy="100"
                 r="84"
                 fill="none"
-                pathLength={60}
+                pathLength={total}
                 stroke={item.color}
                 strokeLinecap="round"
-                strokeDasharray={`${length} ${60 - length}`}
+                strokeDasharray={`${length} ${total - length}`}
                 strokeDashoffset={-(item.from + GAP / 2)}
                 initial={false}
                 animate={{ strokeWidth: lit ? 18 : 11, opacity: lit ? 1 : 0.3 }}
@@ -117,12 +133,12 @@ export function TrainingTimeline() {
             initial={{ opacity: 0, y: 14, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.45, ease: EASE }}
-            className="text-7xl font-black leading-none tracking-tight text-white md:text-8xl"
+            className={`font-black leading-none tracking-tight text-white ${withClock ? 'text-6xl md:text-7xl' : 'text-7xl md:text-8xl'}`}
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
-            {phase.to - phase.from}
+            {withClock ? clockLabel(clockStart, phase.from) : phase.to - phase.from}
           </motion.p>
-          <p className="mt-1 text-lg font-bold text-white/60">minut</p>
+          <p className="mt-1 text-lg font-bold text-white/60">{withClock ? `do ${clockLabel(clockStart, phase.to)}` : 'minut'}</p>
           <motion.p
             key={`title-${active}`}
             initial={{ opacity: 0 }}
@@ -136,7 +152,7 @@ export function TrainingTimeline() {
         </div>
       </motion.div>
 
-      {/* Pět částí */}
+      {/* Části programu */}
       <ol className="space-y-2">
         {PHASES.map((item, i) => {
           const lit = i === active;
@@ -179,7 +195,7 @@ export function TrainingTimeline() {
                   className="flex h-14 w-[5.5rem] shrink-0 items-center justify-center rounded-2xl text-base font-black text-[#0B0B10] md:h-16 md:w-24 md:text-lg"
                   style={{ background: item.color, fontVariantNumeric: 'tabular-nums' }}
                 >
-                  {item.from}–{item.to}′
+                  {withClock ? clockLabel(clockStart, item.from) : `${item.from}–${item.to}′`}
                 </motion.span>
                 <span className="min-w-0">
                   <span className={`block text-xl font-black leading-tight tracking-tight transition-colors duration-300 md:text-3xl ${lit ? 'text-white' : 'text-white/45'}`}>{item.title}</span>

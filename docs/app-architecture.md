@@ -76,6 +76,15 @@ multi-tenant organizace (`/api/orgs/*`), Stripe webhook a VYS bot (`/api/bot/cha
 `DEFAULT_COURSE_ATTENDANCE_RATE = 500`, `SOLO_COURSE_ATTENDANCE_RATE = 750`,
 `WORKSHOP_INTEREST_THRESHOLD = 9`.
 
+**Workshopy (od 27. 11. 2026):** vstupenka se prodává **hned po zveřejnění** produktu typu `Workshop`
+(`workshopPurchaseGate`: zavřeno jen při `interest_mode` a po termínu; staré pravidlo „9 zájemců nebo
+2 dny před termínem" je zrušené). Nákup jde stejnou cestou jako kroužek (dokumenty → Stripe → e-mail
+s QR vstupenkou `/api/ticket/:id`). QR do aplikace vrací `GET /api/parent/purchases/:id/ticket-link`.
+Dokumenty workshopu mají vlastní šablony (`document_templates`: „Podmínky a storno workshopu",
+„GDPR – workshop" se souhlasem pro kanály hosta). Starší buildy appky u workshopu ukazují jen
+„Mám zájem" → `POST /api/workshop-interests` jim pošle zprávu, kde vstupenku koupit.
+Web: `teamvys.cz/src/components/workshop-feature.tsx` (`FEATURED` = vypsaný workshop s hostem).
+
 #### Stripe tok — pořadí je důležité
 
 ```

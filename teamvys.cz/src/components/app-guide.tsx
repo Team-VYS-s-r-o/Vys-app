@@ -19,7 +19,7 @@ import { PhoneFrame } from '@/components/phone-frame';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-type GuideStep = {
+export type GuideStep = {
   icon: ReactNode;
   title: string;
   text: ReactNode;
@@ -32,7 +32,7 @@ type GuideStep = {
   seconds: number;
 };
 
-const STEPS: GuideStep[] = [
+export const PASS_GUIDE_STEPS: GuideStep[] = [
   {
     icon: <UserPlus size={18} />,
     title: 'Založ si účet rodiče',
@@ -97,7 +97,13 @@ const STEPS: GuideStep[] = [
   },
 ];
 
-export function AppGuide() {
+export function AppGuide({
+  steps = PASS_GUIDE_STEPS,
+  title = 'Jak koupit permanentku dítěti',
+  subtitle = 'Od registrace k prvnímu tréninku ve čtyřech krocích.',
+  id = 'navod',
+}: { steps?: GuideStep[]; title?: string; subtitle?: string; id?: string } = {}) {
+  const STEPS = steps;
   const reduced = useReducedMotion();
   const [active, setActive] = useState(0);
   const [auto, setAuto] = useState(true);
@@ -121,7 +127,7 @@ export function AppGuide() {
   }, [running, active]);
 
   return (
-    <section id="navod" className="section-shell relative scroll-mt-28 pb-24 md:pb-36">
+    <section id={id} className="section-shell relative scroll-mt-28 pb-24 md:pb-36">
       <div
         aria-hidden
         className="pointer-events-none absolute right-[8%] top-1/3 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(139,29,255,0.22),transparent_60%)] blur-2xl"
@@ -134,8 +140,8 @@ export function AppGuide() {
           transition={{ duration: 0.7, ease: EASE }}
           className="text-center"
         >
-          <h2 className="text-balance text-3xl font-black tracking-tight text-white md:text-5xl">Jak koupit permanentku dítěti</h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-white/60 md:text-base">Od registrace k prvnímu tréninku ve čtyřech krocích.</p>
+          <h2 className="text-balance text-3xl font-black tracking-tight text-white md:text-5xl">{title}</h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-white/60 md:text-base">{subtitle}</p>
         </motion.div>
 
         <div className="mt-10 grid items-center gap-10 md:mt-14 lg:grid-cols-[1.15fr_0.85fr] lg:gap-14">

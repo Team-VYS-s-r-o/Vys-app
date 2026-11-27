@@ -1,3 +1,6 @@
+import { ArrowRight, PlayCircle } from 'lucide-react';
+import Link from 'next/link';
+
 import { PageHero } from '@/components/page-hero';
 import { PublicCourseCatalog } from '@/components/public-admin-products';
 import { SubpageCta } from '@/components/subpage-cta';
@@ -56,6 +59,14 @@ export default function CoursesPage() {
           <div>
             <h3 className="text-balance text-2xl font-black leading-tight tracking-tight text-white md:text-4xl">Platíš jen za tréninky, na které dítě přijde</h3>
             <p className="mt-3 max-w-xl text-base font-medium leading-7 text-white/65 md:text-lg">Permanentka na 10 nebo 15 vstupů. Vstup se odečte pípnutím kartičky. Žádný závazek na celý rok.</p>
+            <Link
+              href="/aplikace#navod"
+              className="group mt-6 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-base font-black text-[#0B0B10] transition-transform hover:-translate-y-0.5"
+            >
+              <PlayCircle size={19} />
+              Video návod: jak koupit permanentku
+              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+            </Link>
           </div>
         </div>
       </section>
