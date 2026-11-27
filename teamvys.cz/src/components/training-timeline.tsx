@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useReducedMotion, useSpring, useTransform } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 
 /**
@@ -38,7 +38,7 @@ export function TrainingTimeline() {
  * Ciferník s částmi programu. Bez `clockStart` ukazuje délku části v minutách
  * (trénink), s `clockStart` (minuty od půlnoci) skutečný čas na hodinách (workshop).
  */
-export function PhaseDial({ phases, total, clockStart }: { phases: DialPhase[]; total: number; clockStart?: number }) {
+export function PhaseDial({ phases, total, clockStart, compact = false }: { phases: DialPhase[]; total: number; clockStart?: number; /** Hodně částí: řádky jsou nízké a popis má jen vybraná. */ compact?: boolean }) {
   const PHASES = phases;
   const GAP = total * 0.015; // mezera mezi oblouky v „minutách"
   const withClock = typeof clockStart === 'number';
@@ -80,14 +80,14 @@ export function PhaseDial({ phases, total, clockStart }: { phases: DialPhase[]; 
   const handY = useTransform(angle, (value) => 100 + 84 * Math.sin((value * Math.PI) / 180));
 
   return (
-    <div ref={ref} className="grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+    <div ref={ref} className={compact ? 'grid items-center gap-10 lg:grid-cols-[minmax(0,400px)_1fr] lg:gap-16' : 'grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16'}>
       {/* Ciferník */}
       <motion.div
         initial={{ opacity: 0, scale: 0.9, rotate: -20 }}
         whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.9, ease: EASE }}
-        className="relative mx-auto aspect-square w-full max-w-[420px]"
+        className={`relative mx-auto aspect-square w-full ${compact ? 'max-w-[340px] lg:max-w-[400px]' : 'max-w-[420px]'}`}
       >
         <motion.div
           aria-hidden
@@ -153,7 +153,7 @@ export function PhaseDial({ phases, total, clockStart }: { phases: DialPhase[]; 
       </motion.div>
 
       {/* Části programu */}
-      <ol className="space-y-2">
+      <ol className={compact ? 'space-y-1' : 'space-y-2'}>
         {PHASES.map((item, i) => {
           const lit = i === active;
           return (
@@ -175,9 +175,9 @@ export function PhaseDial({ phases, total, clockStart }: { phases: DialPhase[]; 
                   setAuto(false);
                 }}
                 aria-pressed={lit}
-                className={`relative flex w-full items-center gap-4 overflow-hidden rounded-3xl border px-5 py-4 text-left transition-colors duration-300 md:gap-6 md:px-6 md:py-5 ${
-                  lit ? 'border-white/20 bg-white/[0.07]' : 'border-transparent hover:bg-white/[0.03]'
-                }`}
+                className={`relative flex w-full items-center overflow-hidden border text-left transition-colors duration-300 ${
+                  compact ? 'gap-4 rounded-2xl px-4 py-2.5 md:gap-5 md:px-5 md:py-3' : 'gap-4 rounded-3xl px-5 py-4 md:gap-6 md:px-6 md:py-5'
+                } ${lit ? 'border-white/20 bg-white/[0.07]' : 'border-transparent hover:bg-white/[0.03]'}`}
               >
                 {lit && running ? (
                   <motion.span
@@ -192,14 +192,33 @@ export function PhaseDial({ phases, total, clockStart }: { phases: DialPhase[]; 
                 <motion.span
                   animate={{ scale: lit && !reduced ? 1 : 0.86, opacity: lit ? 1 : 0.55 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                  className="flex h-14 w-[5.5rem] shrink-0 items-center justify-center rounded-2xl text-base font-black text-[#0B0B10] md:h-16 md:w-24 md:text-lg"
+                  className={`flex shrink-0 items-center justify-center font-black text-[#0B0B10] ${
+                    compact ? 'h-10 w-[4.25rem] rounded-xl text-sm md:h-11 md:w-[4.75rem] md:text-base' : 'h-14 w-[5.5rem] rounded-2xl text-base md:h-16 md:w-24 md:text-lg'
+                  }`}
                   style={{ background: item.color, fontVariantNumeric: 'tabular-nums' }}
                 >
                   {withClock ? clockLabel(clockStart, item.from) : `${item.from}–${item.to}′`}
                 </motion.span>
                 <span className="min-w-0">
-                  <span className={`block text-xl font-black leading-tight tracking-tight transition-colors duration-300 md:text-3xl ${lit ? 'text-white' : 'text-white/45'}`}>{item.title}</span>
-                  <span className={`mt-1 block text-[15px] font-medium leading-6 transition-colors duration-300 md:text-base ${lit ? 'text-white/75' : 'text-white/35'}`}>{item.text}</span>
+                  <span className={`block font-black leading-tight tracking-tight transition-colors duration-300 ${compact ? 'text-lg md:text-2xl' : 'text-xl md:text-3xl'} ${lit ? 'text-white' : 'text-white/45'}`}>{item.title}</span>
+                  {compact ? (
+                    <AnimatePresence initial={false}>
+                      {lit && item.text ? (
+                        <motion.span
+                          key="text"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.32, ease: EASE }}
+                          className="block overflow-hidden"
+                        >
+                          <span className="block pt-1 text-[15px] font-medium leading-6 text-white/75 md:text-base">{item.text}</span>
+                        </motion.span>
+                      ) : null}
+                    </AnimatePresence>
+                  ) : (
+                    <span className={`mt-1 block text-[15px] font-medium leading-6 transition-colors duration-300 md:text-base ${lit ? 'text-white/75' : 'text-white/35'}`}>{item.text}</span>
+                  )}
                 </span>
               </button>
             </motion.li>

@@ -83,7 +83,12 @@ s QR vstupenkou `/api/ticket/:id`). QR do aplikace vrací `GET /api/parent/purch
 Dokumenty workshopu mají vlastní šablony (`document_templates`: „Podmínky a storno workshopu",
 „GDPR – workshop" se souhlasem pro kanály hosta). Starší buildy appky u workshopu ukazují jen
 „Mám zájem" → `POST /api/workshop-interests` jim pošle zprávu, kde vstupenku koupit.
-Web: `teamvys.cz/src/components/workshop-feature.tsx` (`FEATURED` = vypsaný workshop s hostem).
+**Šablona workshopu:** `products.workshop_details` (jsonb: `guestName`, `youtube`, `instagram`, `intro`,
+`program[{title,text,minutes}]`, `notes[{label,text}]`) + první fotka = host. Vyplňuje se v adminu
+(`aplikacevys.cz/src/components/admin/workshop-details-editor.tsx`, formulář nového produktu i úprava).
+Web `teamvys.cz/src/components/workshop-feature.tsx` z toho kreslí stránku Workshopy: karta termínu
+(víc termínů = karty jdou přetahovat), program na ciferníku (`PhaseDial compact`), „Dobré vědět předem",
+návod. Nic o konkrétním workshopu není v kódu webu.
 
 #### Stripe tok — pořadí je důležité
 

@@ -36,6 +36,20 @@ export type ParentOrganizations = {
   available: Array<{ id: string; name: string; orgType: string }>;
 };
 
+/** Workshop s hostem — podrobnosti pro šablonu stránky Workshopy (products.workshop_details). */
+export type WorkshopDetails = {
+  guestName?: string;
+  instagram?: string;
+  youtube?: string;
+  tiktok?: string;
+  /** Krátká věta pod datem. */
+  intro?: string;
+  /** Program po částech — minuty na sebe navazují od začátku workshopu. */
+  program?: Array<{ title: string; text?: string; minutes: number }>;
+  /** Řádky navíc do „Dobré vědět předem" (např. merch). */
+  notes?: Array<{ label: string; text: string }>;
+};
+
 export type ParentProduct = {
   id: string;
   type: ActivityType;
@@ -81,6 +95,7 @@ export type ParentProduct = {
   includedItems?: string[];
   /** Body „Co s sebou" na webu (per produkt, jiné org startují prázdné) */
   bringItems?: string[];
+  workshopDetails?: WorkshopDetails | null;
 };
 
 export type RequiredDocumentTemplate = {

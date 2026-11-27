@@ -2245,7 +2245,7 @@ app.get('/api/parent/products', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,age_from,age_to,org_id')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,age_from,age_to,org_id,workshop_details')
     .eq('is_published', true)
     .in('org_id', orgIds)
     .order('created_at', { ascending: false });
@@ -2260,7 +2260,7 @@ app.get('/api/public/products', asyncRoute(async (_request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,age_from,age_to,org_id,map_query,latitude,longitude')
+    .select('id,type,title,city,place,venue,price,price_label,original_price,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,age_from,age_to,org_id,map_query,latitude,longitude,workshop_details')
     .eq('is_published', true)
     .eq('org_id', VYS_ORG_ID)
     .order('created_at', { ascending: false });
@@ -8272,7 +8272,7 @@ app.get('/api/admin/products', asyncRoute(async (request, response) => {
 
   const { data, error } = await supabase
     .from('products')
-    .select('id,type,title,city,place,venue,gym_contact,price,price_label,original_price,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,age_from,age_to')
+    .select('id,type,title,city,place,venue,gym_contact,price,price_label,original_price,entries_total,billing_model,membership_months,membership_valid_until,primary_meta,secondary_meta,description,important_info,badge,event_date,expires_at,capacity_total,capacity_current,hero_image,gallery,map_query,latitude,longitude,coach_ids,training_focus,is_published,skill_category,interest_mode,included_items,bring_items,age_from,age_to,workshop_details')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false });
 
@@ -8296,7 +8296,7 @@ app.post('/api/admin/products', asyncRoute(async (request, response) => {
     throw new Error('Invalid product: id is required.');
   }
 
-  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'gym_contact', 'price', 'price_label', 'original_price', 'entries_total', 'billing_model', 'membership_months', 'membership_valid_until', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'interest_mode', 'map_query', 'latitude', 'longitude', 'skill_category', 'region', 'included_items', 'bring_items'];
+  const allowed = ['id', 'type', 'title', 'city', 'place', 'venue', 'gym_contact', 'price', 'price_label', 'original_price', 'entries_total', 'billing_model', 'membership_months', 'membership_valid_until', 'primary_meta', 'secondary_meta', 'description', 'important_info', 'badge', 'event_date', 'expires_at', 'capacity_total', 'capacity_current', 'hero_image', 'gallery', 'coach_ids', 'training_focus', 'is_published', 'interest_mode', 'map_query', 'latitude', 'longitude', 'skill_category', 'region', 'included_items', 'bring_items', 'workshop_details'];
   const row = Object.fromEntries(Object.entries(product).filter(([key]) => allowed.includes(key)));
 
   requiredString(row.type, 'type');

@@ -187,6 +187,7 @@ function rowToProduct(row: AdminProductRow): ParentProduct {
     interestMode: row.interest_mode ?? false,
     includedItems: Array.isArray(row.included_items) ? row.included_items : [],
     bringItems: Array.isArray(row.bring_items) ? row.bring_items : [],
+    workshopDetails: (row as { workshop_details?: ParentProduct['workshopDetails'] }).workshop_details ?? null,
   };
 }
 

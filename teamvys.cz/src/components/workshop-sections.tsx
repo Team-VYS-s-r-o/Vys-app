@@ -1,83 +1,17 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight, Play } from 'lucide-react';
-import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { Play } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { WorkshopBrowser } from '@/components/public-admin-products';
-import { FEATURED, useFeaturedUpcoming } from '@/components/workshop-feature';
 import { SceneRows } from '@/components/scene-rows';
-import { useAdminCreatedProducts } from '@/lib/admin-created-products';
 
 /**
- * Sekce stránky Workshopy. Když není vypsaný žádný termín, místo prázdného
- * prohlížeče víkendů se ukáže „připravujeme" — a pod tím tři kroky s animovanou
- * scénou, které vysvětlí, jak workshop funguje, takže stránka dává smysl i bez termínů.
+ * Jak workshop funguje — tři kroky s animovanou scénou. Nabídku termínů kreslí
+ * `workshop-feature.tsx`; tyhle scény jsou na konci stránky vždy.
  */
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-
-/* ---------- nabídka termínů / připravujeme ---------- */
-
-export function WorkshopOffer() {
-  const reduced = useReducedMotion();
-  const { products, loading, error } = useAdminCreatedProducts();
-  // Počítá se jen workshop, který teprve bude — prošlé termíny by jinak ukazovaly prázdný kalendář.
-  const today = new Date().toISOString().slice(0, 10);
-  const featuredUpcoming = useFeaturedUpcoming();
-  const isUpcoming = (product: (typeof products)[number]) => {
-    if (product.type !== 'Workshop') return false;
-    const match = /(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/.exec(product.primaryMeta ?? '');
-    if (!match) return true; // bez data nejde poznat, že už proběhl
-    return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}` >= today;
-  };
-  const hasWorkshops = products.some(isUpcoming);
-  // Vypsaný workshop s hostem má nahoře vlastní velkou sekci — prohlížeč termínů
-  // se pod ní ukáže, jen když je vedle něj vypsaný ještě jiný workshop.
-  const hasOtherWorkshops = products.some((product) => isUpcoming(product) && product.id !== FEATURED.id);
-  if (featuredUpcoming && !hasOtherWorkshops) return null;
-
-  if (loading || error || hasWorkshops) {
-    return (
-      <section className="section-shell py-16 md:py-24">
-        <h2 className="text-3xl font-black tracking-tight text-white md:text-5xl">{featuredUpcoming ? 'Další termíny' : 'Vyber si termín'}</h2>
-        <div className="mx-[calc(50%-50vw)] mt-10 bg-brand-paper p-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:mx-0 md:rounded-[28px] md:p-6 lg:p-8">
-          <WorkshopBrowser />
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="section-shell py-16 md:py-24">
-      <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.98 }}
-        whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        viewport={{ once: true, margin: '-60px' }}
-        transition={{ duration: 0.8, ease: EASE }}
-        className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-[#F12BB3]/[0.22] via-[#1a1030] to-[#0B0B10] p-8 md:rounded-[2.5rem] md:p-14"
-      >
-        {reduced ? null : (
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(circle,#8B1DFF_0%,rgba(139,29,255,0.35)_45%,transparent_70%)] md:h-96 md:w-96"
-            animate={{ x: [0, -26, 0], y: [0, 20, 0], scale: [1, 1.08, 1] }}
-            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        )}
-        <div className="relative max-w-2xl">
-          <h2 className="text-balance text-4xl font-black leading-[1.02] tracking-tight text-white md:text-6xl">Další termíny připravujeme</h2>
-          <p className="mt-5 max-w-lg text-lg font-medium leading-relaxed text-white/70 md:text-xl">Jakmile je vypíšeme, najdeš je tady i v aplikaci. Chceš vědět jako první?</p>
-          <Link href="/kontakty" className="group mt-8 inline-flex items-center gap-2 rounded-full bg-white px-7 py-4 text-base font-black text-[#0B0B10] transition-transform hover:-translate-y-0.5">
-            Napiš nám
-            <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
-      </motion.div>
-    </section>
-  );
-}
 
 /* ---------- tři kroky se scénou ---------- */
 
@@ -247,9 +181,6 @@ const STEPS: { title: string; text: string; scene: ReactNode }[] = [
 ];
 
 export function WorkshopSteps() {
-  // U vypsaného workshopu je místo obecných kroků konkrétní program a návod.
-  const featuredUpcoming = useFeaturedUpcoming();
-  if (featuredUpcoming) return null;
   return (
     <section className="section-shell pb-20 md:pb-32">
       <h2 className="max-w-4xl text-balance text-3xl font-black leading-[1.02] tracking-tight text-white md:text-6xl">Jeden den, jeden trik navíc</h2>
