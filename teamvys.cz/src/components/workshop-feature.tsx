@@ -204,7 +204,26 @@ function placesWord(count: number) {
  * za myší — fotka, jméno a štítky se hýbou každý jinak rychle, takže má hloubku.
  * Žádná záře ani nálepky přes fotku.
  */
-function GuestPhoto({ view }: { view: WorkshopView }) {
+type CardNav = { onPrev: () => void; onNext: () => void; canPrev: boolean; canNext: boolean };
+
+/** Šipka v kroužku na okraji fotky — přepne na předchozí / další termín. */
+function NavArrow({ side, onClick, disabled }: { side: 'left' | 'right'; onClick: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={side === 'left' ? 'Předchozí termín' : 'Další termín'}
+      className={`absolute top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-[#0B0B10]/75 text-white backdrop-blur-md transition-colors hover:bg-white hover:text-[#0B0B10] disabled:pointer-events-none disabled:opacity-40 md:h-12 md:w-12 ${
+        side === 'left' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'
+      }`}
+    >
+      {side === 'left' ? <ArrowLeft size={19} /> : <ArrowRight size={19} />}
+    </button>
+  );
+}
+
+function GuestPhoto({ view, nav }: { view: WorkshopView; nav: CardNav }) {
   const reduced = useReducedMotion();
   const px = useMotionValue(0);
   const py = useMotionValue(0);
@@ -317,19 +336,23 @@ function GuestPhoto({ view }: { view: WorkshopView }) {
         </motion.div>
         </div>
       </motion.div>
+      {/* Šipky po stranách fotky — vždy vidět, ať je jasné, že termíny jdou přetáčet.
+          S jedním vypsaným workshopem jsou zašedlé a nedají se zmáčknout. */}
+      <NavArrow side="left" onClick={nav.onPrev} disabled={!nav.canPrev} />
+      <NavArrow side="right" onClick={nav.onNext} disabled={!nav.canNext} />
     </motion.div>
   );
 }
 
 /* ---------- karta jednoho termínu ---------- */
 
-function WorkshopCard({ view }: { view: WorkshopView }) {
+function WorkshopCard({ view, nav }: { view: WorkshopView; nav: CardNav }) {
   const soldOut = view.capacity > 0 && view.left <= 0;
 
   return (
     <div className="grid items-center gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
       {/* host */}
-      <GuestPhoto view={view} />
+      <GuestPhoto view={view} nav={nav} />
 
       {/* kdy, kde, za kolik */}
       <div>
@@ -453,36 +476,14 @@ function WorkshopCarousel({ workshops, active, onChange }: { workshops: Workshop
       ) : null}
 
       <div className="relative">
-      {/* Šipky na další termíny — vždy vidět, ať je jasné, že karty jdou přetáčet.
-          Když je vypsaný jen jeden workshop, jsou zašedlé a nedají se zmáčknout. */}
-      <div className="absolute right-0 top-0 z-10 hidden gap-2 lg:flex">
-        <button
-          type="button"
-          onClick={() => go(active - 1)}
-          disabled={!many || active === 0}
-          aria-label="Předchozí termín"
-          className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white hover:text-[#0B0B10] disabled:pointer-events-none disabled:opacity-35"
-        >
-          <ArrowLeft size={19} />
-        </button>
-        <button
-          type="button"
-          onClick={() => go(active + 1)}
-          disabled={!many || active === workshops.length - 1}
-          aria-label="Další termín"
-          className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white hover:text-[#0B0B10] disabled:pointer-events-none disabled:opacity-35"
-        >
-          <ArrowRight size={19} />
-        </button>
-      </div>
-
       <div
         ref={trackRef}
         className={many ? 'flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : ''}
       >
-        {workshops.map((view) => (
-          <div key={view.id} className={many ? 'w-full shrink-0 snap-center [scroll-snap-stop:always]' : ''}>
-            <WorkshopCard view={view} />
+        {workshops.map((view, i) => (
+          // S více termíny je kolem karty vzduch, aby šipky na okrajích fotky nebyly oříznuté.
+          <div key={view.id} className={many ? 'w-full shrink-0 snap-center px-6 py-2 [scroll-snap-stop:always] lg:px-8' : ''}>
+            <WorkshopCard view={view} nav={{ onPrev: () => go(i - 1), onNext: () => go(i + 1), canPrev: many && i > 0, canNext: many && i < workshops.length - 1 }} />
           </div>
         ))}
       </div>
