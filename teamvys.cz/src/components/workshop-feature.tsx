@@ -435,32 +435,46 @@ function WorkshopCarousel({ workshops, active, onChange }: { workshops: Workshop
   return (
     <div>
       {many ? (
-        <div className="mb-8 flex items-center justify-between gap-4 md:mb-10">
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Termíny workshopů">
-            {workshops.map((view, i) => (
-              <button
-                key={view.id}
-                type="button"
-                role="tab"
-                aria-selected={i === active}
-                onClick={() => go(i)}
-                className={`relative rounded-full px-4 py-2.5 text-sm font-black transition-colors md:text-base ${i === active ? 'text-[#0B0B10]' : 'text-white/70 hover:text-white'}`}
-              >
-                {i === active ? <motion.span layoutId="workshop-date-pill" className="absolute inset-0 rounded-full bg-white" transition={{ type: 'spring', stiffness: 380, damping: 32 }} /> : null}
-                <span className="relative">{view.dateLabel}{view.guest ? ` · ${view.guest}` : ''}</span>
-              </button>
-            ))}
-          </div>
-          <div className="hidden shrink-0 gap-2 sm:flex">
-            <button type="button" onClick={() => go(active - 1)} disabled={active === 0} aria-label="Předchozí termín" className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white hover:text-[#0B0B10] disabled:pointer-events-none disabled:opacity-25">
-              <ArrowLeft size={18} />
+        <div className="mb-8 flex flex-wrap gap-2 md:mb-10" role="tablist" aria-label="Termíny workshopů">
+          {workshops.map((view, i) => (
+            <button
+              key={view.id}
+              type="button"
+              role="tab"
+              aria-selected={i === active}
+              onClick={() => go(i)}
+              className={`relative rounded-full px-4 py-2.5 text-sm font-black transition-colors md:text-base ${i === active ? 'text-[#0B0B10]' : 'text-white/70 hover:text-white'}`}
+            >
+              {i === active ? <motion.span layoutId="workshop-date-pill" className="absolute inset-0 rounded-full bg-white" transition={{ type: 'spring', stiffness: 380, damping: 32 }} /> : null}
+              <span className="relative">{view.dateLabel}{view.guest ? ` · ${view.guest}` : ''}</span>
             </button>
-            <button type="button" onClick={() => go(active + 1)} disabled={active === workshops.length - 1} aria-label="Další termín" className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white hover:text-[#0B0B10] disabled:pointer-events-none disabled:opacity-25">
-              <ArrowRight size={18} />
-            </button>
-          </div>
+          ))}
         </div>
       ) : null}
+
+      <div className="relative">
+      {/* Šipky na další termíny — vždy vidět, ať je jasné, že karty jdou přetáčet.
+          Když je vypsaný jen jeden workshop, jsou zašedlé a nedají se zmáčknout. */}
+      <div className="absolute right-0 top-0 z-10 hidden gap-2 lg:flex">
+        <button
+          type="button"
+          onClick={() => go(active - 1)}
+          disabled={!many || active === 0}
+          aria-label="Předchozí termín"
+          className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white hover:text-[#0B0B10] disabled:pointer-events-none disabled:opacity-35"
+        >
+          <ArrowLeft size={19} />
+        </button>
+        <button
+          type="button"
+          onClick={() => go(active + 1)}
+          disabled={!many || active === workshops.length - 1}
+          aria-label="Další termín"
+          className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white hover:text-[#0B0B10] disabled:pointer-events-none disabled:opacity-35"
+        >
+          <ArrowRight size={19} />
+        </button>
+      </div>
 
       <div
         ref={trackRef}
@@ -471,6 +485,7 @@ function WorkshopCarousel({ workshops, active, onChange }: { workshops: Workshop
             <WorkshopCard view={view} />
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
