@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
+import { useUpcomingWorkshops } from '@/components/workshop-feature';
 import { displayFont } from '@/lib/home-font';
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -39,7 +40,7 @@ const chapters: Chapter[] = [
   {
     key: 'workshopy',
     label: 'Workshopy',
-    copy: 'Jednorázové akce s youtuberem a jasným tématem — konkrétní triky krok za krokem. Vstup řeší digitální QR ticket v appce.',
+    copy: 'Jednorázové akce s youtuberem a jasným tématem — konkrétní triky krok za krokem.',
     cta: { label: 'Vybrat workshop s youtuberem', href: '/workshopy' },
     color: 'rgba(244,114,182,0.30)',
     mascot: '/cats/apka-xp.webp',
@@ -111,6 +112,28 @@ function ChapterMascot({ chapter, progress, range, priority }: {
           <Image src={chapter.mascot} alt="" fill sizes="(min-width: 1024px) 620px, 300px" className="object-contain object-bottom sm:object-right-bottom" priority={priority} />
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+/**
+ * Nejbližší vypsaný workshop pod větou o workshopech — bere se živě z produktů
+ * (stejně jako stránka Workshopy), takže se po termínu sám přepne na další.
+ * Když žádný vypsaný není, řádek se nekreslí.
+ */
+function NextWorkshopLine() {
+  const { workshops } = useUpcomingWorkshops();
+  const next = workshops[0];
+  if (!next) return null;
+  const weekday = next.dayLabel.split('·')[0]?.trim();
+  return (
+    <div className="flex flex-col items-center gap-1 sm:items-start">
+      <span className="text-sm font-black uppercase tracking-[0.18em] text-white/55">Nejbližší termín</span>
+      <span className="text-2xl font-black leading-tight tracking-tight text-white md:text-3xl">
+        {weekday ? `${weekday} ` : ''}
+        <span className="hero-accent">{next.dateLabel}</span>
+        {next.guest ? <> s youtuberem {next.guest}</> : null}
+      </span>
     </div>
   );
 }
@@ -255,6 +278,7 @@ export function HomeHero() {
                   className="col-start-1 row-start-1 flex w-full max-w-[56ch] flex-col items-center gap-5 text-center sm:items-start sm:gap-7 sm:text-left"
                 >
                   <p className="text-xl leading-8 text-white/85 sm:text-xl sm:leading-9 md:text-2xl md:leading-10">{chapter.copy}</p>
+                  {chapter.key === 'workshopy' ? <NextWorkshopLine /> : null}
                   <Link
                     href={chapter.cta.href}
                     className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-base font-black text-[#0B0B10] shadow-[0_18px_40px_-16px_rgba(241,43,179,0.75)] transition-transform hover:-translate-y-0.5"
