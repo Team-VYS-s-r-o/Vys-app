@@ -1,6 +1,6 @@
 'use client';
 
-import { animate, motion, useInView, useReducedMotion } from 'framer-motion';
+import { animate, motion, useInView, useMotionTemplate, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CreditCard, Instagram, MapPin, PlayCircle, Ticket, UserPlus, Users, Youtube } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -196,48 +196,132 @@ function placesWord(count: number) {
   return 'míst';
 }
 
+/* ---------- fotka hosta ---------- */
+
+/**
+ * Fotka hosta, která není jen obrázek: při příjezdu se odkryje a doostří,
+ * pak se pomalu nadechuje (jemný posun a přiblížení) a na počítači se naklání
+ * za myší — fotka, jméno a štítky se hýbou každý jinak rychle, takže má hloubku.
+ * Žádná záře ani nálepky přes fotku.
+ */
+function GuestPhoto({ view }: { view: WorkshopView }) {
+  const reduced = useReducedMotion();
+  const px = useMotionValue(0);
+  const py = useMotionValue(0);
+  const hover = useMotionValue(0);
+  const sx = useSpring(px, { stiffness: 140, damping: 18, mass: 0.6 });
+  const sy = useSpring(py, { stiffness: 140, damping: 18, mass: 0.6 });
+  const glow = useSpring(hover, { stiffness: 120, damping: 20 });
+  const rotateY = useTransform(sx, [-0.5, 0.5], [-8, 8]);
+  const rotateX = useTransform(sy, [-0.5, 0.5], [6, -6]);
+  const imageX = useTransform(sx, [-0.5, 0.5], [12, -12]);
+  const imageY = useTransform(sy, [-0.5, 0.5], [10, -10]);
+  const labelX = useTransform(sx, [-0.5, 0.5], [-10, 10]);
+  const labelY = useTransform(sy, [-0.5, 0.5], [-6, 6]);
+  const lightX = useTransform(sx, [-0.5, 0.5], [15, 85]);
+  const lightY = useTransform(sy, [-0.5, 0.5], [10, 90]);
+  const light = useMotionTemplate`radial-gradient(380px circle at ${lightX}% ${lightY}%, rgba(255,255,255,0.16), transparent 62%)`;
+
+  const onMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (reduced || event.pointerType !== 'mouse') return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    px.set((event.clientX - rect.left) / rect.width - 0.5);
+    py.set((event.clientY - rect.top) / rect.height - 0.5);
+    hover.set(1);
+  };
+  const onLeave = () => {
+    px.set(0);
+    py.set(0);
+    hover.set(0);
+  };
+
+  const letters = Array.from(view.guest);
+
+  return (
+    <motion.div
+      className="relative mx-auto w-[86%] max-w-[420px] [perspective:1100px] lg:w-full"
+      onPointerMove={onMove}
+      onPointerLeave={onLeave}
+      animate={reduced ? undefined : { y: [0, -9, 0] }}
+      transition={{ duration: 6.5, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      <motion.div
+        style={{ rotateX, rotateY }}
+        initial={reduced ? false : { opacity: 0, scale: 0.9, filter: 'blur(14px)' }}
+        whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+        viewport={{ once: true, margin: '-60px' }}
+        transition={{ duration: 0.95, ease: EASE }}
+        className="relative aspect-[3/4] overflow-hidden rounded-[2rem] bg-[#16131f] shadow-[0_40px_70px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/10 [transform-style:preserve-3d]"
+      >
+        {view.photo ? (
+          <motion.div className="absolute -inset-4" style={{ x: imageX, y: imageY }}>
+            <motion.img
+              src={view.photo}
+              alt={view.guest ? `${view.guest}, host workshopu` : view.title}
+              className="h-full w-full object-cover object-[50%_18%]"
+              animate={reduced ? undefined : { scale: [1.03, 1.1] }}
+              transition={{ duration: 11, ease: 'easeInOut', repeat: Infinity, repeatType: 'mirror' }}
+              draggable={false}
+            />
+          </motion.div>
+        ) : null}
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#0B0B10]/90 to-transparent" />
+        {/* světlo, které jde za myší */}
+        <motion.div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: light, opacity: glow }} />
+
+        <motion.div className="absolute inset-x-0 bottom-0 p-6 md:p-7" style={{ x: labelX, y: labelY }}>
+          {view.guest ? (
+            <p className="text-5xl font-black leading-none tracking-tight text-white md:text-6xl" aria-label={view.guest}>
+              {letters.map((letter, i) => (
+                <motion.span
+                  key={`${letter}-${i}`}
+                  aria-hidden
+                  className="inline-block"
+                  initial={reduced ? false : { opacity: 0, y: '0.5em', rotate: 8 }}
+                  whileInView={{ opacity: 1, y: '0em', rotate: 0 }}
+                  viewport={{ once: true, margin: '-60px' }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.45 + i * 0.06 }}
+                >
+                  {letter === ' ' ? '\u00a0' : letter}
+                </motion.span>
+              ))}
+            </p>
+          ) : null}
+          {view.youtube || view.instagram ? (
+            <motion.div
+              className="mt-4 flex flex-wrap gap-2"
+              initial={reduced ? false : { opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ duration: 0.5, delay: 0.75, ease: EASE }}
+            >
+              {view.youtube ? <SocialPill href={view.youtube.url} icon={<Youtube size={16} />} label={view.youtube.handle} /> : null}
+              {view.instagram ? <SocialPill href={view.instagram.url} icon={<Instagram size={16} />} label={view.instagram.handle} /> : null}
+            </motion.div>
+          ) : null}
+        </motion.div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 /* ---------- karta jednoho termínu ---------- */
 
 function WorkshopCard({ view }: { view: WorkshopView }) {
-  const reduced = useReducedMotion();
   const soldOut = view.capacity > 0 && view.left <= 0;
 
   return (
     <div className="grid items-center gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
       {/* host */}
-      <div className="relative mx-auto w-[86%] max-w-[420px] lg:w-full">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-[2rem] bg-[#16131f] ring-1 ring-white/10">
-          {view.photo ? (
-            <motion.img
-              src={view.photo}
-              alt={view.guest ? `${view.guest}, host workshopu` : view.title}
-              className="h-full w-full object-cover object-[50%_18%]"
-              initial={reduced ? false : { scale: 1.08 }}
-              whileInView={{ scale: 1 }}
-              viewport={{ once: true, margin: '-60px' }}
-              transition={{ duration: 1.4, ease: EASE }}
-              draggable={false}
-            />
-          ) : null}
-          <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#0B0B10]/90 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-6 md:p-7">
-            {view.guest ? <p className="text-5xl font-black leading-none tracking-tight text-white md:text-6xl">{view.guest}</p> : null}
-            {view.youtube || view.instagram ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {view.youtube ? <SocialPill href={view.youtube.url} icon={<Youtube size={16} />} label={view.youtube.handle} /> : null}
-                {view.instagram ? <SocialPill href={view.instagram.url} icon={<Instagram size={16} />} label={view.instagram.handle} /> : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      <GuestPhoto view={view} />
 
       {/* kdy, kde, za kolik */}
       <div>
-        <p className="hero-accent text-[clamp(4.4rem,20vw,9.5rem)] font-black leading-[0.86] tracking-[-0.05em]" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        {/* Datum je bílé a menší než nadpis stránky — barevný přechod patří jen nadpisu. */}
+        <p className="text-[clamp(3.6rem,15vw,6.75rem)] font-black leading-[0.9] tracking-[-0.045em] text-white" style={{ fontVariantNumeric: 'tabular-nums' }}>
           {view.dateLabel}
         </p>
-        {view.dayLabel ? <p className="mt-4 text-2xl font-black tracking-tight text-white md:text-4xl">{view.dayLabel}</p> : null}
+        {view.dayLabel ? <p className="mt-3 text-2xl font-black tracking-tight text-white/75 md:text-3xl">{view.dayLabel}</p> : null}
         {view.intro ? <p className="mt-5 max-w-xl text-lg font-medium leading-relaxed text-white/70 md:text-xl">{view.intro}</p> : null}
 
         <a href={view.mapsUrl} target="_blank" rel="noopener noreferrer" className="group mt-8 flex items-start gap-4 border-t border-white/12 pt-6">

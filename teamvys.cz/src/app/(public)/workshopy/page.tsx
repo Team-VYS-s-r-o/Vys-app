@@ -61,7 +61,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function WorkshopsPage() {
   return (
     <div className="bg-[#0B0B10] text-white">
-      <PageHero eyebrow="Workshopy s youtuberem" title="Workshopy s youtuberem" accent="s youtuberem" />
+      <PageHero eyebrow="Workshopy s youtuberem" title="Parkour workshop s youtuberem" accent="s youtuberem" />
 
       {/* Vypsané termíny (šablona z produktu v adminu), nebo „připravujeme". */}
       <WorkshopShowcase />
