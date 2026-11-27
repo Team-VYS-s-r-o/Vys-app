@@ -333,8 +333,8 @@ function WorkshopCard({ view }: { view: WorkshopView }) {
 
       {/* kdy, kde, za kolik */}
       <div>
-        {/* Datum fialové (ladí s leskem kolem fotky) a menší než nadpis stránky. */}
-        <p className="bg-gradient-to-r from-[#C084FC] via-[#B23BFF] to-[#E879F9] bg-clip-text pb-1 text-[clamp(3.6rem,15vw,6.75rem)] font-black leading-[0.9] tracking-[-0.045em] text-transparent" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        {/* Datum má stejný přelévající se přechod jako nadpis stránky, jen je menší. */}
+        <p className="hero-accent pb-1 text-[clamp(3.6rem,15vw,6.75rem)] font-black leading-[0.9] tracking-[-0.045em]" style={{ fontVariantNumeric: 'tabular-nums' }}>
           {view.dateLabel}
         </p>
         {view.dayLabel ? <p className="mt-3 text-2xl font-black tracking-tight text-white/75 md:text-3xl">{view.dayLabel}</p> : null}
