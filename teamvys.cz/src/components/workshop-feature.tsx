@@ -207,7 +207,7 @@ function placesWord(count: number) {
 type CardNav = { onPrev: () => void; onNext: () => void; canPrev: boolean; canNext: boolean };
 
 /** Šipka v kroužku na okraji fotky — přepne na předchozí / další termín. */
-function NavArrow({ side, onClick, disabled }: { side: 'left' | 'right'; onClick: () => void; disabled: boolean }) {
+function NavArrow({ side, onClick, disabled, desktop = false }: { side: 'left' | 'right'; onClick: () => void; disabled: boolean; /** Šipka po stranách celé karty na počítači. */ desktop?: boolean }) {
   return (
     <button
       type="button"
@@ -216,7 +216,7 @@ function NavArrow({ side, onClick, disabled }: { side: 'left' | 'right'; onClick
       aria-label={side === 'left' ? 'Předchozí termín' : 'Další termín'}
       className={`absolute top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-[#0B0B10]/75 text-white backdrop-blur-md transition-colors hover:bg-white hover:text-[#0B0B10] disabled:pointer-events-none disabled:opacity-40 md:h-12 md:w-12 ${
         side === 'left' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'
-      }`}
+      } ${desktop ? '' : 'lg:hidden'}`}
     >
       {side === 'left' ? <ArrowLeft size={19} /> : <ArrowRight size={19} />}
     </button>
@@ -336,7 +336,7 @@ function GuestPhoto({ view, nav }: { view: WorkshopView; nav: CardNav }) {
         </motion.div>
         </div>
       </motion.div>
-      {/* Šipky po stranách fotky — vždy vidět, ať je jasné, že termíny jdou přetáčet.
+      {/* Na telefonu šipky po stranách fotky (na počítači jsou po stranách celé karty).
           S jedním vypsaným workshopem jsou zašedlé a nedají se zmáčknout. */}
       <NavArrow side="left" onClick={nav.onPrev} disabled={!nav.canPrev} />
       <NavArrow side="right" onClick={nav.onNext} disabled={!nav.canNext} />
@@ -476,6 +476,13 @@ function WorkshopCarousel({ workshops, active, onChange }: { workshops: Workshop
       ) : null}
 
       <div className="relative">
+      {/* Počítač: šipky po stranách celé karty — vlevo před fotkou, vpravo za údaji. */}
+      <div className="pointer-events-none absolute inset-y-0 -left-6 -right-6 z-20 hidden lg:block xl:-left-16 xl:-right-16">
+        <div className="pointer-events-auto">
+          <NavArrow side="left" desktop onClick={() => go(active - 1)} disabled={!many || active === 0} />
+          <NavArrow side="right" desktop onClick={() => go(active + 1)} disabled={!many || active === workshops.length - 1} />
+        </div>
+      </div>
       <div
         ref={trackRef}
         className={many ? 'flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : ''}
