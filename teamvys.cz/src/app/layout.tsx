@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import { SiteAnalytics } from '@/components/analytics';
 import { CookieConsent, ExitGuard } from '@/components/cookie-and-exit';
 import { SubscriptionBanner } from '@/components/subscription-banner';
+import { VercelAnalytics } from '@/components/vercel-analytics';
 
 import './globals.css';
 
@@ -166,6 +167,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <CookieConsent />
         <SiteAnalytics />
+        <VercelAnalytics />
         <ExitGuard />
       </body>
     </html>
