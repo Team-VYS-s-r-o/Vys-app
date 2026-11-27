@@ -251,8 +251,23 @@ function GuestPhoto({ view }: { view: WorkshopView }) {
         whileInView={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
         viewport={{ once: true, margin: '-60px' }}
         transition={{ duration: 0.95, ease: EASE }}
-        className="relative aspect-[3/4] overflow-hidden rounded-[2rem] bg-[#16131f] shadow-[0_40px_70px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/10 [transform-style:preserve-3d]"
+        className="relative aspect-[3/4] overflow-hidden rounded-[2rem] bg-white/10 p-[2px] shadow-[0_40px_70px_-40px_rgba(0,0,0,0.9)]"
       >
+        {/* Fialový lesk, který pomalu obíhá po okraji fotky. */}
+        {reduced ? null : (
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 aspect-square w-[180%]"
+            style={{
+              x: '-50%',
+              y: '-50%',
+              background: 'conic-gradient(from 0deg, transparent 0deg, transparent 230deg, rgba(139,29,255,0.55) 290deg, #C084FC 325deg, #F5D0FE 335deg, rgba(178,59,255,0.7) 348deg, transparent 360deg)',
+            }}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 7, ease: 'linear', repeat: Infinity }}
+          />
+        )}
+        <div className="relative h-full w-full overflow-hidden rounded-[calc(2rem-2px)] bg-[#16131f]">
         {view.photo ? (
           <motion.div className="absolute -inset-4" style={{ x: imageX, y: imageY }}>
             <motion.img
@@ -300,6 +315,7 @@ function GuestPhoto({ view }: { view: WorkshopView }) {
             </motion.div>
           ) : null}
         </motion.div>
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -317,8 +333,8 @@ function WorkshopCard({ view }: { view: WorkshopView }) {
 
       {/* kdy, kde, za kolik */}
       <div>
-        {/* Datum je bílé a menší než nadpis stránky — barevný přechod patří jen nadpisu. */}
-        <p className="text-[clamp(3.6rem,15vw,6.75rem)] font-black leading-[0.9] tracking-[-0.045em] text-white" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        {/* Datum fialové (ladí s leskem kolem fotky) a menší než nadpis stránky. */}
+        <p className="bg-gradient-to-r from-[#C084FC] via-[#B23BFF] to-[#E879F9] bg-clip-text pb-1 text-[clamp(3.6rem,15vw,6.75rem)] font-black leading-[0.9] tracking-[-0.045em] text-transparent" style={{ fontVariantNumeric: 'tabular-nums' }}>
           {view.dateLabel}
         </p>
         {view.dayLabel ? <p className="mt-3 text-2xl font-black tracking-tight text-white/75 md:text-3xl">{view.dayLabel}</p> : null}
